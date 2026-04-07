@@ -1,0 +1,48 @@
+Header: qREST_DATA
+Version: [1, 0, 0]
+BuildingInformation:
+  ProjectName: Kunming_SSJY
+  GeoLocation:
+    Longitude: 21.85
+    Latitude: 95.95
+    NorthAngle: 0
+  StructuralType: SteelFrame
+  StructuralFootprint:
+    Shape: Rectangular
+    Parameters:
+      Length: 41.2
+      Width: 25.2
+    BoundingBox:
+      MaxX: 20.6
+      MinX: -20.6
+      MaxY: 12.6
+      MinY: -12.6
+    Unit: m
+  ElevationNum: 16
+  StructuralElevation: [-2.7,0,4.5,7.8,11.1,14.4,17.7,21,24.3,27.6,30.9,34.2,37.5,40.8,44.1,47.4],
+MeasurementInformation:
+  ChannelNum: 18
+  Channels:
+    - ChannelID: 1
+      SerialNumber: UNKNOWN
+      Measurand: Acceleration
+      Azimuth: 90
+      LocationXYZ: [-20.6, -4.2, -2.7]
+      Unit: m/s2
+    - ChannelID: 2
+      SerialNumber: UNKNOWN
+      Measurand: Acceleration
+      Azimuth: 90
+      LocationXYZ: [20.6, -4.2, -2.7]
+      Unit: m/s2
+    - ChannelID: 3
+      SerialNumber: UNKNOWN
+      Measurand: Acceleration
+      Azimuth: 0
+      LocationXYZ: [0, -4.2, -2.7]
+      Unit: m/s2
+DataInformation:
+  EventID: 2025_MYANMAR_7.9
+  StartTime: '2025-03-28T14:20:00.000+08:00'
+  NPTS: 30000
+  DT: 0.02
