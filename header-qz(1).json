@@ -1,8 +1,8 @@
 {
-    "Header": "qREST_DATA",
-    "Version": [ 1, 0, 0 ],
-    "Units": [ "m", "s" ],
-    "BuildingInfo": {
+    "header": "qREST_DATA",
+    "version": [ 1, 0, 0 ],
+    "unit": [ "m", "s"],
+    "building_info": {
         "ProjectName": "Kunming_SSJY",
         "GeoLocation": {
             "Longitude": 21.85,
@@ -20,49 +20,45 @@
                 "MinY": -12.6
             }
         },
-        "ElevationNum": 16,
-        "Elevation": [
+        "num_of_elevations": 16,
+        "elevation": [
             -2.7, 0.0, 4.5, 7.8, 11.1, 14.4, 17.7, 21.0, 24.3, 27.6, 30.9, 34.2, 37.5, 40.8, 44.1, 47.4
         ]
     },
-    "InstrumentInfo": {
-        "Provider": "SSJY",
-        "ChannelNum": 18,
-        "Channels": [
+    "instrument_info": {
+        "provider": "SSJY",
+        "num_of_channels": 18,
+        "channels": [
             {
-                "ChannelNo": 1,
-                "ChannelID": "UNKNOWN",
-                "DeviceType": "S05",
-                "Measurand": "Acceleration",
-                "Scale": 1,
-                "Azimuth": 90.0,
-                "LocationXYZ": [ -20.6, -4.2, -2.7 ]
+                "channel_No": 1,
+                "channel_ID": "UNKNOWN",
+                "device_type": "S05",
+                "measurand": "Acceleration",
+                "scale": 1,
+                "azsimuth": 90.0,
+                "location_xyz": [ -20.6, -4.2, -2.7 ]
             },
             {
-                "ChannelNo": 2,
-                "ChannelID": "UNKNOWN",
-                "DeviceType": "S05",
+                "ChannelID": 2,
+                "SerialNumber": "UNKNOWN",
                 "Measurand": "Acceleration",
-                "Scale": 1,
                 "Azimuth": 90.0,
                 "LocationXYZ": [ 20.6, -4.2, -2.7 ]
             },
             {
-                "ChannelNo": 3,
-                "ChannelID": "UNKNOWN",
-                "DeviceType": "S05",
+                "ChannelID": 3,
+                "SerialNumber": "UNKNOWN",
                 "Measurand": "Acceleration",
-                "Scale": 1,
                 "Azimuth": 0.0,
                 "LocationXYZ": [ 0.0, -4.2, -2.7 ]
             }
         ]
     },
-    "DataInfo": {
-        "EventName": "2025_MYANMAR_7.9",
-        "StartTime": "2025-03-28T14:20:00.000+08:00",
+    "data_info": {
+        "event_name": "2025_MYANMAR_7.9",
+        "start_time": "2025-03-28T14:20:00.000+08:00",
         "NPTS": 30000,
         "DT": 0.02,
-        "Corrected": "NULL"
+        "corrected_by": "NULL"
     }
 }

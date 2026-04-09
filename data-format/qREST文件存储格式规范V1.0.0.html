@@ -1,5 +1,5 @@
 <!DOCTYPE html><html><head>
-      <title>data-format</title>
+      <title>qREST文件存储格式规范V1.0.0</title>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       
@@ -150,7 +150,7 @@
 <td>InstrumentInfo</td>
 <td><code>Object</code></td>
 <td>传感器布设与测量配置参数。</td>
-<td>见下文<a href="#33-%E4%BC%A0%E6%84%9F%E5%99%A8%E5%B8%83%E8%AE%BE%E6%A8%A1%E5%9D%97-measurementinfo">3.3</a></td>
+<td>见下文<a href="#33-%E4%BC%A0%E6%84%9F%E5%99%A8%E5%B8%83%E8%AE%BE%E6%A8%A1%E5%9D%97-instrumentinfo">3.3</a></td>
 </tr>
 <tr>
 <td>DataInfo</td>
@@ -162,7 +162,7 @@
 </table>
 <ul>
 <li><strong>备注</strong>：<br>
-Units 字段定义了数据中使用的基本物理单位，通常包括距离单位（如米 "m"）和时间单位（如秒 "s"）。一方面单位规定了元数据文件中相关物理量的单位：所有与距离相关的字段（如结构轮廓参数、传感器位置等）都应使用 Units 中定义的距离单位进行描述；所有与时间相关的字段（如采样间隔、事件时间等）都应使用 Units 中定义的时间单位进行描述。另一方面，单位也约束了由本数据导出的时序数据的物理单位：数据体中的时序数据必须经过适当的缩放（如乘以 MeasurementInfo 中定义的 Scale）以确保最终的数值符合 Units 中规定的物理单位。</li>
+Units 字段定义了数据中使用的基本物理单位，通常包括距离单位（如米 "m"）和时间单位（如秒 "s"）。一方面单位规定了元数据文件中相关物理量的单位：所有与距离相关的字段（如结构轮廓参数、传感器位置等）都应使用 Units 中定义的距离单位进行描述；所有与时间相关的字段（如采样间隔、事件时间等）都应使用 Units 中定义的时间单位进行描述。另一方面，单位也约束了由本数据导出的时序数据的物理单位：数据体中的时序数据必须经过适当的缩放（如乘以 InstrumentInfo 中定义的 Scale）以确保最终的数值符合 Units 中规定的物理单位。</li>
 </ul>
 <div class="mermaid">flowchart LR
     %% 根节点

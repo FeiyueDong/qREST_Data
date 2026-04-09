@@ -1,6 +1,12 @@
 Header: qREST_DATA
-Version: [1, 0, 0]
-BuildingInformation:
+Version:
+  - 1
+  - 0
+  - 0
+Units:
+  - m
+  - s
+BuildingInfo:
   ProjectName: Kunming_SSJY
   GeoLocation:
     Longitude: 21.85
@@ -17,32 +23,61 @@ BuildingInformation:
       MinX: -20.6
       MaxY: 12.6
       MinY: -12.6
-    Unit: m
   ElevationNum: 16
-  StructuralElevation: [-2.7,0,4.5,7.8,11.1,14.4,17.7,21,24.3,27.6,30.9,34.2,37.5,40.8,44.1,47.4],
-MeasurementInformation:
+  Elevation:
+    - -2.7
+    - 0
+    - 4.5
+    - 7.8
+    - 11.1
+    - 14.4
+    - 17.7
+    - 21
+    - 24.3
+    - 27.6
+    - 30.9
+    - 34.2
+    - 37.5
+    - 40.8
+    - 44.1
+    - 47.4
+InstrumentInfo:
+  Provider: SSJY
   ChannelNum: 18
   Channels:
-    - ChannelID: 1
-      SerialNumber: UNKNOWN
+    - ChannelNo: 1
+      ChannelID: UNKNOWN
+      DeviceType: S05
       Measurand: Acceleration
+      Scale: 1
       Azimuth: 90
-      LocationXYZ: [-20.6, -4.2, -2.7]
-      Unit: m/s2
-    - ChannelID: 2
-      SerialNumber: UNKNOWN
+      LocationXYZ:
+        - -20.6
+        - -4.2
+        - -2.7
+    - ChannelNo: 2
+      ChannelID: UNKNOWN
+      DeviceType: S05
       Measurand: Acceleration
+      Scale: 1
       Azimuth: 90
-      LocationXYZ: [20.6, -4.2, -2.7]
-      Unit: m/s2
-    - ChannelID: 3
-      SerialNumber: UNKNOWN
+      LocationXYZ:
+        - 20.6
+        - -4.2
+        - -2.7
+    - ChannelNo: 3
+      ChannelID: UNKNOWN
+      DeviceType: S05
       Measurand: Acceleration
+      Scale: 1
       Azimuth: 0
-      LocationXYZ: [0, -4.2, -2.7]
-      Unit: m/s2
-DataInformation:
-  EventID: 2025_MYANMAR_7.9
+      LocationXYZ:
+        - 0
+        - -4.2
+        - -2.7
+DataInfo:
+  EventName: 2025_MYANMAR_7.9
   StartTime: '2025-03-28T14:20:00.000+08:00'
   NPTS: 30000
   DT: 0.02
+  Corrected: 'NULL'
