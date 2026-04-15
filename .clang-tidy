@@ -1,0 +1,34 @@
+# .clang-tidy
+---
+# 指定需要检查的文件范围（通常不检查系统库和第三方库）
+HeaderFilterRegex: '^((?!third_party|depends).)*$'
+AnalyzeTemporaryDtors: false
+FormatStyle: none
+
+# 开启的检查规则集 (通过逗号分隔)
+# - *: 开启该分类下所有规则
+# - -*: 禁用某规则 (减号开头)
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-owning-memory,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-identifier-length
+
+# 对特定规则的细粒度参数配置
+CheckOptions:
+  # 强制性能优化：当按值传递的参数在函数体内被 copy 时，提示使用 std::move
+  performance-unnecessary-value-param:
+    IncludeStyle: llvm
+  # 现代化：要求使用 = default 代替空的大括号析构/构造函数
+  modernize-use-equals-default:
+    IgnoreMacros: true

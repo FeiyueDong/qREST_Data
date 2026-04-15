@@ -1,0 +1,21 @@
+# 告诉 clangd 如何解析源代码
+CompileFlags:
+  # 追加编译参数
+  Add: 
+    - "-std=c++23"
+    - "-Wall"
+    - "-Wextra"
+    # 如果在使用某些库时遇到 clangd 无法识别 GCC 特有内置函数的情况，可以忽略该警告
+    - "-Wno-unknown-warning-option" 
+  # 移除 CMake 生成的某些可能干扰 clangd 的参数
+  Remove: 
+    - "-fdiagnostics-color=*"
+    - "-O*" # 语法分析不需要优化选项
+
+# 索引行为控制
+Index:
+  Background: Build # 在后台建立索引
+  # 排除不需要建立索引的外部依赖或生成的代码目录，提升速度
+  # Exclude:
+  #   - "build/**"
+  #   - "third_party/**"

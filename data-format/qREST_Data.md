@@ -21,7 +21,7 @@ block-beta
 
     FH["Part 0: File Header (文件头, 16字节)"]
     P1["Part 1: Metadata (元数据部分, JSON字符串格式)"]
-    P2["Part 2: Data Body (数据包部分)"]
+    P2["Part 2: Data Packet (数据包部分)"]
 
     style FH fill:#ffcccc,stroke:#cc0000,color:#000
     style P1 fill:#ccffcc,stroke:#666
@@ -295,7 +295,7 @@ typedef struct {
     uint16_t sampling_rate;   // 采样率(Hz)
     uint32_t data_point_count;// 每个通道的数据点数量
     uint64_t timestamp;       // 时间戳（毫秒）
-    uint32_t body_size;       // 数据包包体长度
+    uint32_t packet_size;       // 数据包包体长度
     uint32_t checksum;        // CRC32校验和
 } QRestPacketHeader;
 ```
