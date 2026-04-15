@@ -1,1 +1,416 @@
-<svg id="mermaid-1775811500396-vj9ucsg5y" width="100%" xmlns="http://www.w3.org/2000/svg" viewbox="0 0 1026 423" style="max-width: 1026px;" role="graphics-document document" aria-roledescription="packet"><style>#mermaid-1775811500396-vj9ucsg5y{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mermaid-1775811500396-vj9ucsg5y .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mermaid-1775811500396-vj9ucsg5y .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mermaid-1775811500396-vj9ucsg5y .error-icon{fill:#552222;}#mermaid-1775811500396-vj9ucsg5y .error-text{fill:#552222;stroke:#552222;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-normal{stroke-width:1px;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1775811500396-vj9ucsg5y .marker{fill:#333333;stroke:#333333;}#mermaid-1775811500396-vj9ucsg5y .marker.cross{stroke:#333333;}#mermaid-1775811500396-vj9ucsg5y svg{font-family:"trebuchet ms",verdana,arial,sans-serif;font-size:16px;}#mermaid-1775811500396-vj9ucsg5y p{margin:0;}#mermaid-1775811500396-vj9ucsg5y .packetByte{font-size:10px;}#mermaid-1775811500396-vj9ucsg5y .packetByte.start{fill:black;}#mermaid-1775811500396-vj9ucsg5y .packetByte.end{fill:black;}#mermaid-1775811500396-vj9ucsg5y .packetLabel{fill:black;font-size:12px;}#mermaid-1775811500396-vj9ucsg5y .packetTitle{fill:black;font-size:14px;}#mermaid-1775811500396-vj9ucsg5y .packetBlock{stroke:black;stroke-width:1;fill:#efefef;}#mermaid-1775811500396-vj9ucsg5y :root{--mermaid-font-family:"trebuchet ms",verdana,arial,sans-serif;}</style><g></g><g><rect x="1" y="15" width="507" height="32" class="packetBlock"></rect><text x="254.5" y="31" class="packetLabel" dominant-baseline="middle" text-anchor="middle">Magic (uint16)</text><text x="1" y="13" class="packetByte start" dominant-baseline="auto" text-anchor="start">0</text><text x="508" y="13" class="packetByte end" dominant-baseline="auto" text-anchor="end">15</text><rect x="513" y="15" width="507" height="32" class="packetBlock"></rect><text x="766.5" y="31" class="packetLabel" dominant-baseline="middle" text-anchor="middle">SourceID (uint16)</text><text x="513" y="13" class="packetByte start" dominant-baseline="auto" text-anchor="start">16</text><text x="1020" y="13" class="packetByte end" dominant-baseline="auto" text-anchor="end">31</text></g><g><rect x="1" y="62" width="251" height="32" class="packetBlock"></rect><text x="126.5" y="78" class="packetLabel" dominant-baseline="middle" text-anchor="middle">Version (uint8)</text><text x="1" y="60" class="packetByte start" dominant-baseline="auto" text-anchor="start">32</text><text x="252" y="60" class="packetByte end" dominant-baseline="auto" text-anchor="end">39</text><rect x="257" y="62" width="251" height="32" class="packetBlock"></rect><text x="382.5" y="78" class="packetLabel" dominant-baseline="middle" text-anchor="middle">PacketType (uint8)</text><text x="257" y="60" class="packetByte start" dominant-baseline="auto" text-anchor="start">40</text><text x="508" y="60" class="packetByte end" dominant-baseline="auto" text-anchor="end">47</text><rect x="513" y="62" width="507" height="32" class="packetBlock"></rect><text x="766.5" y="78" class="packetLabel" dominant-baseline="middle" text-anchor="middle">ChannelCount (uint16)</text><text x="513" y="60" class="packetByte start" dominant-baseline="auto" text-anchor="start">48</text><text x="1020" y="60" class="packetByte end" dominant-baseline="auto" text-anchor="end">63</text></g><g><rect x="1" y="109" width="507" height="32" class="packetBlock"></rect><text x="254.5" y="125" class="packetLabel" dominant-baseline="middle" text-anchor="middle">DataEncodings (uint16)</text><text x="1" y="107" class="packetByte start" dominant-baseline="auto" text-anchor="start">64</text><text x="508" y="107" class="packetByte end" dominant-baseline="auto" text-anchor="end">79</text><rect x="513" y="109" width="507" height="32" class="packetBlock"></rect><text x="766.5" y="125" class="packetLabel" dominant-baseline="middle" text-anchor="middle">SamplingRate (uint16)</text><text x="513" y="107" class="packetByte start" dominant-baseline="auto" text-anchor="start">80</text><text x="1020" y="107" class="packetByte end" dominant-baseline="auto" text-anchor="end">95</text></g><g><rect x="1" y="156" width="1019" height="32" class="packetBlock"></rect><text x="510.5" y="172" class="packetLabel" dominant-baseline="middle" text-anchor="middle">DataPointCount (uint32)</text><text x="1" y="154" class="packetByte start" dominant-baseline="auto" text-anchor="start">96</text><text x="1020" y="154" class="packetByte end" dominant-baseline="auto" text-anchor="end">127</text></g><g><rect x="1" y="203" width="1019" height="32" class="packetBlock"></rect><text x="510.5" y="219" class="packetLabel" dominant-baseline="middle" text-anchor="middle">Timestamp (uint64)</text><text x="1" y="201" class="packetByte start" dominant-baseline="auto" text-anchor="start">128</text><text x="1020" y="201" class="packetByte end" dominant-baseline="auto" text-anchor="end">159</text></g><g><rect x="1" y="250" width="1019" height="32" class="packetBlock"></rect><text x="510.5" y="266" class="packetLabel" dominant-baseline="middle" text-anchor="middle">Timestamp (uint64)</text><text x="1" y="248" class="packetByte start" dominant-baseline="auto" text-anchor="start">160</text><text x="1020" y="248" class="packetByte end" dominant-baseline="auto" text-anchor="end">191</text></g><g><rect x="1" y="297" width="1019" height="32" class="packetBlock"></rect><text x="510.5" y="313" class="packetLabel" dominant-baseline="middle" text-anchor="middle">BodySize (uint32)</text><text x="1" y="295" class="packetByte start" dominant-baseline="auto" text-anchor="start">192</text><text x="1020" y="295" class="packetByte end" dominant-baseline="auto" text-anchor="end">223</text></g><g><rect x="1" y="344" width="1019" height="32" class="packetBlock"></rect><text x="510.5" y="360" class="packetLabel" dominant-baseline="middle" text-anchor="middle">Checksum (uint32)</text><text x="1" y="342" class="packetByte start" dominant-baseline="auto" text-anchor="start">224</text><text x="1020" y="342" class="packetByte end" dominant-baseline="auto" text-anchor="end">255</text></g><text x="513" y="399.5" dominant-baseline="middle" text-anchor="middle" class="packetTitle">数据包头结构布局 (Packet Layout)</text></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   id="mermaid-1775811500396-vj9ucsg5y"
+   width="1100"
+   viewbox="0 0 1026 423"
+   role="graphics-document document"
+   aria-roledescription="packet"
+   version="1.1"
+   sodipodi:docname="包头内存布局.svg"
+   height="420"
+   inkscape:version="1.4 (86a8ad7, 2024-10-11)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs37" />
+  <sodipodi:namedview
+     id="namedview37"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.95105862"
+     inkscape:cx="642.96773"
+     inkscape:cy="122.49508"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="mermaid-1775811500396-vj9ucsg5y" />
+  <style
+     id="style1">#mermaid-1775811500396-vj9ucsg5y{font-family:&quot;trebuchet ms&quot;,verdana,arial,sans-serif;font-size:16px;fill:#333;}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#mermaid-1775811500396-vj9ucsg5y .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#mermaid-1775811500396-vj9ucsg5y .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#mermaid-1775811500396-vj9ucsg5y .error-icon{fill:#552222;}#mermaid-1775811500396-vj9ucsg5y .error-text{fill:#552222;stroke:#552222;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-normal{stroke-width:1px;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1775811500396-vj9ucsg5y .edge-thickness-invisible{stroke-width:0;fill:none;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1775811500396-vj9ucsg5y .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1775811500396-vj9ucsg5y .marker{fill:#333333;stroke:#333333;}#mermaid-1775811500396-vj9ucsg5y .marker.cross{stroke:#333333;}#mermaid-1775811500396-vj9ucsg5y svg{font-family:&quot;trebuchet ms&quot;,verdana,arial,sans-serif;font-size:16px;}#mermaid-1775811500396-vj9ucsg5y p{margin:0;}#mermaid-1775811500396-vj9ucsg5y .packetByte{font-size:10px;}#mermaid-1775811500396-vj9ucsg5y .packetByte.start{fill:black;}#mermaid-1775811500396-vj9ucsg5y .packetByte.end{fill:black;}#mermaid-1775811500396-vj9ucsg5y .packetLabel{fill:black;font-size:12px;}#mermaid-1775811500396-vj9ucsg5y .packetTitle{fill:black;font-size:14px;}#mermaid-1775811500396-vj9ucsg5y .packetBlock{stroke:black;stroke-width:1;fill:#efefef;}#mermaid-1775811500396-vj9ucsg5y :root{--mermaid-font-family:&quot;trebuchet ms&quot;,verdana,arial,sans-serif;}</style>
+  <g
+     id="g1"
+     transform="translate(42.058396,6.3087594)" />
+  <g
+     id="g6"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="15"
+       width="507"
+       height="32"
+       class="packetBlock"
+       id="rect1" />
+    <text
+       x="254.5"
+       y="31"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text1">Magic (uint16)</text>
+    <text
+       x="1"
+       y="13"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text2">0</text>
+    <text
+       x="508"
+       y="13"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text3">15</text>
+    <rect
+       x="513"
+       y="15"
+       width="507"
+       height="32"
+       class="packetBlock"
+       id="rect3" />
+    <text
+       x="766.5"
+       y="31"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text4">SourceID (uint16)</text>
+    <text
+       x="513"
+       y="13"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text5">16</text>
+    <text
+       x="1020"
+       y="13"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text6">31</text>
+  </g>
+  <g
+     id="g15"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="62"
+       width="251"
+       height="32"
+       class="packetBlock"
+       id="rect6" />
+    <text
+       x="126.5"
+       y="78"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text7">Version (uint8)</text>
+    <text
+       x="1"
+       y="60"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text8">32</text>
+    <text
+       x="252"
+       y="60"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text9">39</text>
+    <rect
+       x="257"
+       y="62"
+       width="251"
+       height="32"
+       class="packetBlock"
+       id="rect9" />
+    <text
+       x="382.5"
+       y="78"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text10">PacketType (uint8)</text>
+    <text
+       x="257"
+       y="60"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text11">40</text>
+    <text
+       x="508"
+       y="60"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text12">47</text>
+    <rect
+       x="513"
+       y="62"
+       width="507"
+       height="32"
+       class="packetBlock"
+       id="rect12" />
+    <text
+       x="766.5"
+       y="78"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text13">ChannelCount (uint16)</text>
+    <text
+       x="513"
+       y="60"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text14">48</text>
+    <text
+       x="1020"
+       y="60"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text15">63</text>
+  </g>
+  <g
+     id="g21"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="109"
+       width="507"
+       height="32"
+       class="packetBlock"
+       id="rect15" />
+    <text
+       x="254.5"
+       y="125"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text16">DataEncodings (uint16)</text>
+    <text
+       x="1"
+       y="107"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text17">64</text>
+    <text
+       x="508"
+       y="107"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text18">79</text>
+    <rect
+       x="513"
+       y="109"
+       width="507"
+       height="32"
+       class="packetBlock"
+       id="rect18" />
+    <text
+       x="766.5"
+       y="125"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text19">SamplingRate (uint16)</text>
+    <text
+       x="513"
+       y="107"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text20">80</text>
+    <text
+       x="1020"
+       y="107"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text21">95</text>
+  </g>
+  <g
+     id="g24"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="156"
+       width="1019"
+       height="32"
+       class="packetBlock"
+       id="rect21" />
+    <text
+       x="510.5"
+       y="172"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text22">DataPointCount (uint32)</text>
+    <text
+       x="1"
+       y="154"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text23">96</text>
+    <text
+       x="1020"
+       y="154"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text24">127</text>
+  </g>
+  <g
+     id="g27"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="203"
+       width="1019"
+       height="32"
+       class="packetBlock"
+       id="rect24" />
+    <text
+       x="510.5"
+       y="219"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text25">Timestamp (uint64)</text>
+    <text
+       x="1"
+       y="201"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text26">128</text>
+    <text
+       x="1020"
+       y="201"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text27">159</text>
+  </g>
+  <g
+     id="g30"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="250"
+       width="1019"
+       height="32"
+       class="packetBlock"
+       id="rect27" />
+    <text
+       x="510.5"
+       y="266"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text28">Timestamp (uint64)</text>
+    <text
+       x="1"
+       y="248"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text29">160</text>
+    <text
+       x="1020"
+       y="248"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text30">191</text>
+  </g>
+  <g
+     id="g33"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="297"
+       width="1019"
+       height="32"
+       class="packetBlock"
+       id="rect30" />
+    <text
+       x="510.5"
+       y="313"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text31">BodySize (uint32)</text>
+    <text
+       x="1"
+       y="295"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text32">192</text>
+    <text
+       x="1020"
+       y="295"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text33">223</text>
+  </g>
+  <g
+     id="g36"
+     transform="translate(42.058396,6.3087594)">
+    <rect
+       x="1"
+       y="344"
+       width="1019"
+       height="32"
+       class="packetBlock"
+       id="rect33" />
+    <text
+       x="510.5"
+       y="360"
+       class="packetLabel"
+       dominant-baseline="middle"
+       text-anchor="middle"
+       id="text34">Checksum (uint32)</text>
+    <text
+       x="1"
+       y="342"
+       class="packetByte start"
+       dominant-baseline="auto"
+       text-anchor="start"
+       id="text35">224</text>
+    <text
+       x="1020"
+       y="342"
+       class="packetByte end"
+       dominant-baseline="auto"
+       text-anchor="end"
+       id="text36">255</text>
+  </g>
+  <text
+     x="555.05841"
+     y="405.80875"
+     dominant-baseline="middle"
+     text-anchor="middle"
+     class="packetTitle"
+     id="text37">数据包头结构布局 (Packet Layout)</text>
+</svg>

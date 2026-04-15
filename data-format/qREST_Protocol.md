@@ -32,7 +32,41 @@ qREST数据传输协议规范是一种专门为建筑结构轻量化地震监测
 
 为了保证客户端（数据接收端）能够安全、正确地还原监测数据的物理量单位和关联的建筑结构属性，客户端在进行实时数据订阅时，必须严格遵循以下五个阶段的交互生命周期。任何越级的请求（例如未获取元数据直接请求数据流）都应被视为非法操作并被服务端拒绝。数据交互流程如下图所示：
 
-![数据交互流程图](./svg/数据交互流程.svg)
+```mermaid
+sequenceDiagram
+    participant Client as 客户端 (接收端)
+    participant Auth as 认证服务 (控制面)
+    participant REST as 数据源服务 (控制面)
+    participant Stream as 流服务 (数据面)
+
+    %% 阶段一：认证与授权
+    Client->>Auth: 1. POST /api/auth/login (用户名/密码)
+    Auth-->>Client: 返回 JWT Token
+    
+    %% 阶段二：寻址与状态检查
+    Client->>REST: 2. GET /api/datasources (携带 Token)
+    REST-->>Client: 返回可用数据源列表及状态 (enabled)
+    
+    %% 阶段三：获取元数据
+    Client->>REST: 3. GET /api/v1/stream/{id}/metadata
+    REST-->>Client: 返回 JSON 格式完整元数据
+    Note over Client: 解析 ChannelNum, Scale, DataEncodings 等核心参数
+    
+    %% 阶段四：建立数据流订阅
+    Client->>Stream: 4. GET /api/v1/stream/{id}/live (携带 Accept: application/octet-stream)
+    Stream-->>Client: HTTP 200 OK (保持连接)
+    
+    loop 持续接收二进制流
+        Stream->>Client: 发送 PacketType=0x01 (正常数据包)
+        Note over Client: 校验 CRC32，解析包体，结合 Scale 还原物理量落盘
+        Stream->>Client: 发送 PacketType=0x02 (心跳包)
+        Note over Client: 维持连接活跃计时器
+    end
+    
+    %% 阶段五：终止与释放
+    Stream->>Client: 5. 发送 PacketType=0x04 (结束包) / 异常中断
+    Note over Client: 安全关闭 .qrest 文件句柄，断开网络连接
+```
 
 ### 2.1 阶段一：认证与授权 (Authentication)
 
@@ -120,6 +154,8 @@ Authorization: Bearer {token}
 | data[].description | `string` | 数据源描述 |
 | data[].type_ | `string` | 数据源类型 |
 | data[].status | `string` | 数据源状态 |
+| data[].config | `object` | 数据源配置参数 |
+| data[].Metadata | `object` | 数据源元数据 |
 | data[].created_at | `string` | 创建时间 |
 | data[].updated_at | `string` | 更新时间 |
 | total | `integer` | 数据源总数 |
@@ -211,7 +247,21 @@ Accept: application/octet-stream
 
 包头固定为 **32 字节**，采用 **小端序** (Little Endian) ,内存布局如下图：
 
-![包头内存布局](./svg/包头内存布局.svg)
+```mermaid
+packet-beta
+title 数据包头结构布局 (Packet Layout)
+0-15: "Magic (uint16)"
+16-31: "SourceID (uint16)"
+32-39: "Version (uint8)"
+40-47: "PacketType (uint8)"
+48-63: "ChannelCount (uint16)"
+64-79: "DataEncodings (uint16)"
+80-95: "SamplingRate (uint16)"
+96-127: "DataPointCount (uint32)"
+128-191: "Timestamp (uint64)"
+192-223: "BodySize (uint32)"
+224-255: "Checksum (uint32)"
+```
 
 各字段详细说明如下表所示：
 
@@ -232,7 +282,7 @@ Accept: application/octet-stream
 - **备注**：
 
 BodySize 字段指示了紧随包头之后的数据包部分的字节长度，接收端可以根据该字段值正确读取数据包内容。其计算方式为：
-![BodySize计算公式](./svg/BodySize公式.svg)
+$$ BodySize = ChannelCount × DataPointCount × TypeSize $$
 其中 TypeSize 由 DataEncodings 字段指定。
 
 结构体定义 (C 语言风格):
@@ -314,7 +364,27 @@ uint32_t crc32(const uint8_t *data, size_t length) {
 
 数据包包体包含了每个通道的时序数据，按照预定义的顺序进行存储。时序数据点数量由包头中的 DataPointCount 字段指定，数据编码方式由 DataEncodings 字段指定。读取时需要根据这些信息解析和处理包体中的时序数据，以确保数据的正确使用和分析。包体的具体结构如下图所示：
 
-![包体内存布局](./svg/包体内存布局.svg)
+```mermaid
+block-beta
+    columns 1
+    
+    block:ch1
+        text1["通道 1 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+    
+    block:ch2
+        text2["通道 2 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+    
+    dot_block["... (更多通道)"]
+    
+    block:chN
+        textN["通道 N 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+
+    %% 样式调整
+    style dot_block fill:none,stroke-dasharray: 5 5
+```
 
 ## 4.数据源管理
 
@@ -407,6 +477,8 @@ Authorization: Bearer {token}
 | data[].description | `string` | 数据源描述 |
 | data[].type_ | `string` | 数据源类型 |
 | data[].status | `string` | 数据源状态 |
+| data[].config | `object` | 数据源配置参数 |
+| data[].Metadata | `object` | 数据源元数据 |
 | data[].created_at | `string` | 创建时间 |
 | data[].updated_at | `string` | 更新时间 |
 | total | `integer` | 数据源总数 |
