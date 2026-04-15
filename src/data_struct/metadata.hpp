@@ -206,9 +206,9 @@ public:
     {
         struct GeoLocationStruct
         {
-            double Longitude{};  // 经度
-            double Latitude{};   // 纬度
-            double NorthAngle{}; // 北偏角
+            double Longitude{};
+            double Latitude{};
+            double NorthAngle{};
         } GeoLocation;
 
         struct StructuralFootprintStruct
@@ -232,7 +232,7 @@ public:
             std::string Shape{};
         } StructuralFootprint;
 
-        std::string ProjectName{}; // 项目名称
+        std::string ProjectName{};
         std::string StructuralType{};
         int ElevationNum{};
         std::vector<double> Elevation{};

@@ -22,8 +22,7 @@ inline uint32_t crc32(const uint8_t *data, size_t length)
 
     for (size_t i = 0; i < length; i++)
     {
-        crc ^= (static_cast<uint32_t>(data[i])
-                << 24); // 不做位翻转，移至最高位异或
+        crc ^= (static_cast<uint32_t>(data[i]) << 24);
 
         for (int j = 0; j < 8; j++)
         {
@@ -38,7 +37,7 @@ inline uint32_t crc32(const uint8_t *data, size_t length)
         }
     }
 
-    return crc ^ 0xFFFFFFFF; // 规范要求的 XorOut
+    return crc ^ 0xFFFFFFFF;
 }
 
 // 强制 1 字节内存对齐的包头纯数据结构 (POD)
