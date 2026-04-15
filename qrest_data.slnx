@@ -1,0 +1,11 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="project/data_generator/data_generator.vcxproj" Id="05f8642c-57a1-47f3-b231-e6b1eed86b53" />
+  <Project Path="project/data_loader/data_loader.vcxproj" Id="bd66d3f7-2d7f-489c-a54b-adf2f179e5b5" />
+  <Project Path="project/data_struct/data_struct.vcxproj" Id="4928d398-5acf-420e-baea-ce27c7689552">
+    <Build Project="false" />
+  </Project>
+</Solution>

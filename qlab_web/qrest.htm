@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<!-- saved from url=(0031)http://www.qu-zhe.net/qrest.htm -->
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=GBK">
+    <meta name="viewport" content="width=device-width, initial-scale=1, charset=gb2312">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+    <title>qREST</title>
+    <style type="text/css">
+        a:link {
+            color: #000000;
+            text-decoration: underline;
+        }
+
+        a:visited {
+            color: #000000;
+            text-decoration: underline;
+        }
+
+        a:hover {
+            color: #CC0000;
+            text-decoration: underline;
+        }
+
+        a:active {
+            color: #000000;
+            text-decoration: underline;
+        }
+
+        .hlink a:link {
+            color: white;
+            font-family: "Arial";
+            font-size: 15px;
+            text-decoration: none;
+        }
+
+        .hlink a:visited {
+            color: white;
+            font-family: "Arial";
+            text-decoration: none;
+        }
+
+        .hlink a:hover {
+            color: yellow;
+            font-family: "Arial";
+            text-decoration: none;
+        }
+
+        .hlink a:active {
+            color: yellow;
+            font-family: "Arial";
+            text-decoration: none;
+        }
+
+        .collapsible {
+            background-color: #007a8e;
+            color: white;
+            cursor: pointer;
+            padding: 10px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-family: "Arial", "Microsoft YaHei", sans-serif;
+            font-size: 20px;
+        }
+
+        .collapsible:after {
+            content: '\02795';
+            /* Unicode character for "plus" sign (+) */
+            font-size: 18px;
+            color: white;
+            float: right;
+        }
+
+        .active,
+        .collapsible:hover {
+            background-color: #005968;
+        }
+
+        .active:after {
+            content: "\2796";
+            /* Unicode character for "minus" sign (-) */
+        }
+
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: white;
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #005968;
+            min-width: 300px;
+        }
+
+        .dropdown-content a {
+            color: black;
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+        }
+
+        .dropdown-content a:hover {
+            background-color: #007a8e
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+    </style>
+    <style>
+        body {
+            color: black;
+            text-align: center
+        }
+    </style>
+    <link rel="stylesheet" href="./ccsqz.css" type="text/css">
+    <style type="text/css">
+        @font-face {
+            font-family: "xm-iconfont";
+            src: url('//at.alicdn.com/t/font_792691_ptvyboo0bno.eot?t=1574048839056');
+            /* IE9 */
+            src: url('//at.alicdn.com/t/font_792691_ptvyboo0bno.eot?t=1574048839056#iefix') format('embedded-opentype'),
+                /* IE6-IE8 */
+                url('data:application/x-font-woff2;charset=utf-8;base64,d09GMgABAAAAAAksAAsAAAAAEYAAAAjeAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHEIGVgCEUgqTXI8lATYCJAM0CxwABCAFhG0HgTwbZQ4jEbaCkVIj+4sD3sS6BFAp9ka91ulVG4leTC/+h+3V+zyRYCTyREKkcZ+D5/u137lPdveLGJBMunoiNPOQPBMq0/FQtEKIkMRDZng69d+hOiQumAr7bJdBOEzMTU77s78mhbI58aCg7ebCs4LBTgCk+cD/4ZqWUHebipp7al3tyKOjwCV/hVyw9PdzaktxI7IMQs26/1N8gV4DI0bVut3UhCaflGGgwM3oTXg1IfRMbCsmrEnriJVeYM2eXHII4KdMMzL4OoACHgZBCTasITcReDUBE8kWPLMTCGoQaDV+eKpUPQI49r8vP6BTPIDCaiBSml3oOQX0voNPebv/u2P0AUfP1w0s5EADzYBZsNdByylo2eVq/NtRdgFpovQR5x2CIwmIZeik6/u0T/m/A7RJP00sCmmyksj/kwc+LC5BFBqDEMDDjwPiANDB9MpJTXwHmsO3YyBwWDA4OFwwJLRcRgAOBUYMDg0mHRwGTAYozsV0AgWYruDwwExDHfzwKWf4OurQ9jzQDtoF+wpistfBfluQ5bQiiJa4ZQoKhShLiMayBbyg05AIkYBoIBJEEApQy/FwYv4HchADIUBXl61dW6mpwIgyp7p8PrHddieSjhY9oqTxyPB/FGNYDklpfYh8VtaoqSgb0bKoGB17CuVUp9Ll2nS2UpNGMSw9hyirA7C6+QLyByIQS0sSSmxvArC5odZmYZMxZSiBR5OkQl0uiufxMH5eL8t3u0d4XKyuq6EMdcpNe2+oXA8p9yPa+4T1PM7+A54tc7tpl2vcAHAftnhZj2chy1CyaCRFsyMqQ5nkNnskEt2yxxZinPsOZjFm4+XWvKqLkfCGS1k4MNP82isxSMf7ZsGYvQVCNAeSSVtzWCxRdXGxyZlA2CvCEevuO7y9M2z2NWH8icydzq/qAJSp1lGvDWFp6Nw3xChJowPD+76nU+upQk6Kw9jI0Rgym9Ct8VlxMI3CSIaDCZja5tDYt0/EYra4tn0Kp3v8Rdezk8svcy1mKhoSvNcZz3LKlUe777Gmval0s7bzAc0k13LGk896V9DuvNn34N0ebKgItkQgOomuJtgQPChNI4cwa7CEWCvfk5QjJFlem6i3SfVShWi5LTFRG+JwdCNpSqbpRFwrtb1TbcRkJi/AbJJQOmfCdnswLNGVM7qqSRO1zO0Q0j5Vr3cYQ07HB0MX6KoIZhx+D9Djs2C5bXtVwvbgJHtSCIL7hjFJme4sZDdS5IlJdKUO1Qt8opn0trBafz3AX933kmCRgyMEWGZjMAkRKhwmIHJGR4ruwFCdWKYzrap2R/mvd2UKajzRAZu88pGAD90Y+02kTFCKrBSXwGGJ3wRcPCdIppTxSmHOfESRwIli0S5J/8AYDCxTGh4XZua4xvfvGx320rDK2qA8g5FlS7pWNLx71+BwgA/KZ5I0aeKmNeCNoNPl8qNHu8uHHzqaKc86fHi4vPuRI4ny+I/vjxw+clh4HXVCFvVnVFx07EHZwVhSRliTTMWSEi0h6YuS6DxCRmiin0B3L4ry6cvR0ijYexFdBL3wGQM0YOrUAZCBkLOBBtQ+xdk7omfgUv+u++admyUeXduyxLM+r/+49rPfhgEZor6GymToNYksNsZyC7ntwAH0928UpgMpxpF0ydNlsMMBw7QsxTCmu0Hf3F+/+vb99Yumhb+e9R0LBNm+4O+hu7lQ5bGjI9j5G88qQ5SLFyuEC7cwd25xoYo2j4eA4bhpM7TZhPtmc+uhVEVSMYXLWh0bfjI8dvUpvDUocPZmU4kwwOfc83wB5wPehrpD3waApbwW+fgRrZXcxw+mB/3woZT+8JFMYwRMIy2k/18qhqcKpjYeYSnIACaUoRDu0e3kQFh98R5fiI8oJqwwGZSJDSbehLzZs7zIeWTQ4UGOIs2c4j2/Q/tn7n7j9juO33On6WhURCT/wO6Y3QdmWFY0Ef6JUeGRggO7ZbtaZlh5RYKWXbLPBLc3l/5h4A0mu3ZXTZ+u6t6VHMAzZhxak50T+24NnRuaOmehRkXlqVR5lIpuwezUUDUdCuJysv8Z/0/8uNE1s7jIJIubFWnI/x7g4nAZx79yYpFoAOU3a9iwT1O/GxUxPY0ljVPv9EukI3qNrl/So2YfzasqHCroNjS0+w0tlPlsYfC6v/01ixquizJH1Kd/VK+OS3iS3rTJWmqsMPdU3B3oFyC9RSumWE/0gG36IjTysfH51IJ/5oOgNYu6p4yb5Fdufhr/Kjtu0oSyYP/WJQrz35aNFnMhtFcwb55NlNnH8Wdu1b+XZA9zqlZrhdPo/V3uBhiUlQ66h0LhbAmFYIncdFOpVMh6Fl7peqy5Z2ZdQBITO2x1Asj1dRFjIBMC3hbuUh8Ooc4W03EjAdo8UL/t0oUfyU8630bmMcw/vqDNAsC9BQD4OqCgH+ljy0UhJB8AAJA+8EmArxk5gnRLik90AElf8rBm+IMvBTWnucb3+0o0ARk+r0ZBv8sU01nnSmP45/H8Dp8C8X+iE9e+ZvXymK/sQJ5/DuqhYKebPnKmPqLYuDcIMWS2/Rjxp2s8Do821LVn6A/xMK1RKvBLK5gyDsZ5uQ6bYusmx2yqLFe4lECHDPcFhojmckuAbnCI6Cn308RI6AAJdtCICQLQyBHKhSgX5YowN6BBPIEB8VxuSfNncpAuutzPnCSiDHDEo+DsKQBPoJi4MpRktepIs2zjO5h84IEMM3ffECKSZU1ZHxfewEI4h494MuuUNNOBjuw18QKHAzEXaAcylS3m3baq9MpnKenYmfEUgCdbXTHEtTVKsvruNGv9/DuYfOAhcuKu9TeEiA9nNJTUDOUbbVkn3sv2eDJrEnVrpvcHOjJeqRsOcpYYLuxoBzKVtCOm3ZaKbtJcurw+e/zN6c7Pd6r4gqUo0WLEiiOueOITvwQkKCEJM9nO3F60y5HkqLhdqUyXZtK3lqwReQ+G40O92UhOt0x/KmKM+u7LTPMzoEBOCYtiUPfSjODiuFXjSDm2idzAoc4Tj9bs2eJYDOU7HQA=') format('woff2'), url('//at.alicdn.com/t/font_792691_ptvyboo0bno.woff?t=1574048839056') format('woff'), url('//at.alicdn.com/t/font_792691_ptvyboo0bno.ttf?t=1574048839056') format('truetype'),
+                /* chrome, firefox, opera, Safari, Android, iOS 4.2+ */
+                url('//at.alicdn.com/t/font_792691_ptvyboo0bno.svg?t=1574048839056#iconfont') format('svg');
+            /* iOS 4.1- */
+        }
+
+        .xm-iconfont {
+            font-family: "xm-iconfont" !important;
+            font-size: 16px;
+            font-style: normal;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .xm-icon-quanxuan:before {
+            content: "\e62c";
+        }
+
+        .xm-icon-caidan:before {
+            content: "\e610";
+        }
+
+        .xm-icon-fanxuan:before {
+            content: "\e837";
+        }
+
+        .xm-icon-pifu:before {
+            content: "\e668";
+        }
+
+        .xm-icon-qingkong:before {
+            content: "\e63e";
+        }
+
+        .xm-icon-sousuo:before {
+            content: "\e600";
+        }
+
+        .xm-icon-danx:before {
+            content: "\e62b";
+        }
+
+        .xm-icon-duox:before {
+            content: "\e613";
+        }
+
+        .xm-icon-close:before {
+            content: "\e601";
+        }
+
+        .xm-icon-expand:before {
+            content: "\e641";
+        }
+
+        .xm-icon-banxuan:before {
+            content: "\e60d";
+        }
+    </style>
+    <style type="text/css">
+        @-webkit-keyframes xm-upbit {
+            from {
+                -webkit-transform: translate3d(0, 30px, 0);
+                opacity: 0.3;
+            }
+
+            to {
+                -webkit-transform: translate3d(0, 0, 0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes xm-upbit {
+            from {
+                transform: translate3d(0, 30px, 0);
+                opacity: 0.3;
+            }
+
+            to {
+                transform: translate3d(0, 0, 0);
+                opacity: 1;
+            }
+        }
+
+        @-webkit-keyframes loader {
+            0% {
+                -webkit-transform: rotate(0deg);
+                transform: rotate(0deg);
+            }
+
+            100% {
+                -webkit-transform: rotate(360deg);
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes loader {
+            0% {
+                -webkit-transform: rotate(0deg);
+                transform: rotate(0deg);
+            }
+
+            100% {
+                -webkit-transform: rotate(360deg);
+                transform: rotate(360deg);
+            }
+        }
+
+        xm-select {
+            background-color: #FFF;
+            position: relative;
+            border: 1px solid #E6E6E6;
+            border-radius: 2px;
+            display: block;
+            width: 100%;
+            cursor: pointer;
+            outline: none;
+        }
+
+        xm-select * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-weight: 400;
+            text-overflow: ellipsis;
+            user-select: none;
+            -ms-user-select: none;
+            -moz-user-select: none;
+            -webkit-user-select: none;
+        }
+
+        xm-select:hover,
+        xm-select:focus {
+            border-color: #C0C4CC;
+        }
+
+        xm-select>.xm-tips {
+            color: #999999;
+            padding: 0 10px;
+            position: absolute;
+            display: flex;
+            height: 100%;
+            align-items: center;
+        }
+
+        xm-select>.xm-icon {
+            display: inline-block;
+            overflow: hidden;
+            position: absolute;
+            width: 0;
+            height: 0;
+            right: 10px;
+            top: 50%;
+            margin-top: -3px;
+            cursor: pointer;
+            border: 6px dashed transparent;
+            border-top-color: #C2C2C2;
+            border-top-style: solid;
+            transition: all 0.3s;
+            -webkit-transition: all 0.3s;
+        }
+
+        xm-select>.xm-icon-expand {
+            margin-top: -9px;
+            transform: rotate(180deg);
+        }
+
+        xm-select>.xm-label.single-row {
+            position: absolute;
+            top: 0;
+            bottom: 0px;
+            left: 0px;
+            right: 30px;
+            overflow: auto hidden;
+        }
+
+        xm-select>.xm-label.single-row .scroll {
+            overflow-y: hidden;
+        }
+
+        xm-select>.xm-label.single-row .label-content {
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        xm-select>.xm-label.auto-row .label-content {
+            flex-wrap: wrap;
+            padding-right: 30px !important;
+        }
+
+        xm-select>.xm-label.auto-row .xm-label-block>span {
+            white-space: unset;
+            height: 100%;
+        }
+
+        xm-select>.xm-label .scroll .label-content {
+            display: flex;
+            padding: 3px 10px;
+        }
+
+        xm-select>.xm-label .xm-label-block {
+            display: flex;
+            position: relative;
+            padding: 0px 5px;
+            margin: 2px 5px 2px 0;
+            border-radius: 3px;
+            align-items: baseline;
+            color: #FFF;
+        }
+
+        xm-select>.xm-label .xm-label-block>span {
+            display: flex;
+            color: #FFF;
+            white-space: nowrap;
+        }
+
+        xm-select>.xm-label .xm-label-block>i {
+            color: #FFF;
+            margin-left: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+        }
+
+        xm-select>.xm-label .xm-label-block.disabled {
+            background-color: #C2C2C2 !important;
+            cursor: no-drop !important;
+        }
+
+        xm-select>.xm-label .xm-label-block.disabled>i {
+            cursor: no-drop !important;
+        }
+
+        xm-select>.xm-body {
+            position: absolute;
+            left: 0;
+            top: 42px;
+            padding: 5px 0;
+            z-index: 999;
+            width: 100%;
+            min-width: fit-content;
+            border: 1px solid #E6E6E6;
+            background-color: #fff;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+            animation-name: xm-upbit;
+            animation-duration: 0.3s;
+            animation-fill-mode: both;
+        }
+
+        xm-select>.xm-body .scroll-body {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        xm-select>.xm-body .scroll-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        xm-select>.xm-body .scroll-body::-webkit-scrollbar-track {
+            -webkit-border-radius: 2em;
+            -moz-border-radius: 2em;
+            -ms-border-radius: 2em;
+            border-radius: 2em;
+            background-color: #FFF;
+        }
+
+        xm-select>.xm-body .scroll-body::-webkit-scrollbar-thumb {
+            -webkit-border-radius: 2em;
+            -moz-border-radius: 2em;
+            -ms-border-radius: 2em;
+            border-radius: 2em;
+            background-color: #C2C2C2;
+        }
+
+        xm-select>.xm-body.up {
+            top: auto;
+            bottom: 42px;
+        }
+
+        xm-select>.xm-body.relative {
+            position: relative;
+            display: block !important;
+            top: 0;
+            box-shadow: none;
+            border: none;
+            animation-name: none;
+            animation-duration: 0;
+            min-width: 100%;
+        }
+
+        xm-select>.xm-body .xm-group {
+            cursor: default;
+        }
+
+        xm-select>.xm-body .xm-group-item {
+            display: inline-block;
+            cursor: pointer;
+            padding: 0 10px;
+            color: #999;
+            font-size: 12px;
+        }
+
+        xm-select>.xm-body .xm-option {
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding: 0 10px;
+            cursor: pointer;
+        }
+
+        xm-select>.xm-body .xm-option-icon {
+            color: transparent;
+            display: flex;
+            border: 1px solid #E6E6E6;
+            border-radius: 3px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        xm-select>.xm-body .xm-option-icon.xm-custom-icon {
+            color: unset;
+            border: unset;
+        }
+
+        xm-select>.xm-body .xm-option-icon-hidden {
+            margin-right: -10px;
+        }
+
+        xm-select>.xm-body .xm-option-icon.xm-icon-danx {
+            border-radius: 100%;
+        }
+
+        xm-select>.xm-body .xm-option-content {
+            display: flex;
+            position: relative;
+            padding-left: 15px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            ;
+            width: calc(100% - 20px);
+        }
+
+        xm-select>.xm-body .xm-option.hide-icon .xm-option-content {
+            padding-left: 0;
+        }
+
+        xm-select>.xm-body .xm-option.selected.hide-icon .xm-option-content {
+            color: #FFF !important;
+        }
+
+        xm-select>.xm-body .xm-option .loader {
+            width: 0.8em;
+            height: 0.8em;
+            margin-right: 6px;
+            color: #C2C2C2;
+        }
+
+        xm-select>.xm-body .xm-select-empty {
+            text-align: center;
+            color: #999;
+        }
+
+        xm-select>.xm-body .disabled {
+            cursor: no-drop;
+        }
+
+        xm-select>.xm-body .disabled:hover {
+            background-color: #FFF;
+        }
+
+        xm-select>.xm-body .disabled .xm-option-icon {
+            border-color: #C2C2C2 !important;
+        }
+
+        xm-select>.xm-body .disabled .xm-option-content {
+            color: #C2C2C2 !important;
+        }
+
+        xm-select>.xm-body .disabled.selected>.xm-option-icon {
+            color: #C2C2C2 !important;
+        }
+
+        xm-select>.xm-body .xm-search {
+            background-color: #FFF !important;
+            position: relative;
+            padding: 0 10px;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+
+        xm-select>.xm-body .xm-search>i {
+            position: absolute;
+            color: ;
+        }
+
+        xm-select>.xm-body .xm-search-input {
+            border: none;
+            border-bottom: 1px solid #E6E6E6;
+            padding-left: 27px;
+            cursor: text;
+        }
+
+        xm-select>.xm-body .xm-paging {
+            padding: 0 10px;
+            display: flex;
+            margin-top: 5px;
+        }
+
+        xm-select>.xm-body .xm-paging>span:first-child {
+            border-radius: 2px 0 0 2px;
+        }
+
+        xm-select>.xm-body .xm-paging>span:last-child {
+            border-radius: 0 2px 2px 0;
+        }
+
+        xm-select>.xm-body .xm-paging>span {
+            display: flex;
+            flex: auto;
+            justify-content: center;
+            vertical-align: middle;
+            margin: 0 -1px 0 0;
+            background-color: #fff;
+            color: #333;
+            font-size: 12px;
+            border: 1px solid #e2e2e2;
+            flex-wrap: nowrap;
+            width: 100%;
+            overflow: hidden;
+            min-width: 50px;
+        }
+
+        xm-select>.xm-body .xm-toolbar {
+            padding: 0 10px;
+            display: flex;
+            margin: -3px 0;
+            cursor: default;
+        }
+
+        xm-select>.xm-body .xm-toolbar .toolbar-tag {
+            cursor: pointer;
+            display: flex;
+            margin-right: 20px;
+            color: ;
+            align-items: baseline;
+        }
+
+        xm-select>.xm-body .xm-toolbar .toolbar-tag:hover {
+            opacity: 0.8;
+        }
+
+        xm-select>.xm-body .xm-toolbar .toolbar-tag:active {
+            opacity: 1;
+        }
+
+        xm-select>.xm-body .xm-toolbar .toolbar-tag>i {
+            margin-right: 2px;
+            font-size: 14px;
+        }
+
+        xm-select>.xm-body .xm-toolbar .toolbar-tag:last-child {
+            margin-right: 0;
+        }
+
+        xm-select>.xm-body .xm-body-custom {
+            line-height: initial;
+            cursor: default;
+        }
+
+        xm-select>.xm-body .xm-body-custom * {
+            box-sizing: initial;
+        }
+
+        xm-select>.xm-body .xm-tree {
+            position: relative;
+        }
+
+        xm-select>.xm-body .xm-tree-icon {
+            display: inline-block;
+            margin-right: 3px;
+            cursor: pointer;
+            border: 6px dashed transparent;
+            border-left-color: #C2C2C2;
+            border-left-style: solid;
+            transition: all 0.3s;
+            -webkit-transition: all 0.3s;
+            z-index: 2;
+            visibility: hidden;
+        }
+
+        xm-select>.xm-body .xm-tree-icon.expand {
+            margin-top: 3px;
+            margin-right: 5px;
+            margin-left: -2px;
+            transform: rotate(90deg);
+        }
+
+        xm-select>.xm-body .xm-tree-icon.xm-visible {
+            visibility: visible;
+        }
+
+        xm-select>.xm-body .xm-tree .left-line {
+            position: absolute;
+            left: 13px;
+            width: 0;
+            z-index: 1;
+            border-left: 1px dotted #c0c4cc !important;
+        }
+
+        xm-select>.xm-body .xm-tree .top-line {
+            position: absolute;
+            left: 13px;
+            height: 0;
+            z-index: 1;
+            border-top: 1px dotted #c0c4cc !important;
+        }
+
+        xm-select>.xm-body .xm-tree .xm-tree-icon+.top-line {
+            margin-left: 1px;
+        }
+
+        xm-select>.xm-body .scroll-body>.xm-tree>.xm-option>.top-line,
+        xm-select>.xm-body .scroll-body>.xm-option>.top-line {
+            width: 0 !important;
+        }
+
+        xm-select>.xm-body .xm-cascader-box {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            padding: 5px 0;
+            border: 1px solid #E6E6E6;
+            background-color: #fff;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+            margin: -1px;
+        }
+
+        xm-select>.xm-body .xm-cascader-box::before {
+            content: ' ';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 6px solid transparent;
+            border-right-color: #E6E6E6;
+            top: 10px;
+            left: -12px;
+        }
+
+        xm-select>.xm-body .xm-cascader-box::after {
+            content: ' ';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border: 6px solid transparent;
+            border-right-color: #fff;
+            top: 10px;
+            left: -11px;
+        }
+
+        xm-select>.xm-body .xm-cascader-scroll {
+            height: 100%;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        xm-select>.xm-body.cascader {
+            width: unset;
+            min-width: unset;
+        }
+
+        xm-select>.xm-body.cascader .xm-option-content {
+            padding-left: 8px;
+        }
+
+        xm-select>.xm-body.cascader .disabled .xm-right-arrow {
+            color: #C2C2C2 !important;
+        }
+
+        xm-select>.xm-body.cascader .hide-icon.disabled .xm-right-arrow {
+            color: #999 !important;
+        }
+
+        xm-select .xm-input {
+            cursor: pointer;
+            border-radius: 2px;
+            border-width: 1px;
+            border-style: solid;
+            border-color: #E6E6E6;
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            background-color: #FFF;
+            line-height: 1.3;
+            padding-left: 10px;
+            outline: 0;
+            user-select: text;
+            -ms-user-select: text;
+            -moz-user-select: text;
+            -webkit-user-select: text;
+        }
+
+        xm-select .dis {
+            display: none;
+        }
+
+        xm-select .loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        xm-select .loader {
+            border: 0.2em dotted currentcolor;
+            border-radius: 50%;
+            -webkit-animation: 1s loader linear infinite;
+            animation: 1s loader linear infinite;
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            color: inherit;
+            vertical-align: middle;
+            pointer-events: none;
+        }
+
+        xm-select .xm-select-default {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: none;
+            visibility: hidden;
+        }
+
+        xm-select .xm-select-disabled {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            cursor: no-drop;
+            z-index: 2;
+            opacity: 0.3;
+            background-color: #FFF;
+        }
+
+        xm-select .item--divided {
+            border-top: 1px solid #ebeef5;
+            width: calc(100% - 20px);
+            cursor: initial;
+        }
+
+        xm-select .xm-right-arrow {
+            position: absolute;
+            color: ;
+            right: 5px;
+            top: -1px;
+            font-weight: 700;
+            transform: scale(0.6, 1);
+        }
+
+        xm-select .xm-right-arrow::after {
+            content: '>';
+        }
+
+        xm-select[size='large'] {
+            min-height: 40px;
+            line-height: 40px;
+        }
+
+        xm-select[size='large'] .xm-input {
+            height: 40px;
+        }
+
+        xm-select[size='large'] .xm-label .scroll .label-content {
+            line-height: 34px;
+        }
+
+        xm-select[size='large'] .xm-label .xm-label-block {
+            height: 30px;
+            line-height: 30px;
+        }
+
+        xm-select[size='large'] .xm-body .xm-option .xm-option-icon {
+            height: 20px;
+            width: 20px;
+            font-size: 20px;
+        }
+
+        xm-select[size='large'] .xm-paging>span {
+            height: 34px;
+            line-height: 34px;
+        }
+
+        xm-select[size='large'] .xm-tree .left-line {
+            height: 100%;
+            bottom: 20px;
+        }
+
+        xm-select[size='large'] .xm-tree .left-line-group {
+            height: calc(100% - 40px);
+        }
+
+        xm-select[size='large'] .xm-tree .xm-tree-icon.xm-hidden+.top-line {
+            top: 19px;
+        }
+
+        xm-select[size='large'] .item--divided {
+            margin: 10px;
+        }
+
+        xm-select {
+            min-height: 36px;
+            line-height: 36px;
+        }
+
+        xm-select .xm-input {
+            height: 36px;
+        }
+
+        xm-select .xm-label .scroll .label-content {
+            line-height: 30px;
+        }
+
+        xm-select .xm-label .xm-label-block {
+            height: 26px;
+            line-height: 26px;
+        }
+
+        xm-select .xm-body .xm-option .xm-option-icon {
+            height: 18px;
+            width: 18px;
+            font-size: 18px;
+        }
+
+        xm-select .xm-paging>span {
+            height: 30px;
+            line-height: 30px;
+        }
+
+        xm-select .xm-tree .left-line {
+            height: 100%;
+            bottom: 18px;
+        }
+
+        xm-select .xm-tree .left-line-group {
+            height: calc(100% - 36px);
+        }
+
+        xm-select .xm-tree .xm-tree-icon.xm-hidden+.top-line {
+            top: 17px;
+        }
+
+        xm-select .item--divided {
+            margin: 9px;
+        }
+
+        xm-select[size='small'] {
+            min-height: 32px;
+            line-height: 32px;
+        }
+
+        xm-select[size='small'] .xm-input {
+            height: 32px;
+        }
+
+        xm-select[size='small'] .xm-label .scroll .label-content {
+            line-height: 26px;
+        }
+
+        xm-select[size='small'] .xm-label .xm-label-block {
+            height: 22px;
+            line-height: 22px;
+        }
+
+        xm-select[size='small'] .xm-body .xm-option .xm-option-icon {
+            height: 16px;
+            width: 16px;
+            font-size: 16px;
+        }
+
+        xm-select[size='small'] .xm-paging>span {
+            height: 26px;
+            line-height: 26px;
+        }
+
+        xm-select[size='small'] .xm-tree .left-line {
+            height: 100%;
+            bottom: 16px;
+        }
+
+        xm-select[size='small'] .xm-tree .left-line-group {
+            height: calc(100% - 32px);
+        }
+
+        xm-select[size='small'] .xm-tree .xm-tree-icon.xm-hidden+.top-line {
+            top: 15px;
+        }
+
+        xm-select[size='small'] .item--divided {
+            margin: 8px;
+        }
+
+        xm-select[size='mini'] {
+            min-height: 28px;
+            line-height: 28px;
+        }
+
+        xm-select[size='mini'] .xm-input {
+            height: 28px;
+        }
+
+        xm-select[size='mini'] .xm-label .scroll .label-content {
+            line-height: 22px;
+        }
+
+        xm-select[size='mini'] .xm-label .xm-label-block {
+            height: 18px;
+            line-height: 18px;
+        }
+
+        xm-select[size='mini'] .xm-body .xm-option .xm-option-icon {
+            height: 14px;
+            width: 14px;
+            font-size: 14px;
+        }
+
+        xm-select[size='mini'] .xm-paging>span {
+            height: 22px;
+            line-height: 22px;
+        }
+
+        xm-select[size='mini'] .xm-tree .left-line {
+            height: 100%;
+            bottom: 14px;
+        }
+
+        xm-select[size='mini'] .xm-tree .left-line-group {
+            height: calc(100% - 28px);
+        }
+
+        xm-select[size='mini'] .xm-tree .xm-tree-icon.xm-hidden+.top-line {
+            top: 13px;
+        }
+
+        xm-select[size='mini'] .item--divided {
+            margin: 7px;
+        }
+
+        .layui-form-pane xm-select {
+            margin: -1px -1px -1px 0;
+        }
+    </style>
+    <style data-id="immersive-translate-input-injected-css">
+        .immersive-translate-input {
+            position: absolute;
+            top: 0;
+            right: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 2147483647;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .immersive-translate-attach-loading::after {
+            content: " ";
+
+            --loading-color: #f78fb6;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: block;
+            margin: 12px auto;
+            position: relative;
+            color: white;
+            left: -100px;
+            box-sizing: border-box;
+            animation: immersiveTranslateShadowRolling 1.5s linear infinite;
+
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-2000%, -50%);
+            z-index: 100;
+        }
+
+        .immersive-translate-loading-spinner {
+            vertical-align: middle !important;
+            width: 10px !important;
+            height: 10px !important;
+            display: inline-block !important;
+            margin: 0 4px !important;
+            border: 2px rgba(221, 244, 255, 0.6) solid !important;
+            border-top: 2px rgba(0, 0, 0, 0.375) solid !important;
+            border-left: 2px rgba(0, 0, 0, 0.375) solid !important;
+            border-radius: 50% !important;
+            padding: 0 !important;
+            -webkit-animation: immersive-translate-loading-animation 0.6s infinite linear !important;
+            animation: immersive-translate-loading-animation 0.6s infinite linear !important;
+        }
+
+        @-webkit-keyframes immersive-translate-loading-animation {
+            from {
+                -webkit-transform: rotate(0deg);
+            }
+
+            to {
+                -webkit-transform: rotate(359deg);
+            }
+        }
+
+        @keyframes immersive-translate-loading-animation {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(359deg);
+            }
+        }
+
+        .immersive-translate-input-loading {
+            --loading-color: #f78fb6;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: block;
+            margin: 12px auto;
+            position: relative;
+            color: white;
+            left: -100px;
+            box-sizing: border-box;
+            animation: immersiveTranslateShadowRolling 1.5s linear infinite;
+        }
+
+        @keyframes immersiveTranslateShadowRolling {
+            0% {
+                box-shadow: 0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0),
+                    0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+            }
+
+            12% {
+                box-shadow: 100px 0 var(--loading-color), 0px 0 rgba(255, 255, 255, 0),
+                    0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+            }
+
+            25% {
+                box-shadow: 110px 0 var(--loading-color), 100px 0 var(--loading-color),
+                    0px 0 rgba(255, 255, 255, 0), 0px 0 rgba(255, 255, 255, 0);
+            }
+
+            36% {
+                box-shadow: 120px 0 var(--loading-color), 110px 0 var(--loading-color),
+                    100px 0 var(--loading-color), 0px 0 rgba(255, 255, 255, 0);
+            }
+
+            50% {
+                box-shadow: 130px 0 var(--loading-color), 120px 0 var(--loading-color),
+                    110px 0 var(--loading-color), 100px 0 var(--loading-color);
+            }
+
+            62% {
+                box-shadow: 200px 0 rgba(255, 255, 255, 0), 130px 0 var(--loading-color),
+                    120px 0 var(--loading-color), 110px 0 var(--loading-color);
+            }
+
+            75% {
+                box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+                    130px 0 var(--loading-color), 120px 0 var(--loading-color);
+            }
+
+            87% {
+                box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+                    200px 0 rgba(255, 255, 255, 0), 130px 0 var(--loading-color);
+            }
+
+            100% {
+                box-shadow: 200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0),
+                    200px 0 rgba(255, 255, 255, 0), 200px 0 rgba(255, 255, 255, 0);
+            }
+        }
+
+        .immersive-translate-modal {
+            position: fixed;
+            z-index: 2147483647;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgb(0, 0, 0);
+            background-color: rgba(0, 0, 0, 0.4);
+            font-size: 15px;
+        }
+
+        .immersive-translate-modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 40px 24px 24px;
+            border-radius: 12px;
+            width: 350px;
+            font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Ubuntu",
+                "Cantarell", "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+                "Segoe UI Symbol", "Noto Color Emoji";
+            position: relative;
+        }
+
+        @media screen and (max-width: 768px) {
+            .immersive-translate-modal-content {
+                margin: 25% auto !important;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .immersive-translate-modal-content {
+                width: 80vw !important;
+                margin: 20vh auto !important;
+                padding: 20px 12px 12px !important;
+            }
+
+            .immersive-translate-modal-title {
+                font-size: 14px !important;
+            }
+
+            .immersive-translate-modal-body {
+                font-size: 13px !important;
+                max-height: 60vh !important;
+            }
+
+            .immersive-translate-btn {
+                font-size: 13px !important;
+                padding: 8px 16px !important;
+                margin: 0 4px !important;
+            }
+
+            .immersive-translate-modal-footer {
+                gap: 6px !important;
+                margin-top: 16px !important;
+            }
+        }
+
+        .immersive-translate-modal .immersive-translate-modal-content-in-input {
+            max-width: 500px;
+        }
+
+        .immersive-translate-modal-content-in-input .immersive-translate-modal-body {
+            text-align: left;
+            max-height: unset;
+        }
+
+        .immersive-translate-modal-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: #333333;
+        }
+
+        .immersive-translate-modal-body {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 400;
+            color: #333333;
+            margin-top: 24px;
+        }
+
+        @media screen and (max-width: 768px) {
+            .immersive-translate-modal-body {
+                max-height: 250px;
+                overflow-y: auto;
+            }
+        }
+
+        .immersive-translate-close {
+            color: #666666;
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .immersive-translate-close:hover,
+        .immersive-translate-close:focus {
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .immersive-translate-modal-footer {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+
+        .immersive-translate-btn {
+            width: fit-content;
+            color: #fff;
+            background-color: #ea4c89;
+            border: none;
+            font-size: 14px;
+            margin: 0 8px;
+            padding: 9px 30px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .immersive-translate-btn-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .immersive-translate-btn:hover {
+            background-color: #f082ac;
+        }
+
+        .immersive-translate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .immersive-translate-btn:disabled:hover {
+            background-color: #ea4c89;
+        }
+
+        .immersive-translate-link-btn {
+            background-color: transparent;
+            color: #ea4c89;
+            border: none;
+            cursor: pointer;
+            height: 30px;
+            line-height: 30px;
+        }
+
+        .immersive-translate-cancel-btn {
+            /* gray color */
+            background-color: rgb(89, 107, 120);
+        }
+
+        .immersive-translate-cancel-btn:hover {
+            background-color: hsl(205, 20%, 32%);
+        }
+
+        .immersive-translate-action-btn {
+            background-color: transparent;
+            color: #ea4c89;
+            border: 1px solid #ea4c89;
+        }
+
+        .immersive-translate-btn svg {
+            margin-right: 5px;
+        }
+
+        .immersive-translate-link {
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-drag: none;
+            text-decoration: none;
+            color: #ea4c89;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .immersive-translate-primary-link {
+            cursor: pointer;
+            user-select: none;
+            -webkit-user-drag: none;
+            text-decoration: none;
+            color: #ea4c89;
+            -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+        }
+
+        .immersive-translate-modal input[type="radio"] {
+            margin: 0 6px;
+            cursor: pointer;
+        }
+
+        .immersive-translate-modal label {
+            cursor: pointer;
+        }
+
+        .immersive-translate-close-action {
+            position: absolute;
+            top: 2px;
+            right: 0px;
+            cursor: pointer;
+        }
+
+        .imt-primary-button {
+            display: flex;
+            padding: 12px 80px;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            border-radius: 8px;
+            background: #ea4c89;
+            color: #fff;
+            font-size: 16px;
+            font-style: normal;
+            font-weight: 700;
+            line-height: 24px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .imt-retry-text {
+            color: #999;
+            text-align: center;
+            font-size: 14px;
+            font-style: normal;
+            font-weight: 400;
+            line-height: 21px;
+            cursor: pointer;
+        }
+
+        .imt-action-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .imt-modal-content-text {
+            text-align: left;
+            color: #333;
+            font-size: 16px;
+            font-weight: 400;
+            line-height: 24px;
+        }
+
+        .imt-linear-gradient-text {
+            background: linear-gradient(90deg, #00a6ff 0%, #c369ff 52.4%, #ff4590 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .imt-flex-center {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .imt-linear-black-btn {
+            border-radius: 50px;
+            background: linear-gradient(66deg, #222 19%, #696969 94.25%);
+            height: 48px;
+            width: 100%;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            justify-content: center;
+        }
+    </style>
+</head>
+
+<body style="background-color:white">
+    <center>
+<table border="0" cellpadding="0" cellspacing="0" width="800" >
+    <tr style="background-color:#007a8e">
+      <td valign="middle" align="center" width="200px" height="30"> 
+	    <span class=hlink><a href="index.htm">曲 哲 | Me</a>
+      </td>
+      <td valign="middle" align="center" width="200px"> 
+	    <span class=hlink><a href="members.htm">曲 研 | qLab</a>
+      </td>
+      <td valign="middle" align="center" width="200px"> 
+	    <span class=hlink><a href="teaching.htm">教 学 | Teaching</a>
+      </td>
+      <td valign="middle" align="center" width="200px"> 
+	    <span class=hlink><a href="books.htm">阅 读 | Reading</a>
+      </td>
+	  <td valign="middle" align="center" width="200px"> 
+      <div class="dropdown">
+	    <span class=hlink><a href="#">共 享 | Sharing</a>
+		<div class="dropdown-content" align="left">
+          <a href="pqfiber.htm">PQ-Fiber - 纤维截面非线性本构</a>
+		  <a href="nest.htm">NEST - 非结构构件地震反应模拟器</a>
+          <a href="qrest.htm">qREST - 基于监测数据的震后安全评估</a>
+          <a href="field.htm">Field photos - 地震现场工作照片集</a>
+        </div>
+	  </div>
+      </td>
+                </tr>
+                <tr height="10" style="background-color:white" colspan="2"></tr>
+                <tr>
+                    <td colspan="5" valign="top">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%" align="center">
+                            <tbody>
+                                <tr>
+                                    <td height="444px" align="center"><img src="qREST/cover.png" width="100%">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="bigchi" align="center" valign="middle" height="120px">
+                                        <strong>qREST</strong>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="chi" align="center" valign="bottom" height="40px">
+                                        基于结构反应监测的震后安全快速评估<br>
+                                        Quick Response Evaluation for Safety Tagging</td>
+                                </tr>
+                                <tr height="100px" align="center">
+                                    <td class="eresume"><img src="pic/scrolldown.png" width="100"></td>
+                                </tr>
+                                <tr height="10"></tr>
+                                <tr>
+                                    <td width="100%" class="eresume">
+                                        qREST（基于结构反应监测的震后安全快速评估）是一套专为建筑结构轻量化地震监测（Light-weight
+                                        S<sup>2</sup>HM）打造的综合性技术框架。本项目旨在为科研人员、监测设备厂商、算法开发者提供一套从标准化数据流转到震后快速评估的端到端解决方案。
+                                        项目的核心生态由以下四大模块构成：<br>&nbsp;<br>
+                                        <li><b>数据协议</b>：包含基于“流储同构”理念设计的传输与存储协议，便于二进制监测数据的高效传输与存储；</li>
+                                        <li><b>算法库</b>：将核心的结构反应分析与安全状态评估算法进行底层封装，支持第三方平台集成使用；</li>
+                                        <li><b>单机程序</b>：提供全流程监测数据分析和直观的分析结果可视化，为算法测试和应用部署提供便利；</li>
+                                        <li><b>技术文档</b>：配套提供详尽的用户手册、API接口规范与读写工具，为轻量化地震监测提供全流程支持。</li><br>&nbsp;<br>
+										qREST项目由董飞跃维护，咨询可通过以下邮箱联系：feiyuedong@outlook.com<br>&nbsp;<br>
+                                        &nbsp;<br>
+                                        qREST (Quick Response Evaluation for Safety Tagging) is a
+                                        comprehensive technical framework specifically built for light-weight structural
+                                        health monitoring (S<sup>2</sup>HM) under seismic events. The project aims to
+                                        provide researchers, monitoring equipment vendors, and developers with an
+                                        end-to-end solution ranging from standardized data telemetry to rapid
+                                        post-earthquake evaluation. The core ecosystem of the project consists of four
+                                        primary modules:<br>&nbsp;<br>
+                                        <li><b>Data protocols</b> feature compatible transmission and storage protocols, realizing the efficient transfer and storage of binary monitoring data.
+                                        <li><b>Algorithm dlls</b> encapsulate core structural response analysis and safety evaluation algorithms, supporting low-cost and seamless integration into third-party platforms.
+                                        <li><b>Standalone app</b> offers intuitive visualization of data streams and interactive rapid post-earthquake safety evaluations.
+                                        <li><b>Documentation</b> provides comprehensive user manuals, API specifications, and I/O tools, lowering the barrier to entry for users and developers.
+                                        <br>&nbsp;<br>
+                                        For any inquiries, please feel free to contact the project team via: feiyuedong@outlook.com<br>&nbsp;
+                                    </td>
+                                </tr>
+                                <tr height="30"></tr>
+                                <tr>
+                                    <td>
+                                        <button type="button" class="collapsible active">&nbsp;&nbsp;&nbsp;&nbsp;资源 |
+                                            Resources</button>
+                                        <div class="content">
+                                            <table border="0" class="eresume">
+                                                <tbody>
+                                                    <tr height="10"></tr>
+                                                </tbody>
+                                            </table>
+                                            <table border="0" class="eresume" width="100%">
+                                                <tbody>
+                                                    <tr height="7"></tr>
+                                                    <tr>
+                                                        <td width="120px" height="70px" align="center" valign="middle"
+                                                            style="background-color:#a0d2d5">
+                                                            数据协议<br>Data protocol</td>
+                                                        <td valign="middle">
+                                                            <a href="qREST/storageformat.html"
+                                                                target="_blank">数据存储格式规范 v1.0.0 |
+                                                                Data Storage Format Specification v1.0.0 (in
+                                                                Chinese)</a><br>
+                                                            <a href="qREST/transferprotocol.html"
+                                                                target="_blank">数据传输协议规范 v1.0.0 |
+                                                                Data Transfer Protocol Specification v1.0.0 (in
+                                                                Chinese)</a><br>
+                                                            示例数据 (zip) |
+                                                            Sample Data (zip)<br>
+                                                            读写工具 (zip) |
+                                                            I/O Tool (zip)
+                                                        </td>
+                                                    </tr>
+
+                                                    <tr height="7"></tr>
+                                                    <tr>
+                                                        <td width="120px" height="50px" align="center" valign="middle"
+                                                            style="background-color:#a0d2d5">
+                                                            单机程序<br>App</td>
+                                                        <td valign="middle">
+                                                            单机版应用程序 v1.0（内测中）<br>
+                                                            Standalone Application v1.0 (in closed beta)
+                                                        </td>
+                                                    </tr>
+                                                    <tr height="7"></tr>
+                                                    <tr>
+                                                        <td width="120px" height="50px" align="center" valign="middle"
+                                                            style="background-color:#a0d2d5">
+                                                            算法<br>Algorithms</td>
+                                                        <td valign="middle">
+                                                            内置分析算法动态链接库 v1.0<a
+                                                                href="https://gitee.com/DonShmily/qrest-library"
+                                                                target="_blank">（点击跳转至gitee）</a><br>
+                                                            Embedded Algorithms in dlls v1.0
+                                                        </td>
+                                                    </tr>
+                                                    <tr height="7"></tr>
+                                                    <tr>
+                                                        <td width="120px" height="40px" align="center" valign="middle"
+                                                            style="background-color:#a0d2d5">
+                                                            使用手册<br>Manual</td>
+                                                        <td valign="middle">
+                                                            使用手册 v1.0 | User's Manual v1.0 (in Chinese)
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr height="10"></tr>
+                                <tr>
+                                    <td>
+                                        <button type="button" class="collapsible">&nbsp;&nbsp;&nbsp;&nbsp;更新日志 |
+                                            Release log</button>
+                                        <div class="content">
+                                            <table border="0" class="eresume">
+                                                <tbody>
+                                                    <tr height="20"></tr>
+                                                    <tr>
+                                                        <td height="60px" align="center" valign="middle"
+                                                            style="background-color:#dce5e4">
+                                                            v1.0<br>2026.07</td>
+                                                        <td valign="middle">
+
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr height="10"></tr>
+                                <tr>
+                                    <td>
+                                        <button type="button" class="collapsible">&nbsp;&nbsp;&nbsp;&nbsp;应用 |
+                                            Implementation</button>
+                                        <div class="content">
+                                            ...<table border="0" class="eresume">
+                                                <tbody>
+                                                    <tr height="20"></tr>
+
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+
+
+                                <tr height="30"></tr>
+                                <tr>
+                                    <td width="100%" class="eresume">
+                                        声明：本人不对使用者利用本程序得到的分析结果的准确性和可靠性负责。
+                                        <br>Disclaimer: it is the user's responsibility to interpret and check the
+                                        reliability of his analysis results. I am not resposible for any results
+                                        obtained by the herein provided library.<br>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="4" height="50px" valign="bottom" align="center" class="eresume">
+                                        &#169;2004-2026 QU Zhe. All rights reserved.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <script>
+                            var coll = document.getElementsByClassName("collapsible");
+                            var i;
+                            for (i = 0; i < coll.length; i++) {
+                                coll[i].addEventListener("click", function () {
+                                    this.classList.toggle("active");
+                                    var content = this.nextElementSibling;
+                                    if (content.style.display === "block") {
+                                        content.style.display = "none";
+                                    } else {
+                                        content.style.display = "block";
+                                    }
+                                });
+                            }
+                        </script>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </center>
+</body>
+</html>
