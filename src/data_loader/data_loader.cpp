@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "data_packet.hpp"
-#include "file_header.hpp"
-#include "metadata.hpp"
+#include "data_struct/data_packet.hpp"
+#include "data_struct/file_header.hpp"
+#include "data_struct/metadata.hpp"
 
 
 using namespace qrest_data;

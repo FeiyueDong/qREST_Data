@@ -1,5 +1,5 @@
+#include <chrono>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -7,9 +7,9 @@
 
 
 // 包含之前定义的头文件
-#include "data_packet.hpp"
-#include "file_header.hpp"
-#include "metadata.hpp"
+#include "data_struct/data_packet.hpp"
+#include "data_struct/file_header.hpp"
+#include "data_struct/metadata.hpp"
 
 
 using namespace qrest_data;
@@ -102,6 +102,13 @@ int main(int argc, char *argv[])
         int npts = meta.DataInfo.NPTS;
         uint16_t sampling_rate = static_cast<uint16_t>(1.0 / meta.DataInfo.DT);
 
+        // 解析时间
+        std::cout << "Start Time: " << meta.DataInfo.StartTime << std::endl;
+        std::chrono::sys_time<std::chrono::milliseconds> start_time;
+        std::istringstream ss(meta.DataInfo.StartTime);
+        ss >> std::chrono::parse("%Y-%m-%dT%H:%M:%S%Ez", start_time);
+        auto timestamp = start_time.time_since_epoch().count();
+
         // 2. 读取并转置文本数据
         std::cout << "Reading and transposing text data (Channels: "
                   << channel_num << ", Points: " << npts << ")..." << std::endl;
@@ -112,12 +119,11 @@ int main(int argc, char *argv[])
         // 此处 DataEncodings 使用 0 (Float32)以平衡精度与大小
         uint16_t encoding = 0;
         DataPacket packet(1, // SourceID
-                          1, // Version
                           channel_num,
                           encoding,
                           sampling_rate,
                           npts,
-                          0, // 示例时间戳（实际可从StartTime解析）
+                          timestamp,
                           flat_data);
         std::string packet_bytes = packet.to_bytes();
         std::cout << "Data packet assembled successfully, size: "

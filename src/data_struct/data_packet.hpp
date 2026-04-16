@@ -65,9 +65,8 @@ public:
     // 默认构造函数
     DataPacket() = default;
 
-    // 核心构造函数：内存中始终以 double 存储波形，序列化时再做类型转换
+    // 构造函数：内存中始终以 double 存储波形，序列化时再做类型转换
     DataPacket(uint16_t source_id,
-               uint8_t version,
                uint16_t channel_count,
                uint16_t data_encodings,
                uint16_t sampling_rate,
@@ -75,7 +74,6 @@ public:
                uint64_t timestamp,
                std::span<const double> data)
         : source_id_(source_id),
-          version_(version),
           channel_count_(channel_count),
           data_encodings_(data_encodings),
           sampling_rate_(sampling_rate),
@@ -295,8 +293,7 @@ private:
     }
 
 private:
-    // 对象内部状态 (剥离了与网络传输直接相关的序列化中间变量如 checksum_ 和
-    // body_size_)
+    // 对象内部状态 (去除了中间变量 checksum_ 和 body_size_)
     uint16_t source_id_{};
     uint8_t version_{1};
     uint8_t packet_type_{1};
