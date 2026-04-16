@@ -49,4 +49,4 @@ data_loader <input.qrest> <data.txt> <metadata.json>
 
 ### 2.2 qrest数据接口 (qrest_data)
 
-提供了一个C语言接口的动态库，用于使用其他语言解析或生成qrest数据格式的字节流。接口定义见[数据接口](doc\qrest_data_lib\interface.md)。
+提供了一个C语言接口的动态库，用于使用其他语言解析或生成qrest数据格式的字节流。接口定义见[数据接口](doc/qrest_data_lib/interface.md)。
