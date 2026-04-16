@@ -22,11 +22,11 @@ extern "C"
     // 序列化字节流
     typedef struct
     {
-        uint8_t *buffer; // 字节流
-        size_t length;   // 字节流总长度
+        uint8_t *bytes; // 字节流
+        size_t len;   // 字节流总长度
     } qrest_c_byte_stream_t;
 
-    // 释放由 qrest_build_bytes 内部申请的二进制流内存
+    // 释放由 qrest_to_bytes 内部申请的二进制流内存
     EXPORT void qrest_free_byte_stream(qrest_c_byte_stream_t *stream);
 
     // 字符串
@@ -60,7 +60,7 @@ extern "C"
     // 数据包头
     typedef struct
     {
-        uint16_t magic;
+        uint8_t magic[2];
         uint16_t source_id;
         uint8_t version;
         uint8_t packet_type;
@@ -94,8 +94,8 @@ extern "C"
     // @param input 输入的二进制字节流
     // @param out_data 输出的解析结果
     // @return 0 成功，-1 参数错误，-2 长度异常，-3 格式或校验失败
-    EXPORT int qrest_parse_bytes(qrest_c_byte_stream_t input,
-                                 qrest_c_data_t *out_data);
+    EXPORT int qrest_from_bytes(qrest_c_byte_stream_t input,
+                                qrest_c_data_t *out_data);
 
     // @brief 序列化：从输入的 JSON 字符串和数据包信息构建完整的二进制字节流
     // @param json_str 输入的元数据 JSON 字符串（无需包含尾随\0）
@@ -104,11 +104,11 @@ extern "C"
     // @param data_encodings 数据编码方式 (0=Float32, 1=Float64, 等)
     // @param out_stream 输出的二进制字节流 (由底层分配，需外部释放)
     // @return 0 成功，-1 参数错误，-2 数据维度不匹配，-3 序列化失败
-    EXPORT int qrest_build_bytes(qrest_c_string_t json_str,
-                                 qrest_c_double_array_t packet_data,
-                                 uint16_t source_id,
-                                 uint16_t data_encodings,
-                                 qrest_c_byte_stream_t *out_stream);
+    EXPORT int qrest_to_bytes(qrest_c_string_t json_str,
+                              qrest_c_double_array_t packet_data,
+                              uint16_t source_id,
+                              uint16_t data_encodings,
+                              qrest_c_byte_stream_t *out_stream);
 
 #ifdef __cplusplus
 }

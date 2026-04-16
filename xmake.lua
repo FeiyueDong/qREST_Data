@@ -5,7 +5,7 @@ set_warnings("all")
 set_allowedplats("windows", "linux", "macosx", "mingw", "msys")
 
 add_rules("mode.debug", "mode.release")
-set_config("plat", "mingw")
+-- set_config("plat", "mingw")
 if is_plat("msys") then
     set_config("sdk", "C:/Programing/msys64/ucrt64")
     set_toolchains("gcc")
@@ -18,7 +18,6 @@ end
 set_languages("c++20")
 
 if is_plat("linux", "macosx") then
-    add_requires("eigen", {system = true})
     add_requires("nlohmann-json", {system = true})
 end
 

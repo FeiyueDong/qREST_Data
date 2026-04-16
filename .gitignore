@@ -370,3 +370,7 @@ vcpkg_installed/
 # Xmake cache
 .xmake/
 build/
+
+// Test files
+resource/
+release/

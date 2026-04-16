@@ -13,19 +13,20 @@ using namespace qrest_data;
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3)
+    if (argc < 4)
     {
-        std::cout << "Usage: " << argv[0] << " <input.qrest> <output_check.csv>"
-                  << std::endl;
+        std::cout << "Usage: " << argv[0]
+                  << " <input.qrest> <data.txt> <metadata.json>" << std::endl;
         return 1;
     }
 
     std::string input_file = argv[1];
-    std::string output_csv = argv[2];
+    std::string output_txt = argv[2];
+    std::string output_json = argv[3];
 
     try
     {
-        // --- 1. 读取二进制文件 ---
+        // 1. 读取二进制文件
         std::ifstream ifs(input_file, std::ios::binary);
         if (!ifs.is_open())
             throw std::runtime_error("Cannot open input file: " + input_file);
@@ -53,24 +54,25 @@ int main(int argc, char *argv[])
         std::cout << "[Success] Channel count: " << channel_num
                   << ", Sample points: " << npts << std::endl;
 
-        // --- 2. 导出为 CSV 文件 ---
+        // 2. 导出元数据为 JSON 文件
+        std::ofstream ofs_json(output_json);
+        if (!ofs_json.is_open())
+            throw std::runtime_error("Cannot create JSON output file: "
+                                     + output_json);
+        ofs_json << meta.to_bytes();
+        ofs_json.close();
+        std::cout << ">>> Exporting metadata to: " << output_json << std::endl;
+
+        // 3. 导出数据为 TXT 文件
         const std::vector<double> &wave_data = packet.get_data();
 
-        std::ofstream ofs(output_csv);
+        std::ofstream ofs(output_txt);
         if (!ofs.is_open())
-            throw std::runtime_error("Cannot create CSV output file: "
-                                     + output_csv);
+            throw std::runtime_error("Cannot create TXT output file: "
+                                     + output_txt);
 
-        std::cout << ">>> Exporting data to: " << output_csv << " ..."
+        std::cout << ">>> Exporting data to: " << output_txt << " ..."
                   << std::endl;
-
-        //// 写入 CSV 表头
-        // ofs << "TimeStep";
-        // for (int c = 0; c < channel_num; ++c)
-        // {
-        //     ofs << ",CH_" << (c + 1);
-        // }
-        // ofs << "\n";
 
         // 写入数据：转置回时间主序 (按行写入)
         for (int r = 0; r < npts; ++r)
@@ -80,7 +82,7 @@ int main(int argc, char *argv[])
             {
                 // 计算该数据点在通道主序数组中的绝对一维索引
                 size_t index = static_cast<size_t>(c) * npts + r;
-                ofs << "," << std::fixed << std::setprecision(8)
+                ofs << " " << std::fixed << std::setprecision(8)
                     << wave_data[index];
             }
             ofs << "\n";

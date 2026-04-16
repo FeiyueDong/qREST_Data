@@ -22,29 +22,28 @@ inline uint32_t crc32(const uint8_t *data, size_t length)
 
     for (size_t i = 0; i < length; i++)
     {
-        crc ^= (static_cast<uint32_t>(data[i]) << 24);
-
+        crc ^= data[i];
         for (int j = 0; j < 8; j++)
         {
-            if (crc & 0x80000000) // 检查最高位
+            if (crc & 1)
             {
-                crc = (crc << 1) ^ 0x04C11DB7;
+                crc = (crc >> 1) ^ 0xEDB88320;
             }
             else
             {
-                crc <<= 1;
+                crc >>= 1;
             }
         }
     }
 
-    return crc ^ 0xFFFFFFFF;
+    return ~crc;
 }
 
 // 强制 1 字节内存对齐的包头纯数据结构 (POD)
 #pragma pack(push, 1)
 struct PacketHeaderPOD
 {
-    uint16_t magic;            // 0: 0x7144 ("qD")
+    uint8_t magic[2];          // 0: 0x7144 ("qD")
     uint16_t source_id;        // 2: 数据源ID
     uint8_t version;           // 4: 协议版本 0x01
     uint8_t packet_type;       // 5: 数据包类型 0x01
@@ -162,7 +161,8 @@ public:
 
         // 3. 构建包头
         PacketHeaderPOD header{};
-        header.magic = 0x7144;
+        header.magic[0] = 0x71;
+        header.magic[1] = 0x44;
         header.source_id = source_id_;
         header.version = version_;
         header.packet_type = packet_type_;
@@ -193,7 +193,7 @@ public:
         PacketHeaderPOD header;
         std::memcpy(&header, bytes.data(), sizeof(PacketHeaderPOD));
 
-        if (header.magic != 0x7144)
+        if (header.magic[0] != 0x71 || header.magic[1] != 0x44)
         {
             throw std::runtime_error("Invalid packet magic");
         }

@@ -3,16 +3,13 @@
 #include <chrono>
 #include <cstring>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <vector>
-
 
 // 引用底层 C++ 头文件
 #include "data_struct/data_packet.hpp"
 #include "data_struct/file_header.hpp"
 #include "data_struct/metadata.hpp"
-
 
 using namespace qrest_data;
 
@@ -20,11 +17,11 @@ extern "C"
 {
     void qrest_free_byte_stream(qrest_c_byte_stream_t *stream)
     {
-        if (stream && stream->buffer)
+        if (stream && stream->bytes)
         {
-            delete[] stream->buffer;
-            stream->buffer = nullptr;
-            stream->length = 0;
+            delete[] stream->bytes;
+            stream->bytes = nullptr;
+            stream->len = 0;
         }
     }
 
@@ -65,9 +62,9 @@ extern "C"
         }
     }
 
-    int qrest_parse_bytes(qrest_c_byte_stream_t input, qrest_c_data_t *out_data)
+    int qrest_from_bytes(qrest_c_byte_stream_t input, qrest_c_data_t *out_data)
     {
-        if (!input.buffer || input.length < 16 || !out_data)
+        if (!input.bytes || input.len < 16 || !out_data)
         {
             return -1; // 参数错误或数据流太短
         }
@@ -76,20 +73,20 @@ extern "C"
         {
             // 1. 解析 FileHeader
             std::string header_bytes(
-                reinterpret_cast<const char *>(input.buffer), 16);
+                reinterpret_cast<const char *>(input.bytes), 16);
             FileHeader header = FileHeader::from_bytes(header_bytes);
 
             // 校验总体长度
             size_t expected_total =
                 16 + header.get_metadata_size() + header.get_data_size();
-            if (input.length != expected_total)
+            if (input.len != expected_total)
             {
                 return -2; // 数据包实际长度与头部声明不符
             }
 
             // 2. 解析 Metadata JSON
             const char *meta_start =
-                reinterpret_cast<const char *>(input.buffer) + 16;
+                reinterpret_cast<const char *>(input.bytes) + 16;
             std::string meta_bytes(meta_start, header.get_metadata_size());
 
             // 3. 解析 DataPacket
@@ -113,7 +110,8 @@ extern "C"
             out_data->metadata_json.str[meta_bytes.size()] = '\0';
 
             // 4.3 PacketHeader (基础属性映射)
-            out_data->packet_header.magic = 0x7144;
+            out_data->packet_header.magic[0] = 0x71;
+            out_data->packet_header.magic[1] = 0x44;
             out_data->packet_header.source_id = packet.get_source_id();
             out_data->packet_header.version = packet.get_version();
             out_data->packet_header.packet_type = 0x01;
@@ -143,11 +141,11 @@ extern "C"
         }
     }
 
-    int qrest_build_bytes(qrest_c_string_t json_str,
-                          qrest_c_double_array_t packet_data,
-                          uint16_t source_id,
-                          uint16_t data_encodings,
-                          qrest_c_byte_stream_t *out_stream)
+    int qrest_to_bytes(qrest_c_string_t json_str,
+                       qrest_c_double_array_t packet_data,
+                       uint16_t source_id,
+                       uint16_t data_encodings,
+                       qrest_c_byte_stream_t *out_stream)
     {
 
         if (!json_str.str || !packet_data.data || !out_stream)
@@ -207,11 +205,11 @@ extern "C"
             size_t total_size =
                 header_bytes.size() + meta_bytes.size() + packet_bytes.size();
 
-            out_stream->length = total_size;
-            out_stream->buffer = new uint8_t[total_size]; // 为输出分配内存
+            out_stream->len = total_size;
+            out_stream->bytes = new uint8_t[total_size]; // 为输出分配内存
 
             // 按序拷贝: Header -> JSON -> Packet
-            uint8_t *write_ptr = out_stream->buffer;
+            uint8_t *write_ptr = out_stream->bytes;
 
             std::memcpy(write_ptr, header_bytes.data(), header_bytes.size());
             write_ptr += header_bytes.size();

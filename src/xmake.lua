@@ -3,4 +3,5 @@ add_includedirs("data_struct")
 
 includes("data_generator")
 includes("data_loader")
-includes("c_interface")
+includes("qrest_data")
+includes("test_qrest_data")
