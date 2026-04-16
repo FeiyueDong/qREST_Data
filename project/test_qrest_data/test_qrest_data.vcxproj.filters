@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\test_qrest_data\main.cpp">
+    <ClCompile Include="..\..\src\test_qrest_data\test_qrest_data.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

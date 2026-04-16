@@ -52,19 +52,22 @@ def release_win():
     for doc_dir in doc_dirs:
         copy_directory(os.path.join("doc", doc_dir), os.path.join("release", "win", "doc", doc_dir))
     # 2.复制doc路径下的下列文件：
-    doc_files = ["qREST数据传输协议规范.md", "qREST数据传输协议规范.html", "qREST数据存储协议规范.md", "qREST数据存储协议规范.html"]
+    doc_files = ["qREST数据传输协议规范.md", "qREST数据传输协议规范.html", "qREST文件存储格式规范.md", "qREST文件存储格式规范.html"]
     for doc_file in doc_files:
-        copy_file(os.path.join("doc", doc_file), os.path.join("release", "win", "doc"))
-    # 3.复制examples文件夹：
-    copy_directory("examples", os.path.join("release", "win", "examples"))
+        copy_file(os.path.join("doc", doc_file), os.path.join("release", "win", "doc", doc_file))
+    # 3.复制example文件夹：
+    copy_directory("example", os.path.join("release", "win", "example"))
     # 4.复制x64/Release路径下的导入库、动态库和可执行文件
     copy_files_with_suffix(os.path.join("x64", "Release"), os.path.join("release", "win", "lib"), ".lib")
     copy_files_with_suffix(os.path.join("x64", "Release"), os.path.join("release", "win", "bin"), ".dll")
     copy_files_with_suffix(os.path.join("x64", "Release"), os.path.join("release", "win", "bin"), ".exe")
     # 5.复制库的头文件
-    copy_directory(os.path.join("src", "qrest_data"), os.path.join("release", "win", "include", "qrest_data"))
+    copy_file(os.path.join("src", "qrest_data", "qrest_data.h"), os.path.join("release", "win", "include", "qrest_data", "qrest_data.h"))
     # 6.复制测试样例的源代码
-    copy_file(os.path.join("test_qrest_data", "test_qrest_data.cpp"), os.path.join("release", "win", "examples"))
+    copy_file(os.path.join("src", "test_qrest_data", "test_qrest_data.cpp"), os.path.join("release", "win", "src", "test_qrest_data", "test_qrest_data.cpp"))
+    # 7.复制readme和release说明文件
+    copy_file("readme.md", os.path.join("release", "win", "readme.md"))
+    copy_file("release.md", os.path.join("release", "win", "release.md"))
 
 def release_linux():
     # 1.复制doc路径下的下列文件夹：
@@ -72,18 +75,21 @@ def release_linux():
     for doc_dir in doc_dirs:
         copy_directory(os.path.join("doc", doc_dir), os.path.join("release", "linux", "doc", doc_dir))
     # 2.复制doc路径下的下列文件：
-    doc_files = ["qREST数据传输协议规范.md", "qREST数据传输协议规范.html", "qREST数据存储协议规范.md", "qREST数据存储协议规范.html"]
+    doc_files = ["qREST数据传输协议规范.md", "qREST数据传输协议规范.html", "qREST文件存储格式规范.md", "qREST文件存储格式规范.html"]
     for doc_file in doc_files:
-        copy_file(os.path.join("doc", doc_file), os.path.join("release", "linux", "doc"))
-    # 3.复制examples文件夹：
-    copy_directory("examples", os.path.join("release", "linux", "examples"))
+        copy_file(os.path.join("doc", doc_file), os.path.join("release", "linux", "doc", doc_file))
+    # 3.复制example文件夹：
+    copy_directory("example", os.path.join("release", "linux", "example"))
     # 4.复制out路径下linux文件夹下的bin和lib文件夹
     copy_directory(os.path.join("out", "linux", "bin"), os.path.join("release", "linux", "bin"))
     copy_directory(os.path.join("out", "linux", "lib"), os.path.join("release", "linux", "lib"))
     # 5.复制库的头文件
-    copy_directory(os.path.join("src", "qrest_data"), os.path.join("release", "linux", "include", "qrest_data"))
+    copy_file(os.path.join("src", "qrest_data", "qrest_data.h"), os.path.join("release", "linux", "include", "qrest_data", "qrest_data.h"))
     # 6.复制测试样例的源代码
-    copy_file(os.path.join("test_qrest_data", "main.cpp"), os.path.join("release", "linux", "examples"))
+    copy_file(os.path.join("src", "test_qrest_data", "test_qrest_data.cpp"), os.path.join("release", "linux", "src", "test_qrest_data", "test_qrest_data.cpp"))
+    # 7.复制readme和release说明文件
+    copy_file("readme.md", os.path.join("release", "linux", "readme.md"))
+    copy_file("release.md", os.path.join("release", "linux", "release.md"))
 
 
 if __name__ == "__main__":

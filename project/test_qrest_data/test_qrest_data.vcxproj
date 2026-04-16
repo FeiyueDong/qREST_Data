@@ -134,12 +134,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\test_qrest_data\main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\qrest_data\qrest_data.vcxproj">
       <Project>{69d3464d-40d9-484d-93b0-16cd3d1bb180}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\test_qrest_data\test_qrest_data.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
