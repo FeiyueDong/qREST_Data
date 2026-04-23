@@ -8,6 +8,9 @@
   <Project Path="project/data_struct/data_struct.vcxproj" Id="4928d398-5acf-420e-baea-ce27c7689552">
     <Build Project="false" />
   </Project>
+  <Project Path="project/data_tools/data_tools.vcxproj" Id="837e05e8-fb5c-44c1-ac20-42e636b1746e">
+    <Platform Project="x64" />
+  </Project>
   <Project Path="project/qrest_data/qrest_data.vcxproj" Id="69d3464d-40d9-484d-93b0-16cd3d1bb180" />
   <Project Path="project/test_qrest_data/test_qrest_data.vcxproj" Id="14674a54-12c5-427c-afca-995a8f1249bc" />
 </Solution>

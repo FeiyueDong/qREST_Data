@@ -249,7 +249,7 @@ $$ Scale = \frac{1.0 \, \mathrm{m/s^2}}{100 \, \mathrm{mV/g} \times 9.81 \, \mat
 ```mermaid
 packet-beta
 title 数据包头结构布局 (Packet Layout)
-0-15: "Magic (uint8[2])"
+0-15: "Magic (uint16)"
 16-31: "SourceID (uint16)"
 32-39: "Version (uint8)"
 40-47: "PacketType (uint8)"
@@ -264,7 +264,7 @@ title 数据包头结构布局 (Packet Layout)
 
 | 偏移 | 字段名称 | 数据类型 | 长度 | 描述 |
 | --- | --- | --- | --- | --- |
-| 0 | Magic | `uint8[2]` | 2 字节 | 包头标识，固定为 `0x7144` (`"qD"`) |
+| 0 | Magic | `uint16` | 2 字节 | 包头标识，固定为 `0x7144` (`"qD"`) |
 | 2 | SourceID | `uint16` | 2 字节 | 数据源 ID |
 | 4 | Version | `uint8` | 1 字节 | 协议版本号，当前为 `0x01` |
 | 5 | PacketType | `uint8` | 1 字节 | 数据包类型，见[4.1.1](#411-数据包类型定义) |
@@ -286,7 +286,7 @@ $$ BodySize = ChannelCount × DataPointCount × TypeSize $$
 
 ```c
 typedef struct {
-    uint8_t magic[2];         // 0x7144 ("qD")
+    uint16_t magic;         // 0x7144 ("qD")
     uint16_t source_id;      // 数据源ID
     uint8_t  version;         // 协议版本 0x01
     uint8_t  packet_type;     // 数据包类型

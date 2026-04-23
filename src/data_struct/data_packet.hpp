@@ -43,7 +43,7 @@ inline uint32_t crc32(const uint8_t *data, size_t length)
 #pragma pack(push, 1)
 struct PacketHeaderPOD
 {
-    uint8_t magic[2];          // 0: 0x7144 ("qD")
+    uint8_t magic[2];          // 0: 0x4471 ("Dq")
     uint16_t source_id;        // 2: 数据源ID
     uint8_t version;           // 4: 协议版本 0x01
     uint8_t packet_type;       // 5: 数据包类型 0x01
@@ -161,8 +161,8 @@ public:
 
         // 3. 构建包头
         PacketHeaderPOD header{};
-        header.magic[0] = 0x71;
-        header.magic[1] = 0x44;
+        header.magic[0] = 0x44;
+        header.magic[1] = 0x71;
         header.source_id = source_id_;
         header.version = version_;
         header.packet_type = packet_type_;
@@ -193,7 +193,7 @@ public:
         PacketHeaderPOD header;
         std::memcpy(&header, bytes.data(), sizeof(PacketHeaderPOD));
 
-        if (header.magic[0] != 0x71 || header.magic[1] != 0x44)
+        if (header.magic[0] != 0x44 || header.magic[1] != 0x71)
         {
             throw std::runtime_error("Invalid packet magic");
         }
