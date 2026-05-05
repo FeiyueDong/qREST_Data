@@ -2,11 +2,11 @@ set_project("qrest_data")
 set_version("1.0.0")
 set_xmakever("3.0.5")
 set_warnings("all")
-set_allowedplats("windows", "linux", "macosx", "mingw", "msys")
+set_allowedplats("windows", "linux", "macosx", "mingw")
 
 add_rules("mode.debug", "mode.release")
--- set_config("plat", "mingw")
-if is_plat("msys") then
+set_config("plat", "mingw")
+if is_plat("mingw") then
     set_config("sdk", "C:/Programing/msys64/ucrt64")
     set_toolchains("gcc")
 elseif is_plat("linux") then

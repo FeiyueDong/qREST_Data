@@ -211,7 +211,7 @@ Accept: application/octet-stream
 
 包头固定为 **32 字节**，采用 **小端序** (Little Endian) ,内存布局如下图：
 
-![包头内存布局](./svg/包头内存布局.svg)
+![包头内存布局](./svg/包头内存布局_64bit.svg)
 
 各字段详细说明如下表所示：
 

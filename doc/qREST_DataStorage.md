@@ -98,7 +98,7 @@ flowchart LR
     %% 第一层级：四大主要模块
     Root --> BaseInfo["基础属性"]
     Root --> Build["BuildingInfo (建筑信息)"]
-    Root --> Inst["InstrumentInfo (仪器信息)"]
+    Root --> Inst["InstrumentInfo (监测设备信息)"]
     Root --> Data["DataInfo (数据信息)"]
 
     %% 基础属性展开
@@ -118,7 +118,7 @@ flowchart LR
     Geo --> Lat["Latitude (纬度)"]
     Geo --> NA["NorthAngle (正北夹角)"]
 
-    %% 仪器信息展开
+    %% 监测设备信息展开
     Inst --> Prov["Provider"]
     Inst --> CNum["ChannelNum (通道总数)"]
     Inst --> ChList["Channels (通道列表)"]
