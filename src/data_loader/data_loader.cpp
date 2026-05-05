@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "data_struct/data_packet.hpp"
-#include "data_struct/file_header.hpp"
-#include "data_struct/metadata.hpp"
+#include "data_packet.hpp"
+#include "file_header.hpp"
+#include "metadata.hpp"
 
 
 using namespace qrest_data;
@@ -21,8 +21,8 @@ int main(int argc, char *argv[])
     }
 
     std::string input_file = argv[1];
-    std::string output_txt = argv[2];
-    std::string output_json = argv[3];
+    std::string output_json = argv[2];
+    std::string output_txt = argv[3];
 
     try
     {

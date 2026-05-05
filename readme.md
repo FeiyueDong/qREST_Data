@@ -39,7 +39,7 @@ data_generator <metadata.json> <data.txt> <output.qrest>
 用于读取和解析qrest数据文件，使用方式如下：
 
 ```bash
-data_loader <input.qrest> <data.txt> <metadata.json>
+data_loader <input.qrest> <metadata.json> <data.txt> 
 ```
 
 其中：

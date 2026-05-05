@@ -7,7 +7,7 @@
 
 
 // 仅包含 C 接口头文件，模拟外部客户端调用环境
-#include "qrest_data/qrest_data.h"
+#include "qrest_data_lib/qrest_data.h"
 
 /**
  * @brief 辅助函数：从文件读取所有内容到 std::string

@@ -7,9 +7,9 @@
 
 
 // 包含之前定义的头文件
-#include "data_struct/data_packet.hpp"
-#include "data_struct/file_header.hpp"
-#include "data_struct/metadata.hpp"
+#include "data_packet.hpp"
+#include "file_header.hpp"
+#include "metadata.hpp"
 
 
 using namespace qrest_data;

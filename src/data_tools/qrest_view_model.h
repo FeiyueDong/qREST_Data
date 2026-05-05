@@ -10,9 +10,9 @@
 
 
 #ifndef Q_MOC_RUN
-#include "data_struct/data_packet.hpp"
-#include "data_struct/file_header.hpp"
-#include "data_struct/metadata.hpp"
+#include "data_packet.hpp"
+#include "file_header.hpp"
+#include "metadata.hpp"
 #endif
 
 // =========================================================

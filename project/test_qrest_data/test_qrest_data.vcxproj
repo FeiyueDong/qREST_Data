@@ -24,6 +24,7 @@
     <ProjectGuid>{14674a54-12c5-427c-afca-995a8f1249bc}</ProjectGuid>
     <RootNamespace>testqrestdata</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>test_qrest_data_lib</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -139,7 +140,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\test_qrest_data\test_qrest_data.cpp" />
+    <ClCompile Include="..\..\src\test_qrest_data_lib\test_qrest_data.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
