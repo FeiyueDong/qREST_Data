@@ -13,37 +13,32 @@
 DataTableModel::DataTableModel(QObject *parent) : QAbstractTableModel(parent) {}
 
 #ifndef Q_MOC_RUN
-void DataTableModel::loadData(const qrest_data::DataPacket *packet)
-{
+void DataTableModel::loadData(const qrest_data::DataPacket *packet) {
     beginResetModel(); // 告诉 QML 准备彻底刷新表格
     m_packet = packet;
     endResetModel(); // 刷新完成
 }
 #endif
 
-void DataTableModel::clear()
-{
+void DataTableModel::clear() {
     beginResetModel();
     m_packet = nullptr;
     endResetModel();
 }
 
-int DataTableModel::rowCount(const QModelIndex &parent) const
-{
+int DataTableModel::rowCount(const QModelIndex &parent) const {
     if (parent.isValid() || !m_packet)
         return 0;
     return m_packet->get_data_point_count(); // 行数为采样点数 (NPTS)
 }
 
-int DataTableModel::columnCount(const QModelIndex &parent) const
-{
+int DataTableModel::columnCount(const QModelIndex &parent) const {
     if (parent.isValid() || !m_packet)
         return 0;
     return m_packet->get_channel_count(); // 列数为通道数
 }
 
-QVariant DataTableModel::data(const QModelIndex &index, int role) const
-{
+QVariant DataTableModel::data(const QModelIndex &index, int role) const {
     if (!m_packet || !index.isValid() || role != Qt::DisplayRole)
         return QVariant();
 
@@ -53,8 +48,7 @@ QVariant DataTableModel::data(const QModelIndex &index, int role) const
         static_cast<size_t>(col) * m_packet->get_data_point_count() + row;
 
     const auto &raw_data = m_packet->get_data();
-    if (data_index < raw_data.size())
-    {
+    if (data_index < raw_data.size()) {
         // 使用 'g' 格式，自动处理科学计数法，保持 8 位有效数字
         return QString::number(raw_data[data_index], 'g', 8);
     }
@@ -63,20 +57,15 @@ QVariant DataTableModel::data(const QModelIndex &index, int role) const
 
 QVariant DataTableModel::headerData(int section,
                                     Qt::Orientation orientation,
-                                    int role) const
-{
+                                    int role) const {
     if (role != Qt::DisplayRole)
         return QVariant();
 
-    if (orientation == Qt::Horizontal)
-    {
+    if (orientation == Qt::Horizontal) {
         return QString("CH %1").arg(section + 1);
-    }
-    else
-    {
+    } else {
         // 垂直表头：计算时间 (row + 1) / fs
-        if (m_packet && m_packet->get_sampling_rate() > 0)
-        {
+        if (m_packet && m_packet->get_sampling_rate() > 0) {
             double fs = static_cast<double>(m_packet->get_sampling_rate());
             double time = static_cast<double>(section + 1) / fs;
             // 保留 4 位小数，方便观察高采样率数据
@@ -88,52 +77,42 @@ QVariant DataTableModel::headerData(int section,
 
 // ================= QrestViewModel 实现 =================
 
-QrestViewModel::QrestViewModel(QObject *parent) : QObject(parent)
-{
+QrestViewModel::QrestViewModel(QObject *parent) : QObject(parent) {
     m_tableModel = new DataTableModel(this);
     // 实例化选择模型并绑定到我们的数据模型
     m_selectionModel = new QItemSelectionModel(m_tableModel, this);
     newFile();
 }
 
-QString QrestViewModel::headerMagic() const
-{
+QString QrestViewModel::headerMagic() const {
     return QString::fromStdString(m_fileHeader.get_magic());
 }
-int QrestViewModel::metadataSize() const
-{
+int QrestViewModel::metadataSize() const {
     return m_fileHeader.get_metadata_size();
 }
 int QrestViewModel::dataSize() const { return m_fileHeader.get_data_size(); }
-QJsonObject QrestViewModel::metadataJson() const
-{
+QJsonObject QrestViewModel::metadataJson() const {
     std::string jsonStr = m_metadata.to_bytes();
     return QJsonDocument::fromJson(QByteArray::fromStdString(jsonStr)).object();
 }
-void QrestViewModel::setMetadataJson(const QJsonObject &json)
-{
+void QrestViewModel::setMetadataJson(const QJsonObject &json) {
     std::string jsonStr =
         QJsonDocument(json).toJson(QJsonDocument::Compact).toStdString();
-    try
-    {
+    try {
         m_metadata = qrest_data::Metadata::from_bytes(jsonStr);
         emit metadataUpdated();
         m_fileHeader.set_metadata_size(static_cast<uint32_t>(jsonStr.size()));
         emit headerUpdated();
         emit showMessage("元数据已修改");
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         emit showMessage(QString("更新元数据失败: %1").arg(e.what()), true);
     }
 }
 
-QString QrestViewModel::headerHex() const
-{
+QString QrestViewModel::headerHex() const {
     std::string bytes = m_fileHeader.to_bytes();
     QString hexStr;
-    for (size_t i = 0; i < bytes.size(); ++i)
-    {
+    for (size_t i = 0; i < bytes.size(); ++i) {
         // 格式化为: 71 52 45 53 ...
         hexStr +=
             QString("%1 ")
@@ -146,19 +125,16 @@ QString QrestViewModel::headerHex() const
 }
 
 // 数据包 Getter
-QItemSelectionModel *QrestViewModel::selectionModel() const
-{
+QItemSelectionModel *QrestViewModel::selectionModel() const {
     return m_selectionModel;
 }
 
 // 辅助函数：将一段 QByteArray 格式化为标准的 Hex 视图行
-QString formatHexBlock(const QByteArray &block, int startOffset)
-{
+QString formatHexBlock(const QByteArray &block, int startOffset) {
     QString result;
     const int bytesPerLine = 32; // 在这里调整每行显示的字节数
 
-    for (int i = 0; i < block.size(); i += bytesPerLine)
-    {
+    for (int i = 0; i < block.size(); i += bytesPerLine) {
         // 1. 地址偏移 (8位十六进制)
         result +=
             QString("%1  ").arg(startOffset + i, 8, 16, QChar('0')).toUpper();
@@ -166,10 +142,8 @@ QString formatHexBlock(const QByteArray &block, int startOffset)
         QString hexPart;
         QString asciiPart;
 
-        for (int j = 0; j < bytesPerLine; ++j)
-        {
-            if (i + j < block.size())
-            {
+        for (int j = 0; j < bytesPerLine; ++j) {
+            if (i + j < block.size()) {
                 unsigned char b = static_cast<unsigned char>(block[i + j]);
 
                 // 十六进制部分
@@ -180,9 +154,7 @@ QString formatHexBlock(const QByteArray &block, int startOffset)
 
                 // ASCII 字符部分
                 asciiPart += (b >= 32 && b <= 126) ? QChar(b) : QChar('.');
-            }
-            else
-            {
+            } else {
                 // 补齐最后一行不足的空格，保持 ASCII 栏右侧对齐
                 hexPart += "   ";
                 if (j == 15)
@@ -194,8 +166,7 @@ QString formatHexBlock(const QByteArray &block, int startOffset)
     return result;
 }
 
-QString QrestViewModel::fileHexPreview() const
-{
+QString QrestViewModel::fileHexPreview() const {
     if (m_rawFileBytes.isEmpty())
         return "文件未加载...";
 
@@ -213,8 +184,7 @@ QString QrestViewModel::fileHexPreview() const
     int metaOffset = 16;
     finalView += QString(">>> [PART 1: METADATA] (%1 Bytes)\n").arg(metaSize);
 
-    if (totalSize >= metaOffset + metaSize)
-    {
+    if (totalSize >= metaOffset + metaSize) {
         // 如果元数据太长，可以只展示前 2KB，防止 UI 渲染压力过大
         // int displayMetaSize = qMin(metaSize, 2048);
         int displayMetaSize = metaSize;
@@ -222,9 +192,7 @@ QString QrestViewModel::fileHexPreview() const
         finalView += formatHexBlock(metaBlock, metaOffset);
         // if (metaSize > 2048)
         //     finalView += "... (中间数据已略过) ...\n";
-    }
-    else
-    {
+    } else {
         finalView += "[Error] 元数据区域超出文件范围\n";
     }
     finalView += "\n";
@@ -234,14 +202,11 @@ QString QrestViewModel::fileHexPreview() const
     int packetHeaderSize = 32;
     finalView += ">>> [PART 2: DATA PACKET HEADER] (32 Bytes)\n";
 
-    if (totalSize >= packetHeaderOffset + packetHeaderSize)
-    {
+    if (totalSize >= packetHeaderOffset + packetHeaderSize) {
         QByteArray pHeaderBlock =
             m_rawFileBytes.mid(packetHeaderOffset, packetHeaderSize);
         finalView += formatHexBlock(pHeaderBlock, packetHeaderOffset);
-    }
-    else
-    {
+    } else {
         finalView += "[Error] 数据包头区域超出文件范围\n";
     }
 
@@ -250,34 +215,27 @@ QString QrestViewModel::fileHexPreview() const
     return finalView;
 }
 
-int QrestViewModel::packetSourceId() const
-{
+int QrestViewModel::packetSourceId() const {
     return m_dataPacket.get_source_id();
 }
-int QrestViewModel::packetChannelCount() const
-{
+int QrestViewModel::packetChannelCount() const {
     return m_dataPacket.get_channel_count();
 }
-int QrestViewModel::packetSamplingRate() const
-{
+int QrestViewModel::packetSamplingRate() const {
     return m_dataPacket.get_sampling_rate();
 }
-int QrestViewModel::packetDataPointCount() const
-{
+int QrestViewModel::packetDataPointCount() const {
     return m_dataPacket.get_data_point_count();
 }
 QAbstractTableModel *QrestViewModel::tableModel() const { return m_tableModel; }
-int QrestViewModel::packetDataEncodings() const
-{
+int QrestViewModel::packetDataEncodings() const {
     return m_dataPacket.get_data_encodings();
 }
-qlonglong QrestViewModel::packetTimestamp() const
-{
+qlonglong QrestViewModel::packetTimestamp() const {
     return static_cast<qlonglong>(m_dataPacket.get_timestamp());
 }
 
-void QrestViewModel::newFile()
-{
+void QrestViewModel::newFile() {
     m_metadata = qrest_data::Metadata();
     m_dataPacket = qrest_data::DataPacket();
     m_fileHeader = qrest_data::FileHeader();
@@ -299,15 +257,13 @@ void QrestViewModel::newFile()
     emit showMessage("已创建新文件");
 }
 
-void QrestViewModel::openFile(const QString &fileUrl)
-{
+void QrestViewModel::openFile(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
 
     QFile file(localPath);
-    if (!file.open(QIODevice::ReadOnly))
-    {
+    if (!file.open(QIODevice::ReadOnly)) {
         emit showMessage(QString("无法打开文件: %1").arg(file.errorString()),
                          true);
         return;
@@ -318,8 +274,7 @@ void QrestViewModel::openFile(const QString &fileUrl)
     QByteArray fileData = file.readAll();
     file.close();
 
-    try
-    {
+    try {
         // 1. 文件头
         m_fileHeader = qrest_data::FileHeader::from_bytes(bytes);
         emit headerUpdated();
@@ -327,8 +282,7 @@ void QrestViewModel::openFile(const QString &fileUrl)
         // 2. 元数据
         size_t headerSize = 16;
         size_t metaSize = m_fileHeader.get_metadata_size();
-        if (bytes.size() >= headerSize + metaSize)
-        {
+        if (bytes.size() >= headerSize + metaSize) {
             std::string metaStr = bytes.substr(headerSize, metaSize);
             m_metadata = qrest_data::Metadata::from_bytes(metaStr);
             emit metadataUpdated();
@@ -336,8 +290,7 @@ void QrestViewModel::openFile(const QString &fileUrl)
 
         // 3. 数据包
         size_t packetOffset = headerSize + metaSize;
-        if (bytes.size() >= packetOffset + m_fileHeader.get_data_size())
-        {
+        if (bytes.size() >= packetOffset + m_fileHeader.get_data_size()) {
             std::string packetStr =
                 bytes.substr(packetOffset, m_fileHeader.get_data_size());
             // 解析数据包并灌入表格模型
@@ -349,15 +302,12 @@ void QrestViewModel::openFile(const QString &fileUrl)
         emit fileLoaded(); // 通知 Hex 视图刷新
         emit showMessage(
             QString("成功打开文件: %1").arg(QFileInfo(localPath).fileName()));
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         emit showMessage(QString("文件解析异常: %1").arg(e.what()), true);
     }
 }
 
-void QrestViewModel::saveFile(const QString &fileUrl)
-{
+void QrestViewModel::saveFile(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
@@ -373,8 +323,7 @@ void QrestViewModel::saveFile(const QString &fileUrl)
 
     // 3. 依次写入文件
     QFile file(localPath);
-    if (!file.open(QIODevice::WriteOnly))
-    {
+    if (!file.open(QIODevice::WriteOnly)) {
         emit showMessage(QString("保存失败: %1").arg(file.errorString()), true);
         return;
     }
@@ -389,10 +338,8 @@ void QrestViewModel::saveFile(const QString &fileUrl)
         QString("成功保存至: %1").arg(QFileInfo(localPath).fileName()));
 }
 
-void QrestViewModel::copySelectedCells()
-{
-    if (!m_selectionModel || !m_selectionModel->hasSelection())
-    {
+void QrestViewModel::copySelectedCells() {
+    if (!m_selectionModel || !m_selectionModel->hasSelection()) {
         qDebug() << "复制失败：当前没有选中的单元格";
         return;
     }
@@ -413,16 +360,12 @@ void QrestViewModel::copySelectedCells()
     QString tsvText;
     int currentRow = indexes.first().row();
 
-    for (int i = 0; i < indexes.size(); ++i)
-    {
+    for (int i = 0; i < indexes.size(); ++i) {
         const QModelIndex &idx = indexes[i];
-        if (idx.row() != currentRow)
-        {
+        if (idx.row() != currentRow) {
             tsvText += "\n";
             currentRow = idx.row();
-        }
-        else if (i != 0)
-        {
+        } else if (i != 0) {
             tsvText += "\t";
         }
         // 这里获取的是 data()，即数值部分，不会包含 headerData 里的时间
@@ -432,8 +375,7 @@ void QrestViewModel::copySelectedCells()
     QGuiApplication::clipboard()->setText(tsvText);
     emit showMessage(QString("已成功复制 %1 个数据点").arg(indexes.size()));
 }
-void QrestViewModel::selectAllData()
-{
+void QrestViewModel::selectAllData() {
     if (!m_tableModel || !m_selectionModel || m_tableModel->rowCount() == 0)
         return;
     // 构建从左上角到右下角的矩形选区
@@ -444,8 +386,7 @@ void QrestViewModel::selectAllData()
     m_selectionModel->select(selection, QItemSelectionModel::ClearAndSelect);
 }
 
-void QrestViewModel::selectColumn(int col)
-{
+void QrestViewModel::selectColumn(int col) {
     if (!m_tableModel || !m_selectionModel || m_tableModel->rowCount() == 0)
         return;
     if (col < 0 || col >= m_tableModel->columnCount())
@@ -457,8 +398,7 @@ void QrestViewModel::selectColumn(int col)
     m_selectionModel->select(selection, QItemSelectionModel::ClearAndSelect);
 }
 
-void QrestViewModel::selectRow(int row)
-{
+void QrestViewModel::selectRow(int row) {
     if (!m_tableModel || !m_selectionModel || m_tableModel->columnCount() == 0)
         return;
     if (row < 0 || row >= m_tableModel->rowCount())
@@ -476,14 +416,12 @@ void QrestViewModel::updatePacketHeader(int sourceId,
                                         int channelCount,
                                         int dataPointCount,
                                         int encoding,
-                                        qlonglong timestamp)
-{
+                                        qlonglong timestamp) {
     // 1. 安全性验证：重塑(Reshape)矩阵时，数据总量不能改变
     size_t newTotal = static_cast<size_t>(channelCount) * dataPointCount;
     size_t currentTotal = m_dataPacket.get_data().size();
 
-    if (newTotal != currentTotal)
-    {
+    if (newTotal != currentTotal) {
         // 如果数据量不匹配，拒绝修改并向 UI 报错
         emit showMessage(
             QString(
@@ -496,8 +434,7 @@ void QrestViewModel::updatePacketHeader(int sourceId,
         return;
     }
 
-    try
-    {
+    try {
         // 2. 利用现有的数据，重新构造包头
         m_dataPacket =
             qrest_data::DataPacket(static_cast<uint16_t>(sourceId),
@@ -535,24 +472,20 @@ void QrestViewModel::updatePacketHeader(int sourceId,
         emit packetUpdated();
         emit fileLoaded(); // 刷新 Hex 视图
         emit showMessage("包头与元数据已同步更新");
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         emit showMessage(QString("更新包头异常: %1").arg(e.what()), true);
     }
 }
 
 // ================= 局部数据操作 =================
 
-void QrestViewModel::importMetadata(const QString &fileUrl)
-{
+void QrestViewModel::importMetadata(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
 
     QFile file(localPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         emit showMessage(QString("无法读取 JSON: %1").arg(file.errorString()),
                          true);
         return;
@@ -562,8 +495,7 @@ void QrestViewModel::importMetadata(const QString &fileUrl)
     file.close();
 
     QJsonDocument doc = QJsonDocument::fromJson(jsonData);
-    if (doc.isNull() || !doc.isObject())
-    {
+    if (doc.isNull() || !doc.isObject()) {
         emit showMessage("无效的 JSON 文件", true);
         return;
     }
@@ -572,15 +504,13 @@ void QrestViewModel::importMetadata(const QString &fileUrl)
     emit showMessage("元数据导入成功");
 }
 
-void QrestViewModel::exportMetadata(const QString &fileUrl)
-{
+void QrestViewModel::exportMetadata(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
 
     QFile file(localPath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         emit showMessage(QString("导出失败: %1").arg(file.errorString()), true);
         return;
     }
@@ -593,15 +523,13 @@ void QrestViewModel::exportMetadata(const QString &fileUrl)
     emit showMessage("元数据成功导出为 JSON");
 }
 
-void QrestViewModel::importDataBody(const QString &fileUrl)
-{
+void QrestViewModel::importDataBody(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
 
     QFile file(localPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
-    {
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         emit showMessage("无法打开文本文件", true);
         return;
     }
@@ -611,8 +539,7 @@ void QrestViewModel::importDataBody(const QString &fileUrl)
     int maxCols = 0;
 
     // 1. 读取文本数据 (假设空格、制表符或逗号分隔)
-    while (!in.atEnd())
-    {
+    while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
         if (line.isEmpty())
             continue;
@@ -630,8 +557,7 @@ void QrestViewModel::importDataBody(const QString &fileUrl)
     }
     file.close();
 
-    if (matrix.isEmpty())
-    {
+    if (matrix.isEmpty()) {
         emit showMessage("文件内容为空", true);
         return;
     }
@@ -642,17 +568,14 @@ void QrestViewModel::importDataBody(const QString &fileUrl)
     std::vector<double> flattenedData;
     flattenedData.reserve(rows * cols);
 
-    for (int c = 0; c < cols; ++c)
-    {
-        for (int r = 0; r < rows; ++r)
-        {
+    for (int c = 0; c < cols; ++c) {
+        for (int r = 0; r < rows; ++r) {
             flattenedData.push_back(matrix[r][c]);
         }
     }
 
     // 3. 更新 DataPacket 对象
-    try
-    {
+    try {
         // 使用现有属性，仅更新通道数、采样点数和具体数据
         m_dataPacket = qrest_data::DataPacket(m_dataPacket.get_source_id(),
                                               static_cast<uint16_t>(cols),
@@ -670,22 +593,18 @@ void QrestViewModel::importDataBody(const QString &fileUrl)
         emit packetUpdated();
         emit showMessage(
             QString("数据包体导入成功: %1 行, %2 通道").arg(rows).arg(cols));
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         emit showMessage(QString("导入失败: %1").arg(e.what()), true);
     }
 }
 
-void QrestViewModel::exportDataBody(const QString &fileUrl)
-{
+void QrestViewModel::exportDataBody(const QString &fileUrl) {
     QString localPath = QUrl(fileUrl).toLocalFile();
     if (localPath.isEmpty())
         localPath = fileUrl;
 
     QFile file(localPath);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
-    {
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         emit showMessage("导出失败，文件无法写入", true);
         return;
     }
@@ -696,11 +615,9 @@ void QrestViewModel::exportDataBody(const QString &fileUrl)
     const auto &data = m_dataPacket.get_data();
 
     // 按照矩阵形式写出：每行一个采样点，各列为不同通道
-    for (int r = 0; r < rows; ++r)
-    {
+    for (int r = 0; r < rows; ++r) {
         QStringList rowStrings;
-        for (int c = 0; c < cols; ++c)
-        {
+        for (int c = 0; c < cols; ++c) {
             // 计算索引：第 c 个通道块的第 r 个元素
             size_t idx = static_cast<size_t>(c) * rows + r;
             rowStrings.append(QString::number(data[idx], 'g', 10));

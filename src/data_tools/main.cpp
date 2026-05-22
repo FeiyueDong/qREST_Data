@@ -2,8 +2,7 @@
 #include <QQmlApplicationEngine>
 #include "qrest_view_model.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
     // 参数：(包名, 主版本, 次版本, 在 QML 中使用的类型名)

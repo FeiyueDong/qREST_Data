@@ -8,13 +8,11 @@
 #include <stdexcept>
 #include <string>
 
-namespace qrest_data
-{
+namespace qrest_data {
 
 // 强制 1 字节内存对齐的包头纯数据结构 (POD)
 #pragma pack(push, 1)
-struct FileHeaderPOD
-{
+struct FileHeaderPOD {
     char magic[8];          // 0: 文件标识，固定为 "qREST\0\0\0"
     uint32_t metadata_size; // 8: 元数据长度
     uint32_t data_size;     // 12: 数据包长度
@@ -22,33 +20,28 @@ struct FileHeaderPOD
 #pragma pack(pop)
 
 // 文件头结构体
-class FileHeader
-{
+class FileHeader {
 public:
     // 默认构造函数
     FileHeader() { init_magic(); }
 
     FileHeader(uint32_t metadata_size, uint32_t data_size)
-        : metadata_size_(metadata_size), data_size_(data_size)
-    {
+        : metadata_size_(metadata_size), data_size_(data_size) {
         init_magic();
     }
 
     // --- Getter ---
     // 返回 std::string 方便外部打印或日志记录
-    [[nodiscard]] std::string get_magic() const
-    {
+    [[nodiscard]] std::string get_magic() const {
         return std::string(magic_, 5);
     }
-    [[nodiscard]] uint32_t get_metadata_size() const noexcept
-    {
+    [[nodiscard]] uint32_t get_metadata_size() const noexcept {
         return metadata_size_;
     }
     [[nodiscard]] uint32_t get_data_size() const noexcept { return data_size_; }
 
     // 检查文件标识是否正确
-    [[nodiscard]] bool is_valid() const noexcept
-    {
+    [[nodiscard]] bool is_valid() const noexcept {
         const char expected_magic[8] = {
             'q', 'R', 'E', 'S', 'T', '\0', '\0', '\0'};
         return std::memcmp(magic_, expected_magic, 8) == 0;
@@ -59,8 +52,7 @@ public:
     void set_data_size(uint32_t size) noexcept { data_size_ = size; }
 
     // --- 序列化 ---
-    [[nodiscard]] std::string to_bytes() const
-    {
+    [[nodiscard]] std::string to_bytes() const {
         FileHeaderPOD pod{};
         std::memcpy(pod.magic, magic_, 8);
         pod.metadata_size = metadata_size_;
@@ -73,10 +65,8 @@ public:
     }
 
     // --- 反序列化 ---
-    [[nodiscard]] static FileHeader from_bytes(const std::string &bytes)
-    {
-        if (bytes.size() < sizeof(FileHeaderPOD))
-        {
+    [[nodiscard]] static FileHeader from_bytes(const std::string &bytes) {
+        if (bytes.size() < sizeof(FileHeaderPOD)) {
             throw std::runtime_error("File header bytes too short");
         }
 
@@ -88,8 +78,7 @@ public:
         header.metadata_size_ = pod.metadata_size;
         header.data_size_ = pod.data_size;
 
-        if (!header.is_valid())
-        {
+        if (!header.is_valid()) {
             throw std::runtime_error(
                 "Invalid qREST file magic number (Signature mismatch)");
         }
@@ -99,8 +88,7 @@ public:
 
 private:
     // 辅助函数：初始化 magic_ 数组为 "qREST\0\0\0"
-    void init_magic() noexcept
-    {
+    void init_magic() noexcept {
         std::memset(magic_, 0, sizeof(magic_)); // 先全部清零
         std::memcpy(magic_, "qREST", 5);        // 再拷入前 5 个有效字符
     }

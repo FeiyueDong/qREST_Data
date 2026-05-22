@@ -12,8 +12,7 @@
 /**
  * @brief 辅助函数：从文件读取所有内容到 std::string
  */
-std::string read_file_to_string(const std::string &filepath)
-{
+std::string read_file_to_string(const std::string &filepath) {
     std::ifstream ifs(filepath, std::ios::binary);
     if (!ifs.is_open())
         throw std::runtime_error("Cannot open file: " + filepath);
@@ -25,8 +24,7 @@ std::string read_file_to_string(const std::string &filepath)
  * @brief 辅助函数：读取文本数据并转置为通道主序
  */
 std::vector<double>
-read_txt_data(const std::string &filename, int channel_num, int npts)
-{
+read_txt_data(const std::string &filename, int channel_num, int npts) {
     std::ifstream file(filename);
     if (!file.is_open())
         throw std::runtime_error("Cannot open data file: " + filename);
@@ -35,11 +33,9 @@ read_txt_data(const std::string &filename, int channel_num, int npts)
         npts, std::vector<double>(channel_num));
     std::string line;
     int row = 0;
-    while (std::getline(file, line) && row < npts)
-    {
+    while (std::getline(file, line) && row < npts) {
         std::stringstream ss(line);
-        for (int col = 0; col < channel_num; ++col)
-        {
+        for (int col = 0; col < channel_num; ++col) {
             ss >> temp_data[row][col];
         }
         row++;
@@ -48,21 +44,17 @@ read_txt_data(const std::string &filename, int channel_num, int npts)
     // 转置为通道主序
     std::vector<double> flat_data;
     flat_data.reserve(channel_num * npts);
-    for (int col = 0; col < channel_num; ++col)
-    {
-        for (int r = 0; r < npts; ++r)
-        {
+    for (int col = 0; col < channel_num; ++col) {
+        for (int r = 0; r < npts; ++r) {
             flat_data.push_back(temp_data[r][col]);
         }
     }
     return flat_data;
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     // 为了不依赖外部 JSON 解析库提取通道数，测试时直接作为参数传入
-    if (argc < 5)
-    {
+    if (argc < 5) {
         std::cout << "Usage: " << argv[0]
                   << " <meta.json> <data.txt> <channel_num> <npts>"
                   << std::endl;
@@ -75,8 +67,7 @@ int main(int argc, char *argv[])
     int npts = std::stoi(argv[4]);
     std::string qrest_file = "c_api_test_output.qrest";
 
-    try
-    {
+    try {
         std::cout << "[1] Test: qrest_to_bytes" << std::endl;
 
         // 1. 准备输入数据
@@ -96,8 +87,7 @@ int main(int argc, char *argv[])
         int build_ret = qrest_to_bytes(
             c_json_input, c_data_input, 1, 0 /* Float32 编码 */, &out_stream);
 
-        if (build_ret != 0)
-        {
+        if (build_ret != 0) {
             throw std::runtime_error("C-API Packaging failed, error code: "
                                      + std::to_string(build_ret));
         }
@@ -131,8 +121,7 @@ int main(int argc, char *argv[])
         std::cout << "Calling qrest_from_bytes..." << std::endl;
         int parse_ret = qrest_from_bytes(in_stream, parsed_data);
 
-        if (parse_ret != 0)
-        {
+        if (parse_ret != 0) {
             throw std::runtime_error(
                 "C-API deserialization failed, error code: "
                 + std::to_string(parse_ret));
@@ -150,8 +139,7 @@ int main(int argc, char *argv[])
                   << " data points" << std::endl;
 
         // 核对第一通道前 3 个点
-        if (parsed_data->packet_data.len > 3)
-        {
+        if (parsed_data->packet_data.len > 3) {
             std::cout << " -> Channel 1 first three sample points "
                          "reconstruction result: "
                       << std::fixed << std::setprecision(8)
@@ -164,9 +152,7 @@ int main(int argc, char *argv[])
         qrest_free_data(parsed_data);
 
         std::cout << "\n>>> Testing completed successfully!" << std::endl;
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         std::cerr << "\n[Error]: " << e.what() << std::endl;
         return -1;
     }

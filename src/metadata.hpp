@@ -10,32 +10,25 @@
 
 #include "nlohmann/json.hpp"
 
-namespace qrest_data
-{
-class Metadata
-{
+namespace qrest_data {
+class Metadata {
 public:
-    struct BuildingInfoStruct
-    {
-        struct GeoLocationStruct
-        {
+    struct BuildingInfoStruct {
+        struct GeoLocationStruct {
             double Longitude{};
             double Latitude{};
             double NorthAngle{};
         } GeoLocation;
 
-        struct StructuralFootprintStruct
-        {
-            struct ParametersStruct
-            {
+        struct StructuralFootprintStruct {
+            struct ParametersStruct {
                 double Length{};
                 double Width{};
                 double Radius{};
                 std::vector<std::array<double, 2>> Corners{};
             } Parameters;
 
-            struct BoundingBoxStruct
-            {
+            struct BoundingBoxStruct {
                 double MaxX{};
                 double MinX{};
                 double MaxY{};
@@ -51,10 +44,8 @@ public:
         std::vector<double> Elevation{};
     };
 
-    struct InstrumentInfoStruct
-    {
-        struct ChannelStruct
-        {
+    struct InstrumentInfoStruct {
+        struct ChannelStruct {
             int ChannelNo{};
             std::string ChannelID{};
             std::string Measurand{};
@@ -68,8 +59,7 @@ public:
         std::vector<ChannelStruct> Channels{};
     };
 
-    struct DataInfoStruct
-    {
+    struct DataInfoStruct {
         std::string EventName{};
         std::string StartTime{};
         int NPTS{};
@@ -89,8 +79,7 @@ public:
 public:
     Metadata() = default;
 
-    explicit Metadata(std::string_view json_str)
-    {
+    explicit Metadata(std::string_view json_str) {
         *this = from_bytes(json_str);
     }
 
@@ -98,16 +87,15 @@ public:
     [[nodiscard]] static Metadata from_bytes(std::string_view json_str);
 };
 // --- GeoLocationStruct ---
-inline void to_json(nlohmann::json &j,
-                    const Metadata::BuildingInfoStruct::GeoLocationStruct &loc)
-{
+inline void
+to_json(nlohmann::json &j,
+        const Metadata::BuildingInfoStruct::GeoLocationStruct &loc) {
     j = nlohmann::json{{"Longitude", loc.Longitude},
                        {"Latitude", loc.Latitude},
                        {"NorthAngle", loc.NorthAngle}};
 }
 inline void from_json(const nlohmann::json &j,
-                      Metadata::BuildingInfoStruct::GeoLocationStruct &loc)
-{
+                      Metadata::BuildingInfoStruct::GeoLocationStruct &loc) {
     j.at("Longitude").get_to(loc.Longitude);
     j.at("Latitude").get_to(loc.Latitude);
     j.at("NorthAngle").get_to(loc.NorthAngle);
@@ -116,20 +104,14 @@ inline void from_json(const nlohmann::json &j,
 // --- StructuralFootprintStruct ---
 inline void
 to_json(nlohmann::json &j,
-        const Metadata::BuildingInfoStruct::StructuralFootprintStruct &sf)
-{
+        const Metadata::BuildingInfoStruct::StructuralFootprintStruct &sf) {
     j["Shape"] = sf.Shape;
-    if (sf.Shape == "Circular")
-    {
+    if (sf.Shape == "Circular") {
         j["Parameters"]["Radius"] = sf.Parameters.Radius;
-    }
-    else if (sf.Shape == "Rectangular")
-    {
+    } else if (sf.Shape == "Rectangular") {
         j["Parameters"]["Length"] = sf.Parameters.Length;
         j["Parameters"]["Width"] = sf.Parameters.Width;
-    }
-    else if (sf.Shape == "Polygon")
-    {
+    } else if (sf.Shape == "Polygon") {
         j["Parameters"]["Corners"] = sf.Parameters.Corners;
     }
     j["BoundingBox"] = nlohmann::json{{"MaxX", sf.BoundingBox.MaxX},
@@ -139,26 +121,18 @@ to_json(nlohmann::json &j,
 }
 inline void
 from_json(const nlohmann::json &j,
-          Metadata::BuildingInfoStruct::StructuralFootprintStruct &sf)
-{
+          Metadata::BuildingInfoStruct::StructuralFootprintStruct &sf) {
     j.at("Shape").get_to(sf.Shape);
     const auto &params = j.at("Parameters");
 
-    if (sf.Shape == "Circular")
-    {
+    if (sf.Shape == "Circular") {
         params.at("Radius").get_to(sf.Parameters.Radius);
-    }
-    else if (sf.Shape == "Rectangular")
-    {
+    } else if (sf.Shape == "Rectangular") {
         params.at("Length").get_to(sf.Parameters.Length);
         params.at("Width").get_to(sf.Parameters.Width);
-    }
-    else if (sf.Shape == "Polygon")
-    {
+    } else if (sf.Shape == "Polygon") {
         params.at("Corners").get_to(sf.Parameters.Corners);
-    }
-    else
-    {
+    } else {
         throw std::invalid_argument("Unknown StructuralFootprint Shape: "
                                     + sf.Shape);
     }
@@ -171,8 +145,8 @@ from_json(const nlohmann::json &j,
 }
 
 // --- BuildingInfoStruct ---
-inline void to_json(nlohmann::json &j, const Metadata::BuildingInfoStruct &info)
-{
+inline void to_json(nlohmann::json &j,
+                    const Metadata::BuildingInfoStruct &info) {
     j = nlohmann::json{{"GeoLocation", info.GeoLocation},
                        {"StructuralFootprint", info.StructuralFootprint},
                        {"ProjectName", info.ProjectName},
@@ -181,8 +155,7 @@ inline void to_json(nlohmann::json &j, const Metadata::BuildingInfoStruct &info)
                        {"Elevation", info.Elevation}};
 }
 inline void from_json(const nlohmann::json &j,
-                      Metadata::BuildingInfoStruct &info)
-{
+                      Metadata::BuildingInfoStruct &info) {
     j.at("GeoLocation").get_to(info.GeoLocation);
     j.at("StructuralFootprint").get_to(info.StructuralFootprint);
     j.at("ProjectName").get_to(info.ProjectName);
@@ -193,8 +166,7 @@ inline void from_json(const nlohmann::json &j,
 
 // --- ChannelStruct ---
 inline void to_json(nlohmann::json &j,
-                    const Metadata::InstrumentInfoStruct::ChannelStruct &ch)
-{
+                    const Metadata::InstrumentInfoStruct::ChannelStruct &ch) {
     j = nlohmann::json{{"ChannelNo", ch.ChannelNo},
                        {"ChannelID", ch.ChannelID},
                        {"Measurand", ch.Measurand},
@@ -203,8 +175,7 @@ inline void to_json(nlohmann::json &j,
                        {"LocationXYZ", ch.LocationXYZ}};
 }
 inline void from_json(const nlohmann::json &j,
-                      Metadata::InstrumentInfoStruct::ChannelStruct &ch)
-{
+                      Metadata::InstrumentInfoStruct::ChannelStruct &ch) {
     j.at("ChannelNo").get_to(ch.ChannelNo);
     j.at("ChannelID").get_to(ch.ChannelID);
     j.at("Measurand").get_to(ch.Measurand);
@@ -215,31 +186,27 @@ inline void from_json(const nlohmann::json &j,
 
 // --- InstrumentInfoStruct ---
 inline void to_json(nlohmann::json &j,
-                    const Metadata::InstrumentInfoStruct &info)
-{
+                    const Metadata::InstrumentInfoStruct &info) {
     j = nlohmann::json{{"Provider", info.Provider},
                        {"ChannelNum", info.ChannelNum},
                        {"Channels", info.Channels}};
 }
 inline void from_json(const nlohmann::json &j,
-                      Metadata::InstrumentInfoStruct &info)
-{
+                      Metadata::InstrumentInfoStruct &info) {
     j.at("Provider").get_to(info.Provider);
     j.at("ChannelNum").get_to(info.ChannelNum);
     j.at("Channels").get_to(info.Channels); // 自动解析 std::vector
 }
 
 // --- DataInfoStruct ---
-inline void to_json(nlohmann::json &j, const Metadata::DataInfoStruct &info)
-{
+inline void to_json(nlohmann::json &j, const Metadata::DataInfoStruct &info) {
     j = nlohmann::json{{"EventName", info.EventName},
                        {"StartTime", info.StartTime},
                        {"NPTS", info.NPTS},
                        {"DT", info.DT},
                        {"Corrected", info.Corrected}};
 }
-inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info)
-{
+inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info) {
     j.at("EventName").get_to(info.EventName);
     j.at("StartTime").get_to(info.StartTime);
     j.at("NPTS").get_to(info.NPTS);
@@ -248,8 +215,7 @@ inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info)
 }
 
 // --- 顶级 Metadata 类 ---
-inline void to_json(nlohmann::json &j, const Metadata &m)
-{
+inline void to_json(nlohmann::json &j, const Metadata &m) {
     j["Header"] = m.Header;
     j["Version"] = m.Version;
     j["Units"] = m.Units;
@@ -260,14 +226,12 @@ inline void to_json(nlohmann::json &j, const Metadata &m)
     j["DataInfo"] = m.DataInfo;
 }
 
-inline void from_json(const nlohmann::json &j, Metadata &m)
-{
+inline void from_json(const nlohmann::json &j, Metadata &m) {
     j.at("Header").get_to(m.Header);
     j.at("Version").get_to(m.Version);
     j.at("Units").get_to(m.Units);
 
-    if (j.contains("BuildingInfo"))
-    {
+    if (j.contains("BuildingInfo")) {
         j.at("BuildingInfo").get_to(m.BuildingInfo);
     }
 
@@ -275,14 +239,12 @@ inline void from_json(const nlohmann::json &j, Metadata &m)
     j.at("DataInfo").get_to(m.DataInfo);
 }
 
-inline std::string Metadata::to_bytes(int indent) const
-{
+inline std::string Metadata::to_bytes(int indent) const {
     nlohmann::json j = *this;
     return j.dump(indent);
 }
 
-inline Metadata Metadata::from_bytes(std::string_view json_str)
-{
+inline Metadata Metadata::from_bytes(std::string_view json_str) {
     return nlohmann::json::parse(json_str).get<Metadata>();
 }
 

@@ -18,8 +18,7 @@
 // =========================================================
 // 新增：专为 QML TableView 设计的高性能数据模型
 // =========================================================
-class DataTableModel : public QAbstractTableModel
-{
+class DataTableModel : public QAbstractTableModel {
     Q_OBJECT
 public:
     explicit DataTableModel(QObject *parent = nullptr);
@@ -51,8 +50,7 @@ private:
 // =========================================================
 // 主控制器
 // =========================================================
-class QrestViewModel : public QObject
-{
+class QrestViewModel : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(QString headerMagic READ headerMagic NOTIFY headerUpdated)

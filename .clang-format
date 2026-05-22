@@ -72,7 +72,7 @@ BinPackParameters: false
 # -- WebKit - 与 Attach 类似，但在函数定义前换行 
 # -- Custom - 依赖 BraceWrapping
 #   注：这里认为语句块也属于函数
-BreakBeforeBraces: Custom
+BreakBeforeBraces: Attach
 
 # 大括号换行，只有当BreakBeforeBraces设置为Custom时才有效
 BraceWrapping:

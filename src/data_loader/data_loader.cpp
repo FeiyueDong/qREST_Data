@@ -11,10 +11,8 @@
 
 using namespace qrest_data;
 
-int main(int argc, char *argv[])
-{
-    if (argc < 4)
-    {
+int main(int argc, char *argv[]) {
+    if (argc < 4) {
         std::cout << "Usage: " << argv[0]
                   << " <input.qrest> <data.txt> <metadata.json>" << std::endl;
         return 1;
@@ -24,8 +22,7 @@ int main(int argc, char *argv[])
     std::string output_json = argv[2];
     std::string output_txt = argv[3];
 
-    try
-    {
+    try {
         // 1. 读取二进制文件
         std::ifstream ifs(input_file, std::ios::binary);
         if (!ifs.is_open())
@@ -75,11 +72,9 @@ int main(int argc, char *argv[])
                   << std::endl;
 
         // 写入数据：转置回时间主序 (按行写入)
-        for (int r = 0; r < npts; ++r)
-        {
+        for (int r = 0; r < npts; ++r) {
             // ofs << r; // 第一列为时间步索引
-            for (int c = 0; c < channel_num; ++c)
-            {
+            for (int c = 0; c < channel_num; ++c) {
                 // 计算该数据点在通道主序数组中的绝对一维索引
                 size_t index = static_cast<size_t>(c) * npts + r;
                 ofs << " " << std::fixed << std::setprecision(8)
@@ -91,9 +86,7 @@ int main(int argc, char *argv[])
         ofs.close();
         std::cout << ">>> Exporting complete! Total " << npts
                   << " rows of data written." << std::endl;
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         std::cerr << "\n[Error]: " << e.what() << std::endl;
         return -1;
     }
