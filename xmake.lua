@@ -5,7 +5,7 @@ set_warnings("all")
 set_allowedplats("windows", "linux", "macosx", "mingw")
 
 add_rules("mode.debug", "mode.release")
-set_config("plat", "mingw")
+-- set_config("plat", "mingw")
 if is_plat("mingw") then
     set_config("sdk", "C:/Programing/msys64/ucrt64")
     set_toolchains("gcc")
@@ -22,13 +22,13 @@ if is_plat("linux", "macosx") then
 end
 
 if is_plat("mingw") then
-    set_targetdir("$(projectdir)/out/mingw",{ bindir = "bin", libdir = "lib" })
+    set_targetdir("$(projectdir)/build/mingw",{ bindir = "bin", libdir = "lib" })
 elseif is_plat("windows") then
-    set_targetdir("$(projectdir)/out/windows",{ bindir = "bin", libdir = "lib" })
+    set_targetdir("$(projectdir)/build/windows",{ bindir = "bin", libdir = "lib" })
 elseif is_plat("linux") then
-    set_targetdir("$(projectdir)/out/linux",{ bindir = "bin", libdir = "lib" })
+    set_targetdir("$(projectdir)/build/linux",{ bindir = "bin", libdir = "lib" })
 elseif is_plat("macosx") then
-    set_targetdir("$(projectdir)/out/macosx",{ bindir = "bin", libdir = "lib" })
+    set_targetdir("$(projectdir)/build/macosx",{ bindir = "bin", libdir = "lib" })
 end
 
 if is_plat("linux", "macosx", "mingw") then
