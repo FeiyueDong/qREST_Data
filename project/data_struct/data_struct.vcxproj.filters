@@ -15,13 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\data_struct\data_packet.hpp">
+    <ClInclude Include="..\..\src\data_packet.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\data_struct\file_header.hpp">
+    <ClInclude Include="..\..\src\file_header.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\data_struct\metadata.hpp">
+    <ClInclude Include="..\..\src\metadata.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
