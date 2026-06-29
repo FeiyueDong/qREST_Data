@@ -1,0 +1,5 @@
+target("data_tools")
+    add_rules("qt.quickapp")
+    add_files("./*.cpp")
+    add_files("./qml.qrc")
+    add_deps("qrest_data_lib")
