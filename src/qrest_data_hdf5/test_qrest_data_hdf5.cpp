@@ -206,11 +206,6 @@ int main()
         std::cout << "  All tests completed successfully!" << std::endl;
         std::cout << "========================================" << std::endl;
     }
-    catch (const H5::Exception &e)
-    {
-        std::cerr << "\n[HDF5 Error] " << e.getDetailMsg() << std::endl;
-        return 1;
-    }
     catch (const std::exception &e)
     {
         std::cerr << "\n[Error] " << e.what() << std::endl;

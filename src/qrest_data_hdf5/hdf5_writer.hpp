@@ -1,18 +1,18 @@
 #ifndef QREST_DATA_HDF5_WRITER_HPP
 #define QREST_DATA_HDF5_WRITER_HPP
 
-#include <memory>
 #include <string>
 #include <vector>
 
-#include <H5Cpp.h>
+#include <hdf5.h>
 
+#include "hdf5_export.hpp"
 #include "metadata.hpp"
 
 namespace qrest_data
 {
 
-class Hdf5Writer
+class QREST_DATA_HDF5_API Hdf5Writer
 {
 public:
     Hdf5Writer() = default;
@@ -20,8 +20,8 @@ public:
 
     Hdf5Writer(const Hdf5Writer &) = delete;
     Hdf5Writer &operator=(const Hdf5Writer &) = delete;
-    Hdf5Writer(Hdf5Writer &&) = default;
-    Hdf5Writer &operator=(Hdf5Writer &&) = default;
+    Hdf5Writer(Hdf5Writer &&other) noexcept;
+    Hdf5Writer &operator=(Hdf5Writer &&other) noexcept;
 
     void open(const std::string &filename);
     void write(const Metadata &metadata,
@@ -29,10 +29,10 @@ public:
                std::size_t npts,
                std::size_t channel_num);
     void close();
-    bool is_open() const noexcept { return file_ != nullptr; }
+    bool is_open() const noexcept { return file_ >= 0; }
 
 private:
-    std::unique_ptr<H5::H5File> file_;
+    hid_t file_ = H5I_INVALID_HID;
 };
 
 } // namespace qrest_data

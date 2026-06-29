@@ -1,27 +1,25 @@
 #ifndef QREST_DATA_HDF5_READER_HPP
 #define QREST_DATA_HDF5_READER_HPP
 
-#include <memory>
 #include <string>
 #include <vector>
 
-#include <H5Cpp.h>
+#include <hdf5.h>
 
+#include "hdf5_export.hpp"
 #include "metadata.hpp"
 
-namespace qrest_data
-{
+namespace qrest_data {
 
-class Hdf5Reader
-{
+class QREST_DATA_HDF5_API Hdf5Reader {
 public:
     Hdf5Reader() = default;
     ~Hdf5Reader() { close(); }
 
     Hdf5Reader(const Hdf5Reader &) = delete;
     Hdf5Reader &operator=(const Hdf5Reader &) = delete;
-    Hdf5Reader(Hdf5Reader &&) = default;
-    Hdf5Reader &operator=(Hdf5Reader &&) = default;
+    Hdf5Reader(Hdf5Reader &&other) noexcept;
+    Hdf5Reader &operator=(Hdf5Reader &&other) noexcept;
 
     void open(const std::string &filename);
 
@@ -32,10 +30,10 @@ public:
     std::size_t get_channel_num() const;
 
     void close();
-    bool is_open() const noexcept { return file_ != nullptr; }
+    bool is_open() const noexcept { return file_ >= 0; }
 
 private:
-    std::unique_ptr<H5::H5File> file_;
+    hid_t file_ = H5I_INVALID_HID;
 };
 
 } // namespace qrest_data

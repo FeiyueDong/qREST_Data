@@ -12,5 +12,7 @@
     <Platform Project="x64" />
   </Project>
   <Project Path="project/qrest_data/qrest_data.vcxproj" Id="69d3464d-40d9-484d-93b0-16cd3d1bb180" />
+  <Project Path="project/qrest_data_hdf5/qrest_data_hdf5.vcxproj" Id="83958196-388a-4646-b0d7-2db385637140" />
   <Project Path="project/test_qrest_data/test_qrest_data.vcxproj" Id="14674a54-12c5-427c-afca-995a8f1249bc" />
+  <Project Path="project/test_qrest_data_hdf5/test_qrest_data_hdf5.vcxproj" Id="aa300a75-05ae-4ae5-af30-a680066cf08a" />
 </Solution>

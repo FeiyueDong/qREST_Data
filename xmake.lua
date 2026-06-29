@@ -23,6 +23,10 @@ if is_plat("linux", "macosx") then
 end
 
 if is_plat("mingw") then
+    add_requires("hdf5", {system = true})
+end
+
+if is_plat("mingw") then
     set_targetdir("$(projectdir)/build/mingw",{ bindir = "bin", libdir = "lib" })
 elseif is_plat("windows") then
     set_targetdir("$(projectdir)/build/windows",{ bindir = "bin", libdir = "lib" })
