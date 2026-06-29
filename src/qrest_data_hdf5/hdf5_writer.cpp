@@ -3,25 +3,20 @@
 #include <stdexcept>
 #include <utility>
 
-namespace qrest_data
-{
+namespace qrest_data {
 
-namespace
-{
+namespace {
 
-class H5Handle
-{
+class H5Handle {
 public:
     using Closer = herr_t (*)(hid_t);
 
-    H5Handle(hid_t id, Closer closer) : id_(id), closer_(closer)
-    {
+    H5Handle(hid_t id, Closer closer) : id_(id), closer_(closer) {
         if (id_ < 0)
             throw std::runtime_error("HDF5: failed to create object");
     }
 
-    ~H5Handle()
-    {
+    ~H5Handle() {
         if (id_ >= 0)
             closer_(id_);
     }
@@ -36,8 +31,7 @@ private:
     Closer closer_;
 };
 
-void check_hdf5(herr_t status, const char *message)
-{
+void check_hdf5(herr_t status, const char *message) {
     if (status < 0)
         throw std::runtime_error(message);
 }
@@ -45,24 +39,20 @@ void check_hdf5(herr_t status, const char *message)
 } // namespace
 
 Hdf5Writer::Hdf5Writer(Hdf5Writer &&other) noexcept
-    : file_(std::exchange(other.file_, H5I_INVALID_HID))
-{
-}
+    : file_(std::exchange(other.file_, H5I_INVALID_HID)) {}
 
-Hdf5Writer &Hdf5Writer::operator=(Hdf5Writer &&other) noexcept
-{
-    if (this != &other)
-    {
+Hdf5Writer &Hdf5Writer::operator=(Hdf5Writer &&other) noexcept {
+    if (this != &other) {
         close();
         file_ = std::exchange(other.file_, H5I_INVALID_HID);
     }
     return *this;
 }
 
-void Hdf5Writer::open(const std::string &filename)
-{
+void Hdf5Writer::open(const std::string &filename) {
     close();
-    file_ = H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    file_ =
+        H5Fcreate(filename.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     if (file_ < 0)
         throw std::runtime_error("Hdf5Writer: failed to create file");
 }
@@ -70,8 +60,7 @@ void Hdf5Writer::open(const std::string &filename)
 void Hdf5Writer::write(const Metadata &metadata,
                        const std::vector<double> &data,
                        std::size_t npts,
-                       std::size_t channel_num)
-{
+                       std::size_t channel_num) {
     if (!is_open())
         throw std::runtime_error("Hdf5Writer: file is not open");
 
@@ -142,10 +131,8 @@ void Hdf5Writer::write(const Metadata &metadata,
                          H5Dclose);
 
         std::vector<double> time_major(npts * channel_num);
-        for (std::size_t c = 0; c < channel_num; ++c)
-        {
-            for (std::size_t r = 0; r < npts; ++r)
-            {
+        for (std::size_t c = 0; c < channel_num; ++c) {
+            for (std::size_t r = 0; r < npts; ++r) {
                 time_major[r * channel_num + c] = data[c * npts + r];
             }
         }
@@ -160,10 +147,8 @@ void Hdf5Writer::write(const Metadata &metadata,
     }
 }
 
-void Hdf5Writer::close()
-{
-    if (file_ >= 0)
-    {
+void Hdf5Writer::close() {
+    if (file_ >= 0) {
         H5Fclose(file_);
         file_ = H5I_INVALID_HID;
     }

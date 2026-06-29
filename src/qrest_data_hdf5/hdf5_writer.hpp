@@ -9,11 +9,9 @@
 #include "hdf5_export.hpp"
 #include "metadata.hpp"
 
-namespace qrest_data
-{
+namespace qrest_data {
 
-class QREST_DATA_HDF5_API Hdf5Writer
-{
+class QREST_DATA_HDF5_API Hdf5Writer {
 public:
     Hdf5Writer() = default;
     ~Hdf5Writer() { close(); }

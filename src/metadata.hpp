@@ -64,6 +64,7 @@ public:
         std::string StartTime{};
         int NPTS{};
         double DT{};
+        double Frequency{};
         std::string Corrected{};
     };
 
@@ -212,6 +213,7 @@ inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info) {
     j.at("NPTS").get_to(info.NPTS);
     j.at("DT").get_to(info.DT);
     j.at("Corrected").get_to(info.Corrected);
+    info.Frequency = static_cast<int>(1.0 / info.DT + 0.5); // 四舍五入取整
 }
 
 // --- 顶级 Metadata 类 ---

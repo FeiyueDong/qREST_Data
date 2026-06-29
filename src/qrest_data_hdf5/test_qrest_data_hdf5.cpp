@@ -10,10 +10,8 @@
 
 using namespace qrest_data;
 
-int main()
-{
-    try
-    {
+int main() {
+    try {
         // ========== 1. Create test metadata ==========
         std::string json = R"({
             "Header": "qREST_DATA",
@@ -70,10 +68,8 @@ int main()
 
         // ========== 2. Create synthetic channel-sequential data ==========
         std::vector<double> data(channel_num * npts);
-        for (std::size_t c = 0; c < channel_num; ++c)
-        {
-            for (std::size_t r = 0; r < npts; ++r)
-            {
+        for (std::size_t c = 0; c < channel_num; ++c) {
+            for (std::size_t r = 0; r < npts; ++r) {
                 data[c * npts + r] = static_cast<double>(c * 10000 + r);
             }
         }
@@ -121,53 +117,44 @@ int main()
             std::cout << "\n[Verify] Checking data integrity ..." << std::endl;
             bool pass = true;
 
-            if (read_npts != npts)
-            {
+            if (read_npts != npts) {
                 std::cerr << "  FAIL: NPTS mismatch (" << read_npts << " vs "
                           << npts << ")" << std::endl;
                 pass = false;
             }
-            if (read_ch != channel_num)
-            {
+            if (read_ch != channel_num) {
                 std::cerr << "  FAIL: Channel count mismatch (" << read_ch
                           << " vs " << channel_num << ")" << std::endl;
                 pass = false;
             }
-            if (read_meta.BuildingInfo.ProjectName != "TestProject")
-            {
+            if (read_meta.BuildingInfo.ProjectName != "TestProject") {
                 std::cerr << "  FAIL: ProjectName mismatch" << std::endl;
                 pass = false;
             }
-            if (read_meta.DataInfo.NPTS != 100)
-            {
+            if (read_meta.DataInfo.NPTS != 100) {
                 std::cerr << "  FAIL: NPTS in metadata mismatch" << std::endl;
                 pass = false;
             }
-            if (read_meta.DataInfo.DT != 0.01)
-            {
+            if (read_meta.DataInfo.DT != 0.01) {
                 std::cerr << "  FAIL: DT in metadata mismatch" << std::endl;
                 pass = false;
             }
-            if (read_meta.InstrumentInfo.ChannelNum != 4)
-            {
+            if (read_meta.InstrumentInfo.ChannelNum != 4) {
                 std::cerr << "  FAIL: ChannelNum in metadata mismatch"
                           << std::endl;
                 pass = false;
             }
-            if (read_meta.InstrumentInfo.Channels.size() != 4)
-            {
+            if (read_meta.InstrumentInfo.Channels.size() != 4) {
                 std::cerr << "  FAIL: Channels vector size mismatch"
                           << std::endl;
                 pass = false;
             }
-            if (read_meta.InstrumentInfo.Channels[0].ChannelNo != 1)
-            {
+            if (read_meta.InstrumentInfo.Channels[0].ChannelNo != 1) {
                 std::cerr << "  FAIL: ChannelNo mismatch" << std::endl;
                 pass = false;
             }
 
-            if (read_data.size() != data.size())
-            {
+            if (read_data.size() != data.size()) {
                 std::cerr << "  FAIL: Data size mismatch (" << read_data.size()
                           << " vs " << data.size() << ")" << std::endl;
                 pass = false;
@@ -175,13 +162,11 @@ int main()
 
             // Compare all data points
             double max_err = 0.0;
-            for (std::size_t i = 0; i < data.size(); ++i)
-            {
+            for (std::size_t i = 0; i < data.size(); ++i) {
                 double err = std::abs(read_data[i] - data[i]);
                 if (err > max_err)
                     max_err = err;
-                if (err > 1e-12)
-                {
+                if (err > 1e-12) {
                     pass = false;
                     std::cerr << "  FAIL: Data mismatch at index " << i
                               << " (expected " << data[i] << ", got "
@@ -190,13 +175,10 @@ int main()
                 }
             }
 
-            if (pass)
-            {
+            if (pass) {
                 std::cout << "[Verify] PASS - All checks passed!" << std::endl;
                 std::cout << "[Verify] Max error: " << max_err << std::endl;
-            }
-            else
-            {
+            } else {
                 std::cerr << "[Verify] FAILED!" << std::endl;
                 return 1;
             }
@@ -205,9 +187,7 @@ int main()
         std::cout << "\n========================================" << std::endl;
         std::cout << "  All tests completed successfully!" << std::endl;
         std::cout << "========================================" << std::endl;
-    }
-    catch (const std::exception &e)
-    {
+    } catch (const std::exception &e) {
         std::cerr << "\n[Error] " << e.what() << std::endl;
         return 1;
     }
