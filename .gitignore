@@ -372,7 +372,6 @@ vcpkg_installed/
 build/
 
 // Test files
-resource/
 release/
 qlab_web/
 other/
