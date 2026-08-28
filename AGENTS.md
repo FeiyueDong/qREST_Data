@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains the qREST data management library and tools. Core C++ sources live in `src/`: `qrest_data_lib` provides the shared C API library, `qrest_data_hdf5` adds HDF5 support, `data_generator` and `data_loader` are CLI utilities, and `data_tools` is a Qt Quick app. Test targets are kept beside their modules as `src/test_qrest_data_lib` and `src/qrest_data_hdf5/test_*.cpp`. Sample metadata, text data, and `.qrest` files are under `resource/`. Protocol and interface documentation is under `doc/`. The `project/` directory contains generated Visual Studio project files; prefer updating Xmake targets first.
+This repository contains the qREST data management library and tools. Core C++ sources live in `src/`: `qrest_data_lib` provides the shared C API library, `qrest_data_hdf5` adds HDF5 support, `qrest_data_tools` is the command-line data conversion utility, and `qrest_data_tools_ui` is a Qt Quick app for visual qREST file inspection. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Test targets are kept beside their modules as `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `test_qrest_data_import_formats`. Sample metadata, text data, and `.qrest` files are under `resource/`; external-format parser fixtures are under `resource/dev/data`. Protocol and interface documentation is under `doc/`. The `project/` directory contains generated Visual Studio project files; prefer updating Xmake targets first.
 
 ## Build, Test, and Development Commands
 
@@ -11,19 +11,20 @@ This repository contains the qREST data management library and tools. Core C++ s
 - `xmake build qrest_data_lib`: build one target while iterating.
 - `xmake run test_qrest_data_lib`: run the qREST data library regression test.
 - `xmake run test_qrest_data_hdf5`: run HDF5 read/write tests; requires system HDF5.
-- `xmake run data_generator resource/metadata.json resource/wuhan/data.txt /tmp/sample.qrest`: generate a sample data file.
+- `xmake run test_qrest_data_import_formats`: run TDMS, modified MiniSEED, and HDF5 bridge regressions; requires local `resource/dev/data` fixtures.
+- `xmake run qrest_data_tools pack resource/kunming2/metadata.json resource/kunming2/data.txt /tmp/sample.qrest`: generate a sample data file.
 
 ## Coding Style & Naming Conventions
 
-Use C++20 and follow the root `.clang-format`, `.clang-tidy`, and `.editorconfig` files. C++ files use 4-space indentation, UTF-8, final newlines, trimmed trailing whitespace, and attached braces. Keep target and directory names lowercase with underscores, matching existing names such as `qrest_data_lib` and `data_generator`. Public headers should be clear and stable; implementation helpers belong in the relevant module directory.
+Use C++20 and follow the root `.clang-format`, `.clang-tidy`, and `.editorconfig` files. C++ files use 4-space indentation, UTF-8, final newlines, trimmed trailing whitespace, and attached braces. Keep target and directory names lowercase with underscores, matching existing names such as `qrest_data_lib` and `qrest_data_tools`. Public headers should be clear and stable; implementation helpers belong in the relevant module directory.
 
 ## Testing Guidelines
 
-Add or update tests when changing serialization, metadata handling, byte layout, or HDF5 behavior. Name C++ test files `test_*.cpp` and wire new test binaries through the nearest `xmake.lua`. Run the focused test target first, then `xmake build` before handing off broader changes.
+Add or update tests when changing serialization, metadata handling, byte layout, external-format import behavior, or HDF5 behavior. Name C++ test files `test_*.cpp` and wire new test binaries through the nearest `xmake.lua`. Run the focused test target first, then `xmake build` before handing off broader changes.
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, link related issues, and include screenshots only for `data_tools` UI changes.
+Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, link related issues, and include screenshots only for `qrest_data_tools_ui` UI changes.
 
 ## Security & Configuration Tips
 

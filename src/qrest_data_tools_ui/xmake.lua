@@ -1,4 +1,4 @@
-target("data_tools")
+target("qrest_data_tools_ui")
     add_rules("qt.quickapp")
     add_files("./*.cpp")
     add_files("./*.h")

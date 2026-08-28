@@ -1,5 +1,6 @@
 {
     "dependencies": [
+        "cli11",
         "nlohmann-json",
         "hdf5"
     ]

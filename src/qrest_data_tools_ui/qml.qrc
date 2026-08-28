@@ -1,5 +1,5 @@
 <RCC>
-    <qresource prefix="/qt/qml/data_tools">
+    <qresource prefix="/qt/qml/qrest_data_tools_ui">
         <file>main.qml</file>
     </qresource>
 </RCC>

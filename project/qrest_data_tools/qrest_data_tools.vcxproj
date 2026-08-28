@@ -22,7 +22,7 @@
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{05f8642c-57a1-47f3-b231-e6b1eed86b53}</ProjectGuid>
-    <RootNamespace>datagenerator</RootNamespace>
+    <RootNamespace>qrestdatatools</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -134,7 +134,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\data_generator\data_generator.cpp" />
+    <ClCompile Include="..\..\src\qrest_data_tools\qrest_data_tools.cpp" />
+    <ClCompile Include="..\..\src\qrest_data_tools\qrest_file.cpp" />
+    <ClCompile Include="..\..\src\qrest_data_tools\text_matrix.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\qrest_data_tools\qrest_file.hpp" />
+    <ClInclude Include="..\..\src\qrest_data_tools\text_matrix.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

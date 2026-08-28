@@ -19,10 +19,12 @@ set_languages("c++20")
 
 if is_plat("linux", "macosx") then
     add_requires("nlohmann-json", {system = true})
+    add_requires("cli11", {system = true})
     add_requires("hdf5", {system = true})
 end
 
 if is_plat("mingw") then
+    add_requires("cli11", {system = true})
     add_requires("hdf5", {system = true})
 end
 
