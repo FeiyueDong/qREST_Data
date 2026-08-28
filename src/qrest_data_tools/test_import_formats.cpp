@@ -102,10 +102,10 @@ void assert_round_trip_qrest(const qrest_data::tools::ExternalDataset &dataset,
 
 void test_mseed_sample() {
     namespace mseed = qrest_data::tools::mseed;
+    const auto sample_path =
+        project_path("resource/wuhan_mseed/WH.XY001-2024-01-01-15-15-00.mseed");
 
-    const auto groups = mseed::load_channel_groups(
-        project_path("resource/dev/data/WH.XY001-2024-01-01-15-15-00.mseed")
-            .string());
+    const auto groups = mseed::load_channel_groups(sample_path.string());
 
     require_equal(groups.size(), std::size_t{1}, "MiniSEED group count");
     const auto &group = groups.front();
@@ -147,9 +147,8 @@ void test_mseed_sample() {
     require_near(east.values.back(), 4.0e-05, 1e-12, "MiniSEED E last");
     require_near(vertical.values.back(), -1.2e-04, 1e-12, "MiniSEED Z last");
 
-    const auto imported = qrest_data::tools::load_mseed_dataset(
-        project_path("resource/dev/data/WH.XY001-2024-01-01-15-15-00.mseed")
-            .string());
+    const auto imported =
+        qrest_data::tools::load_mseed_dataset(sample_path.string());
     require_equal(
         imported.channel_count, std::size_t{3}, "Imported MiniSEED channels");
     require_equal(imported.sample_count,
@@ -169,67 +168,148 @@ void test_mseed_sample() {
     assert_round_trip_qrest(imported,
                             make_metadata({"EIN", "EIE", "EIZ"}, 240000, 0.005),
                             "qrest_data_tools_mseed_import_test.qrest");
+
+    const auto mapped = qrest_data::tools::load_mseed_collection(
+        sample_path.string(), make_metadata({"X1", "Y1", "Z1"}, 240000, 0.005));
+    require_equal(
+        mapped.channel_labels[0], std::string{"X1"}, "Mapped MiniSEED X label");
+    require_equal(
+        mapped.channel_labels[1], std::string{"Y1"}, "Mapped MiniSEED Y label");
+    require_equal(
+        mapped.channel_labels[2], std::string{"Z1"}, "Mapped MiniSEED Z label");
+    require_near(mapped.channel_sequential_data[0],
+                 -1.8e-04,
+                 1e-12,
+                 "Mapped MiniSEED EIE -> X1");
+    require_near(mapped.channel_sequential_data[240000],
+                 -6.0e-05,
+                 1e-12,
+                 "Mapped MiniSEED EIN -> Y1");
+    require_near(mapped.channel_sequential_data[480000],
+                 -6.0e-05,
+                 1e-12,
+                 "Mapped MiniSEED EIZ -> Z1");
+
+    const auto temp_dir =
+        std::filesystem::temp_directory_path() / "qrest_data_mseed_dir_test";
+    std::filesystem::remove_all(temp_dir);
+    std::filesystem::create_directories(temp_dir);
+    std::filesystem::copy_file(sample_path, temp_dir / "A.mseed");
+    std::filesystem::copy_file(sample_path, temp_dir / "B.mseed");
+
+    const auto mapped_dir = qrest_data::tools::load_mseed_collection(
+        temp_dir.string(),
+        make_metadata({"X1", "Y1", "Z1", "X2", "Y2", "Z2"}, 240000, 0.005));
+    require_equal(mapped_dir.channel_count,
+                  std::size_t{6},
+                  "Mapped MiniSEED directory channel count");
+    require_equal(mapped_dir.channel_labels[3],
+                  std::string{"X2"},
+                  "Mapped MiniSEED directory filename order");
+    require_near(mapped_dir.channel_sequential_data[3 * 240000],
+                 -1.8e-04,
+                 1e-12,
+                 "Mapped MiniSEED directory EIE -> X2");
+    std::filesystem::remove_all(temp_dir);
 }
 
 void test_tdms_sample() {
     namespace tdms = qrest_data::tools::tdms;
+    const auto sample_path = project_path(
+        "resource/wuhan_tdms/S01_20241205_030000_000_SIT_XY001.tdms");
 
-    const auto dataset = tdms::load_dataset(
-        project_path("resource/dev/data/S01_20260820_110000_000_SIT_PYL06.tdms")
-            .string());
+    tdms::LoadOptions load_options;
+    load_options.require_sensitivity = false;
+    const auto dataset = tdms::load_dataset(sample_path.string(), load_options);
 
     require_equal(dataset.name,
-                  std::string{"S01_20260820_110000_000_SIT_PYL06"},
+                  std::string{"S01_20241205_030000_000_SIT_XY001"},
                   "TDMS dataset name");
-    require_near(dataset.sample_rate_hz, 100.0, 1e-12, "TDMS sample rate");
+    require_near(dataset.sample_rate_hz, 200.0, 1e-8, "TDMS sample rate");
     require_equal(
-        dataset.north_counts.size(), std::size_t{360000}, "TDMS N count");
+        dataset.north_counts.size(), std::size_t{720000}, "TDMS N count");
     require_equal(
-        dataset.east_counts.size(), std::size_t{360000}, "TDMS E count");
+        dataset.east_counts.size(), std::size_t{720000}, "TDMS E count");
     require_equal(
-        dataset.vertical_counts.size(), std::size_t{360000}, "TDMS Z count");
+        dataset.vertical_counts.size(), std::size_t{720000}, "TDMS Z count");
     require_equal(
-        dataset.timestamps.size(), std::size_t{360000}, "TDMS timestamp count");
+        dataset.timestamps.size(), std::size_t{720000}, "TDMS timestamp count");
     require_near(dataset.selected_sensitivity_raw,
-                 10000000.0,
+                 0.0,
                  1e-6,
                  "TDMS selected sensitivity");
     require_equal(
-        dataset.north_counts.front(), std::int32_t{3}, "TDMS N first");
+        dataset.north_counts.front(), std::int32_t{-1}, "TDMS N first");
+    require_equal(dataset.east_counts.front(), std::int32_t{2}, "TDMS E first");
     require_equal(
-        dataset.east_counts.front(), std::int32_t{-5}, "TDMS E first");
-    require_equal(
-        dataset.vertical_counts.front(), std::int32_t{-18}, "TDMS Z first");
-    require_equal(dataset.north_counts.back(), std::int32_t{18}, "TDMS N last");
-    require_equal(dataset.east_counts.back(), std::int32_t{-12}, "TDMS E last");
-    require_equal(
-        dataset.vertical_counts.back(), std::int32_t{6}, "TDMS Z last");
+        dataset.vertical_counts.front(), std::int32_t{-1}, "TDMS Z first");
     require_equal(tdms::format_timestamp_utc(dataset.timestamps.front(), 6),
-                  std::string{"2026-08-20T03:00:00.000000Z"},
+                  std::string{"2024-12-04T19:00:00.000000Z"},
                   "TDMS first timestamp");
     require_equal(tdms::format_timestamp_utc(dataset.timestamps.back(), 6),
-                  std::string{"2026-08-20T03:59:59.990000Z"},
+                  std::string{"2024-12-04T19:59:59.995000Z"},
                   "TDMS last timestamp");
 
+    qrest_data::tools::TdmsImportOptions import_options;
+    import_options.output_counts = true;
     const auto imported = qrest_data::tools::load_tdms_dataset(
-        project_path("resource/dev/data/S01_20260820_110000_000_SIT_PYL06.tdms")
-            .string());
+        sample_path.string(), import_options);
     require_equal(
         imported.channel_count, std::size_t{3}, "Imported TDMS channels");
     require_equal(
-        imported.sample_count, std::size_t{360000}, "Imported TDMS samples");
+        imported.sample_count, std::size_t{720000}, "Imported TDMS samples");
     require_near(imported.channel_sequential_data.front(),
-                 3.0e-03,
+                 -1.0,
                  1e-12,
                  "Imported TDMS first value");
-    require_near(imported.channel_sequential_data.back(),
-                 6.0e-03,
-                 1e-12,
-                 "Imported TDMS last value");
 
     assert_round_trip_qrest(imported,
-                            make_metadata({"N", "E", "Z"}, 360000, 0.01),
+                            make_metadata({"N", "E", "Z"}, 720000, 0.005),
                             "qrest_data_tools_tdms_import_test.qrest");
+}
+
+void test_tdms_directory_mapping() {
+    std::vector<std::string> labels;
+    labels.reserve(27);
+    for (const char direction : {'X', 'Y', 'Z'}) {
+        for (int index = 1; index <= 9; ++index) {
+            labels.push_back(std::string(1, direction) + std::to_string(index));
+        }
+    }
+
+    qrest_data::tools::TdmsImportOptions options;
+    options.output_counts = true;
+    const auto imported = qrest_data::tools::load_tdms_collection(
+        project_path("resource/wuhan_tdms").string(),
+        make_metadata(labels, 720000, 0.005),
+        options);
+
+    require_equal(
+        imported.channel_count, std::size_t{27}, "TDMS directory channels");
+    require_equal(
+        imported.sample_count, std::size_t{720000}, "TDMS directory samples");
+    require_near(
+        imported.sample_rate_hz, 200.0, 1e-8, "TDMS directory sample rate");
+    require_equal(imported.channel_labels.front(),
+                  std::string{"X1"},
+                  "TDMS directory first label");
+    require_equal(imported.channel_labels.back(),
+                  std::string{"Z9"},
+                  "TDMS directory last label");
+    require_near(imported.channel_sequential_data[0],
+                 2.0,
+                 1e-12,
+                 "TDMS directory maps E to X1");
+    require_near(imported.channel_sequential_data[9 * 720000],
+                 -1.0,
+                 1e-12,
+                 "TDMS directory maps N to Y1");
+    require_near(imported.channel_sequential_data[18 * 720000],
+                 -1.0,
+                 1e-12,
+                 "TDMS directory maps Z to Z1");
+    qrest_data::tools::require_external_dataset_compatibility(
+        imported, make_metadata(labels, 720000, 0.005));
 }
 
 void test_hdf5_bridge() {
@@ -275,6 +355,7 @@ int main() {
     try {
         test_mseed_sample();
         test_tdms_sample();
+        test_tdms_directory_mapping();
         test_hdf5_bridge();
         std::cout << "qREST import format tests passed.\n";
         return 0;

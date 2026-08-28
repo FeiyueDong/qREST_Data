@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -9,6 +10,95 @@
 #include "metadata.hpp"
 
 using namespace qrest_data;
+
+namespace {
+
+void require_true(bool condition, const char *message) {
+    if (!condition) {
+        throw std::runtime_error(message);
+    }
+}
+
+void check_hdf5(herr_t status, const char *message) {
+    if (status < 0) {
+        throw std::runtime_error(message);
+    }
+}
+
+void write_mismatched_hdf5_file(const std::string &path,
+                                const Metadata &metadata,
+                                std::size_t npts,
+                                std::size_t channel_num) {
+    const hid_t file =
+        H5Fcreate(path.c_str(), H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    if (file < 0) {
+        throw std::runtime_error("failed to create mismatched HDF5 file");
+    }
+
+    const std::string meta_str = metadata.to_bytes();
+    hsize_t metadata_dims[1] = {static_cast<hsize_t>(meta_str.size())};
+    hid_t metadata_space = H5Screate_simple(1, metadata_dims, nullptr);
+    hid_t metadata_dataset = H5Dcreate2(file,
+                                        "Metadata",
+                                        H5T_NATIVE_CHAR,
+                                        metadata_space,
+                                        H5P_DEFAULT,
+                                        H5P_DEFAULT,
+                                        H5P_DEFAULT);
+    check_hdf5(H5Dwrite(metadata_dataset,
+                        H5T_NATIVE_CHAR,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        meta_str.data()),
+               "failed to write mismatched HDF5 metadata");
+    H5Dclose(metadata_dataset);
+    H5Sclose(metadata_space);
+
+    hid_t scalar = H5Screate(H5S_SCALAR);
+    unsigned long long npts_attr = npts;
+    hid_t npts_id = H5Acreate2(
+        file, "npts", H5T_NATIVE_ULLONG, scalar, H5P_DEFAULT, H5P_DEFAULT);
+    check_hdf5(H5Awrite(npts_id, H5T_NATIVE_ULLONG, &npts_attr),
+               "failed to write mismatched HDF5 npts attribute");
+    H5Aclose(npts_id);
+
+    unsigned long long channel_attr = channel_num;
+    hid_t channel_id = H5Acreate2(file,
+                                  "channel_num",
+                                  H5T_NATIVE_ULLONG,
+                                  scalar,
+                                  H5P_DEFAULT,
+                                  H5P_DEFAULT);
+    check_hdf5(H5Awrite(channel_id, H5T_NATIVE_ULLONG, &channel_attr),
+               "failed to write mismatched HDF5 channel attribute");
+    H5Aclose(channel_id);
+    H5Sclose(scalar);
+
+    hsize_t data_dims[2] = {static_cast<hsize_t>(npts - 1u),
+                            static_cast<hsize_t>(channel_num)};
+    hid_t data_space = H5Screate_simple(2, data_dims, nullptr);
+    hid_t data_dataset = H5Dcreate2(file,
+                                    "acceleration",
+                                    H5T_NATIVE_DOUBLE,
+                                    data_space,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT,
+                                    H5P_DEFAULT);
+    std::vector<double> data((npts - 1u) * channel_num, 0.0);
+    check_hdf5(H5Dwrite(data_dataset,
+                        H5T_NATIVE_DOUBLE,
+                        H5S_ALL,
+                        H5S_ALL,
+                        H5P_DEFAULT,
+                        data.data()),
+               "failed to write mismatched HDF5 acceleration data");
+    H5Dclose(data_dataset);
+    H5Sclose(data_space);
+    H5Fclose(file);
+}
+
+} // namespace
 
 int main() {
     try {
@@ -183,6 +273,42 @@ int main() {
                 return 1;
             }
         }
+
+        std::cout << "\n[Validate] Checking writer size guard ..." << std::endl;
+        {
+            bool caught = false;
+            try {
+                Hdf5Writer writer;
+                writer.open("test_bad_size.h5");
+                writer.write(meta, std::vector<double>{1.0}, npts, channel_num);
+            } catch (const std::exception &e) {
+                caught =
+                    std::string(e.what()).find("expected") != std::string::npos;
+            }
+            std::remove("test_bad_size.h5");
+            require_true(caught, "writer should reject mismatched data length");
+        }
+
+        std::cout << "[Validate] Checking reader dimension guard ..."
+                  << std::endl;
+        {
+            write_mismatched_hdf5_file(
+                "test_bad_dims.h5", meta, npts, channel_num);
+
+            bool caught = false;
+            try {
+                Hdf5Reader reader;
+                reader.open("test_bad_dims.h5");
+                (void)reader.read_accform();
+            } catch (const std::exception &e) {
+                caught = std::string(e.what()).find("dimensions")
+                         != std::string::npos;
+            }
+            std::remove("test_bad_dims.h5");
+            require_true(caught,
+                         "reader should reject mismatched acceleration dims");
+        }
+        std::remove("test_output.h5");
 
         std::cout << "\n========================================" << std::endl;
         std::cout << "  All tests completed successfully!" << std::endl;

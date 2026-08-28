@@ -376,3 +376,5 @@ release/
 qlab_web/
 other/
 resource/dev/
+resource/wuhan_mseed/
+resource/wuhan_tdms/

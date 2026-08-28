@@ -1,8 +1,11 @@
 #include "external_import.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <filesystem>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -79,6 +82,225 @@ void append_channel(std::vector<double> &dst,
     }
 }
 
+std::string upper_ascii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](char c) {
+        return static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    });
+    return value;
+}
+
+std::string lower_ascii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](char c) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    });
+    return value;
+}
+
+bool has_extension(const std::filesystem::path &path,
+                   const std::vector<std::string> &extensions) {
+    const auto ext = lower_ascii(path.extension().string());
+    return std::find(extensions.begin(), extensions.end(), ext)
+           != extensions.end();
+}
+
+std::vector<std::filesystem::path>
+collect_input_files(const std::string &input_path,
+                    const std::vector<std::string> &extensions,
+                    const char *format_name) {
+    const std::filesystem::path path(input_path);
+    std::vector<std::filesystem::path> files;
+
+    if (std::filesystem::is_regular_file(path)) {
+        if (!has_extension(path, extensions)) {
+            std::ostringstream oss;
+            oss << format_name
+                << " input file has unsupported extension: " << path.string();
+            throw std::runtime_error(oss.str());
+        }
+        files.push_back(path);
+    } else if (std::filesystem::is_directory(path)) {
+        for (const auto &entry : std::filesystem::directory_iterator(path)) {
+            if (entry.is_regular_file()
+                && has_extension(entry.path(), extensions)) {
+                files.push_back(entry.path());
+            }
+        }
+        std::sort(
+            files.begin(), files.end(), [](const auto &lhs, const auto &rhs) {
+                return lhs.filename().string() < rhs.filename().string();
+            });
+    } else {
+        throw std::runtime_error(std::string(format_name)
+                                 + " input path is neither file nor directory: "
+                                 + input_path);
+    }
+
+    if (files.empty()) {
+        throw std::runtime_error(std::string("No ") + format_name
+                                 + " files found in input path: " + input_path);
+    }
+    return files;
+}
+
+char canonical_direction(const std::string &label) {
+    const auto upper = upper_ascii(label);
+    if (upper == "E" || upper == "EIE" || upper == "X") {
+        return 'X';
+    }
+    if (upper == "N" || upper == "EIN" || upper == "Y") {
+        return 'Y';
+    }
+    if (upper == "Z" || upper == "EIZ") {
+        return 'Z';
+    }
+    if (!upper.empty()) {
+        const char suffix = upper.back();
+        if (suffix == 'E') {
+            return 'X';
+        }
+        if (suffix == 'N') {
+            return 'Y';
+        }
+        if (suffix == 'Z') {
+            return 'Z';
+        }
+    }
+    throw std::runtime_error("cannot infer channel direction from label '"
+                             + label + "'");
+}
+
+std::map<std::string, std::size_t>
+metadata_channel_index(const Metadata &metadata) {
+    std::map<std::string, std::size_t> indices;
+    for (std::size_t i = 0; i < metadata.InstrumentInfo.Channels.size(); ++i) {
+        const auto &id = metadata.InstrumentInfo.Channels[i].ChannelID;
+        if (id.empty() || id == "UNKNOWN") {
+            std::ostringstream oss;
+            oss << "metadata ChannelID at index " << (i + 1)
+                << " is empty or UNKNOWN; default external import mapping "
+                   "requires IDs such as X1/Y1/Z1";
+            throw std::runtime_error(oss.str());
+        }
+        const auto [_, inserted] = indices.emplace(id, i);
+        if (!inserted) {
+            throw std::runtime_error("duplicate metadata ChannelID: " + id);
+        }
+    }
+    return indices;
+}
+
+std::vector<std::string> metadata_channel_labels(const Metadata &metadata);
+
+std::size_t checked_value_count(std::size_t channel_count,
+                                std::size_t sample_count,
+                                ValidationReport *report = nullptr);
+
+ExternalDataset merge_filename_order_direction_dataset(
+    const std::vector<ExternalDataset> &datasets,
+    const std::vector<std::filesystem::path> &files,
+    const Metadata &metadata,
+    std::string source_format) {
+    if (datasets.empty() || datasets.size() != files.size()) {
+        throw std::runtime_error("internal error while merging external files");
+    }
+
+    const auto channel_indices = metadata_channel_index(metadata);
+    const auto channel_count =
+        static_cast<std::size_t>(metadata.InstrumentInfo.ChannelNum);
+    if (metadata.InstrumentInfo.Channels.size() != channel_count) {
+        std::ostringstream oss;
+        oss << "InstrumentInfo.ChannelNum ("
+            << metadata.InstrumentInfo.ChannelNum
+            << ") does not match metadata channel list size ("
+            << metadata.InstrumentInfo.Channels.size() << ")";
+        throw std::runtime_error(oss.str());
+    }
+
+    const auto sample_count = datasets.front().sample_count;
+    const auto sample_rate_hz = datasets.front().sample_rate_hz;
+    for (std::size_t i = 0; i < datasets.size(); ++i) {
+        const auto &dataset = datasets[i];
+        if (dataset.sample_count != sample_count) {
+            std::ostringstream oss;
+            oss << "sample count mismatch while merging "
+                << files[i].filename().string() << ": " << dataset.sample_count
+                << " vs " << sample_count << " in "
+                << files.front().filename().string();
+            throw std::runtime_error(oss.str());
+        }
+        if (!almost_equal(dataset.sample_rate_hz, sample_rate_hz)) {
+            std::ostringstream oss;
+            oss << "sample rate mismatch while merging "
+                << files[i].filename().string() << ": "
+                << dataset.sample_rate_hz << " Hz vs " << sample_rate_hz
+                << " Hz in " << files.front().filename().string();
+            throw std::runtime_error(oss.str());
+        }
+        const auto expected_values =
+            checked_value_count(dataset.channel_count, dataset.sample_count);
+        if (dataset.channel_labels.size() != dataset.channel_count
+            || dataset.channel_sequential_data.size() != expected_values) {
+            throw std::runtime_error("invalid external dataset shape for "
+                                     + files[i].string());
+        }
+    }
+
+    ExternalDataset merged;
+    merged.source_format = std::move(source_format);
+    merged.channel_count = channel_count;
+    merged.sample_count = sample_count;
+    merged.sample_rate_hz = sample_rate_hz;
+    merged.channel_labels = metadata_channel_labels(metadata);
+    merged.channel_sequential_data.assign(
+        checked_value_count(channel_count, sample_count), 0.0);
+    std::vector<bool> filled(channel_count, false);
+
+    for (std::size_t file_index = 0; file_index < datasets.size();
+         ++file_index) {
+        const auto &dataset = datasets[file_index];
+        for (std::size_t channel_index = 0;
+             channel_index < dataset.channel_count;
+             ++channel_index) {
+            const char direction =
+                canonical_direction(dataset.channel_labels[channel_index]);
+            const std::string target_id =
+                std::string(1, direction) + std::to_string(file_index + 1);
+            const auto target = channel_indices.find(target_id);
+            if (target == channel_indices.end()) {
+                std::ostringstream oss;
+                oss << "Cannot map " << files[file_index].filename().string()
+                    << " channel '" << dataset.channel_labels[channel_index]
+                    << "' to metadata ChannelID '" << target_id << "'";
+                throw std::runtime_error(oss.str());
+            }
+            if (filled[target->second]) {
+                throw std::runtime_error("multiple external channels map to "
+                                         "metadata ChannelID "
+                                         + target_id);
+            }
+
+            const auto source_offset = channel_index * sample_count;
+            const auto target_offset = target->second * sample_count;
+            std::copy_n(dataset.channel_sequential_data.begin()
+                            + static_cast<std::ptrdiff_t>(source_offset),
+                        sample_count,
+                        merged.channel_sequential_data.begin()
+                            + static_cast<std::ptrdiff_t>(target_offset));
+            filled[target->second] = true;
+        }
+    }
+
+    for (std::size_t i = 0; i < filled.size(); ++i) {
+        if (!filled[i]) {
+            std::ostringstream oss;
+            oss << "No external channel mapped to metadata ChannelID '"
+                << merged.channel_labels[i] << "'";
+            throw std::runtime_error(oss.str());
+        }
+    }
+    return merged;
+}
+
 std::vector<std::string> metadata_channel_labels(const Metadata &metadata) {
     std::vector<std::string> labels;
     labels.reserve(metadata.InstrumentInfo.Channels.size());
@@ -90,7 +312,7 @@ std::vector<std::string> metadata_channel_labels(const Metadata &metadata) {
 
 std::size_t checked_value_count(std::size_t channel_count,
                                 std::size_t sample_count,
-                                ValidationReport *report = nullptr) {
+                                ValidationReport *report) {
     if (channel_count != 0
         && sample_count
                > std::numeric_limits<std::size_t>::max() / channel_count) {
@@ -123,6 +345,7 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
     load_options.explicit_sensitivity = options.explicit_sensitivity;
     load_options.verify_time_axis = options.verify_time_axis;
     load_options.keep_timestamps = true;
+    load_options.require_sensitivity = !options.output_counts;
 
     const auto dataset = tdms::load_dataset(input_path, load_options);
     const auto samples = dataset.north_counts.size();
@@ -156,6 +379,28 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
                    options.post_scale,
                    options.output_counts);
     return result;
+}
+
+ExternalDataset load_tdms_collection(const std::string &input_path,
+                                     const Metadata &metadata,
+                                     const TdmsImportOptions &options) {
+    const auto files = collect_input_files(input_path, {".tdms"}, "TDMS");
+    std::vector<ExternalDataset> datasets;
+    datasets.reserve(files.size());
+    for (const auto &file : files) {
+        try {
+            datasets.push_back(load_tdms_dataset(file.string(), options));
+        } catch (const std::exception &e) {
+            throw std::runtime_error("Failed to read TDMS file "
+                                     + file.filename().string() + ": "
+                                     + e.what());
+        }
+    }
+    return merge_filename_order_direction_dataset(
+        datasets,
+        files,
+        metadata,
+        files.size() == 1 ? "tdms" : "tdms-collection");
 }
 
 ExternalDataset load_mseed_dataset(const std::string &input_path,
@@ -192,6 +437,30 @@ ExternalDataset load_mseed_dataset(const std::string &input_path,
             channel.values.end());
     }
     return result;
+}
+
+ExternalDataset load_mseed_collection(const std::string &input_path,
+                                      const Metadata &metadata,
+                                      const MseedImportOptions &options) {
+    const auto files =
+        collect_input_files(input_path, {".mseed", ".miniseed"}, "MiniSEED");
+    std::vector<ExternalDataset> datasets;
+    datasets.reserve(files.size());
+    for (const auto &file : files) {
+        try {
+            datasets.push_back(load_mseed_dataset(file.string(), options));
+        } catch (const std::exception &e) {
+            throw std::runtime_error("Failed to read MiniSEED file "
+                                     + file.filename().string() + ": "
+                                     + e.what());
+        }
+    }
+    return merge_filename_order_direction_dataset(
+        datasets,
+        files,
+        metadata,
+        files.size() == 1 ? "modified-miniseed"
+                          : "modified-miniseed-collection");
 }
 
 ExternalDataset load_hdf5_dataset(const std::string &input_path,

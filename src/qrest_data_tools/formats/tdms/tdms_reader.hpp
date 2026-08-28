@@ -99,6 +99,7 @@ long double timestamp_unix_seconds(const Timestamp &timestamp);
 
 std::vector<std::int32_t> decode_int32(const RawObjectData &raw);
 std::vector<double> decode_float64(const RawObjectData &raw);
+std::vector<double> decode_numeric(const RawObjectData &raw);
 std::vector<Timestamp> decode_timestamp(const RawObjectData &raw);
 
 } // namespace qrest_data::tools::tdms

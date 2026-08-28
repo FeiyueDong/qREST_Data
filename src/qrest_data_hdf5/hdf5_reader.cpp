@@ -1,5 +1,7 @@
 #include "hdf5_reader.hpp"
 
+#include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -36,6 +38,23 @@ void check_hdf5(herr_t status, const char *message) {
         throw std::runtime_error(message);
 }
 
+std::size_t checked_size(hsize_t value, const char *name) {
+    if (value > static_cast<hsize_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::runtime_error(std::string("Hdf5Reader: ") + name
+                                 + " is too large");
+    }
+    return static_cast<std::size_t>(value);
+}
+
+std::size_t checked_value_count(std::size_t rows, std::size_t columns) {
+    if (columns != 0
+        && rows > std::numeric_limits<std::size_t>::max() / columns) {
+        throw std::runtime_error(
+            "Hdf5Reader: acceleration dimensions overflow");
+    }
+    return rows * columns;
+}
+
 } // namespace
 
 Hdf5Reader::Hdf5Reader(Hdf5Reader &&other) noexcept
@@ -63,11 +82,17 @@ Metadata Hdf5Reader::read_metadata() const {
     H5Handle ds(H5Dopen2(file_, "Metadata", H5P_DEFAULT), H5Dclose);
     H5Handle sp(H5Dget_space(ds.get()), H5Sclose);
 
+    const int rank = H5Sget_simple_extent_ndims(sp.get());
+    if (rank != 1) {
+        throw std::runtime_error(
+            "Hdf5Reader: Metadata dataset must be one-dimensional");
+    }
+
     hsize_t dims[1];
     check_hdf5(H5Sget_simple_extent_dims(sp.get(), dims, nullptr),
                "Hdf5Reader: failed to read metadata dimensions");
 
-    std::string meta_str(static_cast<std::size_t>(dims[0]), '\0');
+    std::string meta_str(checked_size(dims[0], "metadata length"), '\0');
     check_hdf5(H5Dread(ds.get(),
                        H5T_NATIVE_CHAR,
                        H5S_ALL,
@@ -87,8 +112,27 @@ std::vector<double> Hdf5Reader::read_accform() const {
     std::size_t ch_val = get_channel_num();
 
     H5Handle ds(H5Dopen2(file_, "acceleration", H5P_DEFAULT), H5Dclose);
+    H5Handle sp(H5Dget_space(ds.get()), H5Sclose);
 
-    std::vector<double> time_major(npts_val * ch_val);
+    const int rank = H5Sget_simple_extent_ndims(sp.get());
+    if (rank != 2) {
+        throw std::runtime_error(
+            "Hdf5Reader: acceleration dataset must be two-dimensional");
+    }
+    hsize_t dims[2];
+    check_hdf5(H5Sget_simple_extent_dims(sp.get(), dims, nullptr),
+               "Hdf5Reader: failed to read acceleration dimensions");
+    const auto rows = checked_size(dims[0], "acceleration row count");
+    const auto columns = checked_size(dims[1], "acceleration column count");
+    if (rows != npts_val || columns != ch_val) {
+        std::ostringstream oss;
+        oss << "Hdf5Reader: acceleration dimensions [" << rows << ", "
+            << columns << "] do not match attributes npts=" << npts_val
+            << ", channel_num=" << ch_val;
+        throw std::runtime_error(oss.str());
+    }
+
+    std::vector<double> time_major(checked_value_count(npts_val, ch_val));
     check_hdf5(H5Dread(ds.get(),
                        H5T_NATIVE_DOUBLE,
                        H5S_ALL,
@@ -99,7 +143,7 @@ std::vector<double> Hdf5Reader::read_accform() const {
 
     // Transpose from time-sequential (HDF5 storage) back to
     // channel-sequential (qrest_data internal format)
-    std::vector<double> result(npts_val * ch_val);
+    std::vector<double> result(checked_value_count(npts_val, ch_val));
     for (std::size_t c = 0; c < ch_val; ++c) {
         for (std::size_t r = 0; r < npts_val; ++r) {
             result[c * npts_val + r] = time_major[r * ch_val + c];
@@ -117,6 +161,9 @@ std::size_t Hdf5Reader::get_npts() const {
     unsigned long long val;
     check_hdf5(H5Aread(attr.get(), H5T_NATIVE_ULLONG, &val),
                "Hdf5Reader: failed to read npts attribute");
+    if (val > std::numeric_limits<std::size_t>::max()) {
+        throw std::runtime_error("Hdf5Reader: npts attribute is too large");
+    }
     return static_cast<std::size_t>(val);
 }
 
@@ -128,6 +175,10 @@ std::size_t Hdf5Reader::get_channel_num() const {
     unsigned long long val;
     check_hdf5(H5Aread(attr.get(), H5T_NATIVE_ULLONG, &val),
                "Hdf5Reader: failed to read channel_num attribute");
+    if (val > std::numeric_limits<std::size_t>::max()) {
+        throw std::runtime_error(
+            "Hdf5Reader: channel_num attribute is too large");
+    }
     return static_cast<std::size_t>(val);
 }
 

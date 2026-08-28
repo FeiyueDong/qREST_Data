@@ -35,6 +35,7 @@ struct LoadOptions {
     double explicit_sensitivity{};
     bool verify_time_axis{true};
     bool keep_timestamps{true};
+    bool require_sensitivity{true};
 };
 
 struct Dataset {

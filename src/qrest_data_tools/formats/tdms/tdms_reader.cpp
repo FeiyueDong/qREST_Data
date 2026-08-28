@@ -30,11 +30,19 @@ std::uint16_t le_u16(const std::uint8_t *p) {
            | (static_cast<std::uint16_t>(p[1]) << 8);
 }
 
+std::int16_t le_i16(const std::uint8_t *p) {
+    return static_cast<std::int16_t>(le_u16(p));
+}
+
 std::uint32_t le_u32(const std::uint8_t *p) {
     return static_cast<std::uint32_t>(p[0])
            | (static_cast<std::uint32_t>(p[1]) << 8)
            | (static_cast<std::uint32_t>(p[2]) << 16)
            | (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+std::int32_t le_i32(const std::uint8_t *p) {
+    return static_cast<std::int32_t>(le_u32(p));
 }
 
 std::uint64_t le_u64(const std::uint8_t *p) {
@@ -585,6 +593,63 @@ std::vector<double> decode_float64(const RawObjectData &raw) {
     std::vector<double> values(raw.bytes.size() / 8);
     for (std::size_t i = 0; i < values.size(); ++i) {
         values[i] = le_f64(raw.bytes.data() + i * 8);
+    }
+    return values;
+}
+
+std::vector<double> decode_numeric(const RawObjectData &raw) {
+    const auto type_size = fixed_type_size(raw.index.data_type);
+    if (type_size == 0 || raw.index.data_type == DataType::Timestamp
+        || raw.index.data_type == DataType::String
+        || raw.index.data_type == DataType::Boolean) {
+        throw std::runtime_error("TDMS object " + raw.path
+                                 + " is not a numeric scalar type");
+    }
+    if (raw.bytes.size() % type_size != 0) {
+        throw std::runtime_error("misaligned numeric TDMS raw data for "
+                                 + raw.path);
+    }
+
+    std::vector<double> values(raw.bytes.size() / type_size);
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        const auto *p = raw.bytes.data() + i * type_size;
+        switch (raw.index.data_type) {
+            case DataType::Int8:
+                values[i] = static_cast<double>(static_cast<std::int8_t>(*p));
+                break;
+            case DataType::Int16:
+                values[i] = static_cast<double>(le_i16(p));
+                break;
+            case DataType::Int32:
+                values[i] = static_cast<double>(le_i32(p));
+                break;
+            case DataType::Int64:
+                values[i] = static_cast<double>(le_i64(p));
+                break;
+            case DataType::UInt8:
+                values[i] = static_cast<double>(*p);
+                break;
+            case DataType::UInt16:
+                values[i] = static_cast<double>(le_u16(p));
+                break;
+            case DataType::UInt32:
+                values[i] = static_cast<double>(le_u32(p));
+                break;
+            case DataType::UInt64:
+                values[i] = static_cast<double>(le_u64(p));
+                break;
+            case DataType::Float32:
+                values[i] = static_cast<double>(le_f32(p));
+                break;
+            case DataType::Float64:
+                values[i] = le_f64(p);
+                break;
+            case DataType::String:
+            case DataType::Boolean:
+            case DataType::Timestamp:
+                throw std::runtime_error("TDMS object " + raw.path
+                                         + " is not a numeric scalar type");
+        }
     }
     return values;
 }

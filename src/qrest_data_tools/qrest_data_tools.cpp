@@ -5,8 +5,12 @@
 
 #include <CLI/CLI.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -21,7 +25,9 @@ namespace {
 using qrest_data::Metadata;
 using qrest_data::tools::ExternalDataset;
 using qrest_data::tools::load_hdf5_dataset;
+using qrest_data::tools::load_mseed_collection;
 using qrest_data::tools::load_mseed_dataset;
+using qrest_data::tools::load_tdms_collection;
 using qrest_data::tools::load_tdms_dataset;
 using qrest_data::tools::MseedImportOptions;
 using qrest_data::tools::print_validation_report;
@@ -286,9 +292,10 @@ void configure_mseed_options(CLI::App *command,
 
 void configure_import_tdms_command(CLI::App *command,
                                    ImportTdmsCommand &values) {
-    command->add_option("input", values.input_path, "Input TDMS file")
+    command
+        ->add_option("input", values.input_path, "Input TDMS file or directory")
         ->required()
-        ->check(CLI::ExistingFile);
+        ->check(CLI::ExistingPath);
     command
         ->add_option(
             "metadata", values.metadata_path, "Input qREST metadata JSON")
@@ -311,9 +318,11 @@ void configure_import_tdms_command(CLI::App *command,
 void configure_import_mseed_command(CLI::App *command,
                                     ImportMseedCommand &values) {
     command
-        ->add_option("input", values.input_path, "Input modified MiniSEED file")
+        ->add_option("input",
+                     values.input_path,
+                     "Input modified MiniSEED file or directory")
         ->required()
-        ->check(CLI::ExistingFile);
+        ->check(CLI::ExistingPath);
     command
         ->add_option(
             "metadata", values.metadata_path, "Input qREST metadata JSON")
@@ -351,9 +360,10 @@ void configure_export_hdf5_command(CLI::App *command,
 
 void configure_validate_tdms_command(CLI::App *command,
                                      ValidateTdmsCommand &values) {
-    command->add_option("input", values.input_path, "Input TDMS file")
+    command
+        ->add_option("input", values.input_path, "Input TDMS file or directory")
         ->required()
-        ->check(CLI::ExistingFile);
+        ->check(CLI::ExistingPath);
     configure_tdms_options(command,
                            values.unit,
                            values.sensitivity_mode,
@@ -367,9 +377,11 @@ void configure_validate_tdms_command(CLI::App *command,
 void configure_validate_mseed_command(CLI::App *command,
                                       ValidateMseedCommand &values) {
     command
-        ->add_option("input", values.input_path, "Input modified MiniSEED file")
+        ->add_option("input",
+                     values.input_path,
+                     "Input modified MiniSEED file or directory")
         ->required()
-        ->check(CLI::ExistingFile);
+        ->check(CLI::ExistingPath);
     configure_mseed_options(command,
                             values.group_index,
                             values.include_dimensionless,
@@ -427,6 +439,151 @@ MseedImportOptions make_mseed_import_options(std::size_t group_index,
     options.include_dimensionless = include_dimensionless;
     options.verify_time_continuity = !no_time_check;
     return options;
+}
+
+bool almost_equal(double a, double b, double rel = 1e-8) {
+    const double scale = std::max({1.0, std::abs(a), std::abs(b)});
+    return std::abs(a - b) <= rel * scale;
+}
+
+std::string lower_ascii(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](char c) {
+        return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    });
+    return value;
+}
+
+bool has_extension(const std::filesystem::path &path,
+                   const std::vector<std::string> &extensions) {
+    const auto ext = lower_ascii(path.extension().string());
+    return std::find(extensions.begin(), extensions.end(), ext)
+           != extensions.end();
+}
+
+std::vector<std::filesystem::path>
+sorted_format_files(const std::string &input_path,
+                    const std::vector<std::string> &extensions,
+                    const char *format_name) {
+    const std::filesystem::path path(input_path);
+    std::vector<std::filesystem::path> files;
+    if (std::filesystem::is_regular_file(path)) {
+        if (!has_extension(path, extensions)) {
+            throw std::runtime_error(std::string(format_name)
+                                     + " input file has unsupported extension: "
+                                     + path.string());
+        }
+        files.push_back(path);
+    } else if (std::filesystem::is_directory(path)) {
+        for (const auto &entry : std::filesystem::directory_iterator(path)) {
+            if (entry.is_regular_file()
+                && has_extension(entry.path(), extensions)) {
+                files.push_back(entry.path());
+            }
+        }
+        std::sort(
+            files.begin(), files.end(), [](const auto &lhs, const auto &rhs) {
+                return lhs.filename().string() < rhs.filename().string();
+            });
+    }
+    if (files.empty()) {
+        throw std::runtime_error(std::string("No ") + format_name
+                                 + " files found in input path: " + input_path);
+    }
+    return files;
+}
+
+ExternalDataset
+merge_validation_datasets(const std::vector<ExternalDataset> &datasets,
+                          const std::vector<std::filesystem::path> &files,
+                          std::string source_format) {
+    if (datasets.empty()) {
+        throw std::runtime_error("No external datasets loaded");
+    }
+
+    ExternalDataset merged;
+    merged.source_format = std::move(source_format);
+    merged.sample_count = datasets.front().sample_count;
+    merged.sample_rate_hz = datasets.front().sample_rate_hz;
+
+    for (std::size_t i = 0; i < datasets.size(); ++i) {
+        const auto &dataset = datasets[i];
+        if (dataset.sample_count != merged.sample_count) {
+            std::ostringstream oss;
+            oss << "sample count mismatch while reading "
+                << files[i].filename().string() << ": " << dataset.sample_count
+                << " vs " << merged.sample_count << " in "
+                << files.front().filename().string();
+            throw std::runtime_error(oss.str());
+        }
+        if (!almost_equal(dataset.sample_rate_hz, merged.sample_rate_hz)) {
+            std::ostringstream oss;
+            oss << "sample rate mismatch while reading "
+                << files[i].filename().string() << ": "
+                << dataset.sample_rate_hz << " Hz vs " << merged.sample_rate_hz
+                << " Hz in " << files.front().filename().string();
+            throw std::runtime_error(oss.str());
+        }
+        merged.channel_count += dataset.channel_count;
+        for (const auto &label : dataset.channel_labels) {
+            merged.channel_labels.push_back(files[i].filename().string() + ":"
+                                            + label);
+        }
+    }
+    return merged;
+}
+
+ExternalDataset load_tdms_validation_input(const ValidateTdmsCommand &command) {
+    const auto options =
+        make_tdms_import_options(command.unit,
+                                 command.sensitivity_mode,
+                                 command.explicit_sensitivity,
+                                 command.sensitivity_storage_scale,
+                                 command.post_scale,
+                                 command.output_counts,
+                                 command.no_time_check);
+    const auto files =
+        sorted_format_files(command.input_path, {".tdms"}, "TDMS");
+    std::vector<ExternalDataset> datasets;
+    datasets.reserve(files.size());
+    for (const auto &file : files) {
+        try {
+            datasets.push_back(load_tdms_dataset(file.string(), options));
+        } catch (const std::exception &e) {
+            throw std::runtime_error("Failed to read TDMS file "
+                                     + file.filename().string() + ": "
+                                     + e.what());
+        }
+    }
+    if (files.size() == 1) {
+        return std::move(datasets.front());
+    }
+    return merge_validation_datasets(datasets, files, "tdms-directory");
+}
+
+ExternalDataset
+load_mseed_validation_input(const ValidateMseedCommand &command) {
+    const auto options =
+        make_mseed_import_options(command.group_index,
+                                  command.include_dimensionless,
+                                  command.no_time_check);
+    const auto files = sorted_format_files(
+        command.input_path, {".mseed", ".miniseed"}, "MiniSEED");
+    std::vector<ExternalDataset> datasets;
+    datasets.reserve(files.size());
+    for (const auto &file : files) {
+        try {
+            datasets.push_back(load_mseed_dataset(file.string(), options));
+        } catch (const std::exception &e) {
+            throw std::runtime_error("Failed to read MiniSEED file "
+                                     + file.filename().string() + ": "
+                                     + e.what());
+        }
+    }
+    if (files.size() == 1) {
+        return std::move(datasets.front());
+    }
+    return merge_validation_datasets(
+        datasets, files, "modified-miniseed-directory");
 }
 
 void print_dataset_summary(const ExternalDataset &dataset) {
@@ -559,8 +716,9 @@ int run_validate_text_command(const ValidateTextCommand &command) {
 int run_import_tdms_command(const ImportTdmsCommand &command) {
     const std::string metadata_json = read_text_file(command.metadata_path);
     const Metadata metadata = Metadata::from_bytes(metadata_json);
-    const auto dataset = load_tdms_dataset(
+    const auto dataset = load_tdms_collection(
         command.input_path,
+        metadata,
         make_tdms_import_options(command.unit,
                                  command.sensitivity_mode,
                                  command.explicit_sensitivity,
@@ -583,8 +741,9 @@ int run_import_tdms_command(const ImportTdmsCommand &command) {
 int run_import_mseed_command(const ImportMseedCommand &command) {
     const std::string metadata_json = read_text_file(command.metadata_path);
     const Metadata metadata = Metadata::from_bytes(metadata_json);
-    const auto dataset = load_mseed_dataset(
+    const auto dataset = load_mseed_collection(
         command.input_path,
+        metadata,
         make_mseed_import_options(command.group_index,
                                   command.include_dimensionless,
                                   command.no_time_check));
@@ -631,15 +790,7 @@ int run_validate_tdms_command(const ValidateTdmsCommand &command) {
     ValidationReport report;
     ExternalDataset dataset;
     try {
-        dataset = load_tdms_dataset(
-            command.input_path,
-            make_tdms_import_options(command.unit,
-                                     command.sensitivity_mode,
-                                     command.explicit_sensitivity,
-                                     command.sensitivity_storage_scale,
-                                     command.post_scale,
-                                     command.output_counts,
-                                     command.no_time_check));
+        dataset = load_tdms_validation_input(command);
     } catch (const std::exception &e) {
         report.errors.push_back(e.what());
         print_validation_report(std::cout, command.input_path, report);
@@ -654,11 +805,7 @@ int run_validate_mseed_command(const ValidateMseedCommand &command) {
     ValidationReport report;
     ExternalDataset dataset;
     try {
-        dataset = load_mseed_dataset(
-            command.input_path,
-            make_mseed_import_options(command.group_index,
-                                      command.include_dimensionless,
-                                      command.no_time_check));
+        dataset = load_mseed_validation_input(command);
     } catch (const std::exception &e) {
         report.errors.push_back(e.what());
         print_validation_report(std::cout, command.input_path, report);

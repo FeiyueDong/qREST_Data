@@ -83,6 +83,27 @@ void verify_no_parameter_change_during_waveform(
     }
 }
 
+std::optional<double>
+infer_sample_rate_from_timestamps(const std::vector<Timestamp> &timestamps) {
+    if (timestamps.size() < 2) {
+        return std::nullopt;
+    }
+
+    const long double first = timestamp_unix_seconds(timestamps.front());
+    const long double last = timestamp_unix_seconds(timestamps.back());
+    const long double duration = last - first;
+    if (!(duration > 0.0L) || !std::isfinite(static_cast<double>(duration))) {
+        return std::nullopt;
+    }
+
+    const long double fs =
+        static_cast<long double>(timestamps.size() - 1) / duration;
+    if (!(fs > 0.0L) || !std::isfinite(static_cast<double>(fs))) {
+        return std::nullopt;
+    }
+    return static_cast<double>(fs);
+}
+
 double unit_multiplier(AccelerationUnit unit) {
     switch (unit) {
         case AccelerationUnit::MeterPerSecondSquared:
@@ -125,14 +146,14 @@ Dataset load_dataset(const std::string &input_path,
 
         for (const auto &raw : segment.raw_objects) {
             if (raw.path == kSampleRatePath) {
-                auto values = decode_float64(raw);
+                auto values = decode_numeric(raw);
                 for (const double value : values) {
                     dataset.sample_rate_history.push_back(value);
                     dataset.sample_rate_events.push_back(
                         {segment.file_offset, value});
                 }
             } else if (raw.path == kSensitivityPath) {
-                auto values = decode_float64(raw);
+                auto values = decode_numeric(raw);
                 for (const double value : values) {
                     dataset.sensitivity_history.push_back(value);
                     dataset.sensitivity_events.push_back(
@@ -167,28 +188,48 @@ Dataset load_dataset(const std::string &input_path,
         throw std::runtime_error(
             "TDMS N/E/Z channels have different sample counts");
     }
-
-    if (dataset.sample_rate_events.empty()) {
-        throw std::runtime_error("TDMS file does not contain Parmt/SRate");
+    if (options.keep_timestamps && dataset.timestamps.size() != samples) {
+        throw std::runtime_error(
+            "TDMS Time channel sample count does not match N/E/Z");
     }
+
     const auto active_fs = value_active_before(dataset.sample_rate_events,
                                                dataset.first_waveform_offset);
-    if (!active_fs.has_value()) {
+    if (active_fs.has_value() && *active_fs > 0.0
+        && std::isfinite(*active_fs)) {
+        dataset.sample_rate_hz = *active_fs;
+    } else if (options.keep_timestamps) {
+        const auto inferred =
+            infer_sample_rate_from_timestamps(dataset.timestamps);
+        if (!inferred.has_value()) {
+            throw std::runtime_error(
+                "TDMS sampling rate is missing or invalid and cannot be "
+                "inferred from Time channel");
+        }
+        dataset.sample_rate_hz = *inferred;
+    } else if (dataset.sample_rate_events.empty()) {
         throw std::runtime_error(
-            "TDMS has no Parmt/SRate value before waveform data starts");
+            "TDMS file does not contain Parmt/SRate and timestamp inference "
+            "is disabled");
+    } else {
+        throw std::runtime_error(
+            "TDMS has no valid Parmt/SRate value before waveform data starts");
     }
-    dataset.sample_rate_hz = *active_fs;
     if (!(dataset.sample_rate_hz > 0.0)
         || !std::isfinite(dataset.sample_rate_hz)) {
         throw std::runtime_error("invalid TDMS sampling rate");
     }
-    verify_no_parameter_change_during_waveform(dataset.sample_rate_events,
-                                               dataset.first_waveform_offset,
-                                               dataset.last_waveform_offset,
-                                               dataset.sample_rate_hz,
-                                               "sampling rate");
+    if (active_fs.has_value() && *active_fs > 0.0
+        && std::isfinite(*active_fs)) {
+        verify_no_parameter_change_during_waveform(
+            dataset.sample_rate_events,
+            dataset.first_waveform_offset,
+            dataset.last_waveform_offset,
+            dataset.sample_rate_hz,
+            "sampling rate");
+    }
 
-    if (dataset.sensitivity_events.empty()) {
+    if (dataset.sensitivity_events.empty() && options.require_sensitivity) {
         throw std::runtime_error("TDMS file does not contain Parmt/Sen");
     }
     switch (options.sensitivity_selection) {
@@ -196,40 +237,60 @@ Dataset load_dataset(const std::string &input_path,
             const auto active = value_active_before(
                 dataset.sensitivity_events, dataset.first_waveform_offset);
             if (!active.has_value()) {
-                throw std::runtime_error(
-                    "TDMS has no Parmt/Sen value before waveform data starts");
+                if (options.require_sensitivity) {
+                    throw std::runtime_error(
+                        "TDMS has no Parmt/Sen value before waveform data "
+                        "starts");
+                }
+                dataset.selected_sensitivity_raw = 0.0;
+                break;
             }
             dataset.selected_sensitivity_raw = *active;
-            verify_no_parameter_change_during_waveform(
-                dataset.sensitivity_events,
-                dataset.first_waveform_offset,
-                dataset.last_waveform_offset,
-                dataset.selected_sensitivity_raw,
-                "sensitivity");
+            if (options.require_sensitivity) {
+                verify_no_parameter_change_during_waveform(
+                    dataset.sensitivity_events,
+                    dataset.first_waveform_offset,
+                    dataset.last_waveform_offset,
+                    dataset.selected_sensitivity_raw,
+                    "sensitivity");
+            }
             break;
         }
         case SensitivitySelection::First:
-            dataset.selected_sensitivity_raw =
-                dataset.sensitivity_history.front();
+            if (dataset.sensitivity_history.empty()) {
+                if (options.require_sensitivity) {
+                    throw std::runtime_error(
+                        "TDMS file does not contain Parmt/Sen");
+                }
+                dataset.selected_sensitivity_raw = 0.0;
+            } else {
+                dataset.selected_sensitivity_raw =
+                    dataset.sensitivity_history.front();
+            }
             break;
         case SensitivitySelection::Last:
-            dataset.selected_sensitivity_raw =
-                dataset.sensitivity_history.back();
+            if (dataset.sensitivity_history.empty()) {
+                if (options.require_sensitivity) {
+                    throw std::runtime_error(
+                        "TDMS file does not contain Parmt/Sen");
+                }
+                dataset.selected_sensitivity_raw = 0.0;
+            } else {
+                dataset.selected_sensitivity_raw =
+                    dataset.sensitivity_history.back();
+            }
             break;
         case SensitivitySelection::Explicit:
             dataset.selected_sensitivity_raw = options.explicit_sensitivity;
             break;
     }
-    if (!(dataset.selected_sensitivity_raw > 0.0)
-        || !std::isfinite(dataset.selected_sensitivity_raw)) {
+    if (options.require_sensitivity
+        && (!(dataset.selected_sensitivity_raw > 0.0)
+            || !std::isfinite(dataset.selected_sensitivity_raw))) {
         throw std::runtime_error("selected TDMS sensitivity is invalid");
     }
 
     if (options.keep_timestamps) {
-        if (dataset.timestamps.size() != samples) {
-            throw std::runtime_error(
-                "TDMS Time channel sample count does not match N/E/Z");
-        }
         if (options.verify_time_axis && dataset.timestamps.size() >= 2) {
             const long double expected_dt =
                 1.0L / static_cast<long double>(dataset.sample_rate_hz);

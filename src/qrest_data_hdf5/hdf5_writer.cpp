@@ -1,5 +1,7 @@
 #include "hdf5_writer.hpp"
 
+#include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <utility>
 
@@ -36,6 +38,15 @@ void check_hdf5(herr_t status, const char *message) {
         throw std::runtime_error(message);
 }
 
+std::size_t checked_value_count(std::size_t rows, std::size_t columns) {
+    if (columns != 0
+        && rows > std::numeric_limits<std::size_t>::max() / columns) {
+        throw std::runtime_error(
+            "Hdf5Writer: acceleration dimensions overflow");
+    }
+    return rows * columns;
+}
+
 } // namespace
 
 Hdf5Writer::Hdf5Writer(Hdf5Writer &&other) noexcept
@@ -63,6 +74,14 @@ void Hdf5Writer::write(const Metadata &metadata,
                        std::size_t channel_num) {
     if (!is_open())
         throw std::runtime_error("Hdf5Writer: file is not open");
+
+    const auto expected_values = checked_value_count(npts, channel_num);
+    if (data.size() != expected_values) {
+        std::ostringstream oss;
+        oss << "Hdf5Writer: expected " << expected_values
+            << " channel-sequential values, got " << data.size();
+        throw std::runtime_error(oss.str());
+    }
 
     // 1. Write metadata as a 1D char array dataset (serialized JSON)
     {
@@ -130,7 +149,7 @@ void Hdf5Writer::write(const Metadata &metadata,
                                     H5P_DEFAULT),
                          H5Dclose);
 
-        std::vector<double> time_major(npts * channel_num);
+        std::vector<double> time_major(expected_values);
         for (std::size_t c = 0; c < channel_num; ++c) {
             for (std::size_t r = 0; r < npts; ++r) {
                 time_major[r * channel_num + c] = data[c * npts + r];
