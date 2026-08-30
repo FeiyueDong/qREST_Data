@@ -11,17 +11,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\qrest_data_tools_ui\main.cpp" />
-    <ClCompile Include="..\..\src\qrest_data_tools_ui\qrest_view_model.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\qrest_data_tools_ui\main.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.qml" />
   </ItemGroup>
   <ItemGroup>
-    <QtRcc Include="..\..\src\qrest_data_tools_ui\qml.qrc" />
+    <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qml.qrc" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="..\..\src\qrest_data_tools_ui\qrest_view_model.h" />
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{837E05E8-FB5C-44C1-AC20-42E636B1746E}</ProjectGuid>
@@ -81,13 +81,13 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>

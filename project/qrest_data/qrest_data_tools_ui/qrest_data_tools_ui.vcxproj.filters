@@ -23,26 +23,26 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\qrest_data_tools_ui\main.cpp">
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\qrest_data_tools_ui\qrest_view_model.cpp">
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\src\qrest_data_tools_ui\main.qml">
-      <Filter>Source Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <QtRcc Include="..\..\src\qrest_data_tools_ui\qml.qrc">
+    <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qml.qrc">
       <Filter>Resource Files</Filter>
     </QtRcc>
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="..\..\src\qrest_data_tools_ui\qrest_view_model.h">
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.h">
       <Filter>Header Files</Filter>
     </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.qml">
+      <Filter>Form Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

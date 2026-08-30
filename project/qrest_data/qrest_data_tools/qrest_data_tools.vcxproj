@@ -18,11 +18,41 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\external_import.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\formats\mseed\modified_mseed.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\formats\mseed\modified_mseed_export.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\formats\tdms\tdms_export.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\formats\tdms\tdms_reader.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\qrest_data_tools.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\qrest_file.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\test_import_formats.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\text_matrix.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\validation.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\external_import.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\formats\mseed\modified_mseed.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\formats\mseed\modified_mseed_export.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\formats\tdms\tdms_export.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\formats\tdms\tdms_reader.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\qrest_file.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\text_matrix.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\validation.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\qrest_data_hdf5\qrest_data_hdf5.vcxproj">
+      <Project>{83958196-388a-4646-b0d7-2db385637140}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\qrest_data_lib\qrest_data_lib.vcxproj">
+      <Project>{0c479a5f-7fdb-4494-9cc3-e23b9cfc1442}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{aa300a75-05ae-4ae5-af30-a680066cf08a}</ProjectGuid>
-    <RootNamespace>testqrestdatahdf5</RootNamespace>
+    <ProjectGuid>{05f8642c-57a1-47f3-b231-e6b1eed86b53}</ProjectGuid>
+    <RootNamespace>qrestdatatools</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,13 +70,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -81,15 +111,11 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -101,15 +127,11 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -118,16 +140,13 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;..\..\..\src\qrest_data\qrest_data_tools%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -138,25 +157,14 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;..\..\..\src\qrest_data\qrest_data_tools%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
-    <Manifest>
-      <EnableSegmentHeap>true</EnableSegmentHeap>
-    </Manifest>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="..\..\src\qrest_data_hdf5\test_qrest_data_hdf5.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\qrest_data_hdf5\qrest_data_hdf5.vcxproj">
-      <Project>{83958196-388a-4646-b0d7-2db385637140}</Project>
-    </ProjectReference>
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

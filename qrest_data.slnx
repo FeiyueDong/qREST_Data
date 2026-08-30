@@ -1,17 +1,17 @@
 <Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="project/qrest_data_tools/qrest_data_tools.vcxproj" Id="05f8642c-57a1-47f3-b231-e6b1eed86b53" />
-  <Project Path="project/data_struct/data_struct.vcxproj" Id="4928d398-5acf-420e-baea-ce27c7689552">
-    <Build Project="false" />
-  </Project>
-  <Project Path="project/qrest_data_tools_ui/qrest_data_tools_ui.vcxproj" Id="837e05e8-fb5c-44c1-ac20-42e636b1746e">
-    <Platform Project="x64" />
-  </Project>
-  <Project Path="project/qrest_data/qrest_data.vcxproj" Id="69d3464d-40d9-484d-93b0-16cd3d1bb180" />
-  <Project Path="project/qrest_data_hdf5/qrest_data_hdf5.vcxproj" Id="83958196-388a-4646-b0d7-2db385637140" />
-  <Project Path="project/test_qrest_data/test_qrest_data.vcxproj" Id="14674a54-12c5-427c-afca-995a8f1249bc" />
-  <Project Path="project/test_qrest_data_hdf5/test_qrest_data_hdf5.vcxproj" Id="aa300a75-05ae-4ae5-af30-a680066cf08a" />
+    <Configurations>
+        <Platform Name="x64" />
+        <Platform Name="x86" />
+    </Configurations>
+    <Project Path="project/qrest_data/qrest_data_tools/qrest_data_tools.vcxproj" Id="05f8642c-57a1-47f3-b231-e6b1eed86b53" />
+    <Project Path="project/qrest_data/data_struct/data_struct.vcxproj" Id="4928d398-5acf-420e-baea-ce27c7689552">
+        <Build Project="false" />
+    </Project>
+    <Project Path="project/qrest_data/qrest_data_tools_ui/qrest_data_tools_ui.vcxproj" Id="837e05e8-fb5c-44c1-ac20-42e636b1746e">
+        <Platform Project="x64" />
+    </Project>
+    <Project Path="project/qrest_data/qrest_data_lib/qrest_data_lib.vcxproj" Id="0c479a5f-7fdb-4494-9cc3-e23b9cfc1442" />
+    <Project Path="project/qrest_data/qrest_data_hdf5/qrest_data_hdf5.vcxproj" Id="83958196-388a-4646-b0d7-2db385637140" />
+    <Project Path="project/qrest_data/test_qrest_data_lib/test_qrest_data_lib.vcxproj" Id="8028e218-f61f-4950-ba2e-8f927a6881c7" />
+    <Project Path="project/qrest_data/test_qrest_data_hdf5/test_qrest_data_hdf5.vcxproj" Id="aa300a75-05ae-4ae5-af30-a680066cf08a" />
 </Solution>

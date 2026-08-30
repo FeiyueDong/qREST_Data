@@ -19,9 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\data_packet.hpp" />
-    <ClInclude Include="..\..\src\file_header.hpp" />
-    <ClInclude Include="..\..\src\metadata.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\data_packet.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\file_header.hpp" />
+    <ClInclude Include="..\..\..\src\qrest_data\metadata.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>

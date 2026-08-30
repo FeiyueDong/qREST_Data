@@ -1,7 +1,7 @@
 #include "external_import.hpp"
-#include "modified_mseed_export.hpp"
+#include "formats/mseed/modified_mseed_export.hpp"
+#include "formats/tdms/tdms_export.hpp"
 #include "qrest_file.hpp"
-#include "tdms_export.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -11,6 +11,10 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#ifndef QREST_DATA_PROJECT_DIR
+#define QREST_DATA_PROJECT_DIR "."
+#endif
 
 namespace {
 
