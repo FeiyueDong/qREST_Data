@@ -42,4 +42,4 @@ if is_plat("linux", "macosx", "mingw") then
     add_cxflags("-fPIC")
 end
 
-includes("src")
+includes("src/qrest_data")
