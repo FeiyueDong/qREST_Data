@@ -2,12 +2,16 @@
 #define QREST_VIEW_MODEL_H
 
 #include <QAbstractTableModel> // 新增：用于高性能表格显示
+#include <QByteArray>
 #include <QItemSelectionModel>
 #include <QJsonObject>
+#include <QList>
 #include <QObject>
 #include <QString>
 #include <QtQml>
+#include <QVariantList>
 
+#include "qrest_document.h"
 
 #ifndef Q_MOC_RUN
 #include "data_packet.hpp"
@@ -46,6 +50,85 @@ private:
 #endif
 };
 
+class ChannelTableModel : public QAbstractTableModel {
+    Q_OBJECT
+public:
+    explicit ChannelTableModel(QObject *parent = nullptr);
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index,
+                  int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section,
+                        Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
+
+#ifndef Q_MOC_RUN
+    void loadMetadata(const qrest_data::Metadata *metadata);
+#endif
+    void clear();
+
+private:
+#ifndef Q_MOC_RUN
+    const qrest_data::Metadata *m_metadata = nullptr;
+#endif
+};
+
+class ValidationTableModel : public QAbstractTableModel {
+    Q_OBJECT
+public:
+    enum class Severity {
+        Info,
+        Warning,
+        Error,
+    };
+
+    struct Issue {
+        Severity severity{Severity::Info};
+        QString area;
+        QString message;
+    };
+
+    explicit ValidationTableModel(QObject *parent = nullptr);
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index,
+                  int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section,
+                        Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
+
+    void setIssues(QList<Issue> issues);
+    void clear();
+    [[nodiscard]] int errorCount() const;
+    [[nodiscard]] int warningCount() const;
+
+private:
+    QList<Issue> m_issues;
+};
+
+class BinaryTableModel : public QAbstractTableModel {
+    Q_OBJECT
+public:
+    explicit BinaryTableModel(QObject *parent = nullptr);
+
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    int columnCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index,
+                  int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section,
+                        Qt::Orientation orientation,
+                        int role = Qt::DisplayRole) const override;
+
+    void loadBytes(const QByteArray &bytes);
+    void clear();
+    [[nodiscard]] int byteCount() const;
+
+private:
+    QByteArray m_bytes;
+};
+
 
 // =========================================================
 // 主控制器
@@ -67,11 +150,100 @@ class QrestViewModel : public QObject {
         int packetSamplingRate READ packetSamplingRate NOTIFY packetUpdated)
     Q_PROPERTY(
         int packetDataPointCount READ packetDataPointCount NOTIFY packetUpdated)
-    Q_PROPERTY(QString headerHex READ headerHex NOTIFY headerUpdated)
+    Q_PROPERTY(
+        QString documentModeName READ documentModeName NOTIFY documentUpdated)
+    Q_PROPERTY(
+        QString documentStatus READ documentStatus NOTIFY documentUpdated)
+    Q_PROPERTY(
+        QString sourceFileName READ sourceFileName NOTIFY documentUpdated)
+    Q_PROPERTY(bool isDirty READ isDirty NOTIFY documentUpdated)
+    Q_PROPERTY(bool canModify READ canModify NOTIFY documentUpdated)
+    Q_PROPERTY(bool canEdit READ canEdit NOTIFY documentUpdated)
+    Q_PROPERTY(bool canSaveAs READ canSaveAs NOTIFY documentUpdated)
+    Q_PROPERTY(
+        QString metadataHeader READ metadataHeader NOTIFY metadataUpdated)
+    Q_PROPERTY(QString metadataVersionText READ metadataVersionText NOTIFY
+                   metadataUpdated)
+    Q_PROPERTY(QString distanceUnit READ distanceUnit NOTIFY metadataUpdated)
+    Q_PROPERTY(QString timeUnit READ timeUnit NOTIFY metadataUpdated)
+    Q_PROPERTY(QString projectName READ projectName NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        QString structuralType READ structuralType NOTIFY metadataUpdated)
+    Q_PROPERTY(double longitude READ longitude NOTIFY metadataUpdated)
+    Q_PROPERTY(double latitude READ latitude NOTIFY metadataUpdated)
+    Q_PROPERTY(double northAngle READ northAngle NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        QString footprintShape READ footprintShape NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        double footprintLength READ footprintLength NOTIFY metadataUpdated)
+    Q_PROPERTY(double footprintWidth READ footprintWidth NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        double footprintRadius READ footprintRadius NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        QString boundingBoxText READ boundingBoxText NOTIFY metadataUpdated)
+    Q_PROPERTY(QString polygonCornersText READ polygonCornersText NOTIFY
+                   metadataUpdated)
+    Q_PROPERTY(QString elevationText READ elevationText NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        QString elevationSummary READ elevationSummary NOTIFY metadataUpdated)
+    Q_PROPERTY(int elevationNum READ elevationNum NOTIFY metadataUpdated)
+    Q_PROPERTY(QString provider READ provider NOTIFY metadataUpdated)
+    Q_PROPERTY(int channelNum READ channelNum NOTIFY metadataUpdated)
+    Q_PROPERTY(QString eventName READ eventName NOTIFY metadataUpdated)
+    Q_PROPERTY(QString startTime READ startTime NOTIFY metadataUpdated)
+    Q_PROPERTY(
+        qlonglong startTimestamp READ startTimestamp NOTIFY metadataUpdated)
+    Q_PROPERTY(int samplingRate READ samplingRate NOTIFY metadataUpdated)
+    Q_PROPERTY(QString samplingIntervalText READ samplingIntervalText NOTIFY
+                   metadataUpdated)
+    Q_PROPERTY(int dataNpts READ dataNpts NOTIFY metadataUpdated)
+    Q_PROPERTY(QString corrected READ corrected NOTIFY metadataUpdated)
     // 暴露给 QML 表格使用的模型
     Q_PROPERTY(QAbstractTableModel *tableModel READ tableModel CONSTANT)
-    // 全文件 Hex 预览属性
-    Q_PROPERTY(QString fileHexPreview READ fileHexPreview NOTIFY fileLoaded)
+    Q_PROPERTY(QAbstractTableModel *channelModel READ channelModel CONSTANT)
+    Q_PROPERTY(QItemSelectionModel *channelSelectionModel READ
+                   channelSelectionModel CONSTANT)
+    Q_PROPERTY(int selectedChannelRow READ selectedChannelRow NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(bool hasSelectedChannel READ hasSelectedChannel NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(bool canEditChannelOrder READ canEditChannelOrder NOTIFY
+                   documentUpdated)
+    Q_PROPERTY(int selectedChannelNo READ selectedChannelNo NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(QString selectedChannelId READ selectedChannelId NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(QString selectedChannelMeasurand READ selectedChannelMeasurand
+                   NOTIFY selectedChannelUpdated)
+    Q_PROPERTY(double selectedChannelScale READ selectedChannelScale NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(double selectedChannelAzimuth READ selectedChannelAzimuth NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(QString selectedChannelDirection READ selectedChannelDirection
+                   NOTIFY selectedChannelUpdated)
+    Q_PROPERTY(double selectedChannelX READ selectedChannelX NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(double selectedChannelY READ selectedChannelY NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(double selectedChannelZ READ selectedChannelZ NOTIFY
+                   selectedChannelUpdated)
+    Q_PROPERTY(QVariantList geometryFloorOutlines READ geometryFloorOutlines
+                   NOTIFY geometryUpdated)
+    Q_PROPERTY(QVariantList sensorLayoutPoints READ sensorLayoutPoints NOTIFY
+                   geometryUpdated)
+    Q_PROPERTY(
+        QString geometrySummary READ geometrySummary NOTIFY geometryUpdated)
+    Q_PROPERTY(
+        QAbstractTableModel *validationModel READ validationModel CONSTANT)
+    Q_PROPERTY(int validationErrorCount READ validationErrorCount NOTIFY
+                   validationUpdated)
+    Q_PROPERTY(int validationWarningCount READ validationWarningCount NOTIFY
+                   validationUpdated)
+    Q_PROPERTY(QString validationStatusText READ validationStatusText NOTIFY
+                   validationUpdated)
+    Q_PROPERTY(QAbstractTableModel *binaryModel READ binaryModel CONSTANT)
+    Q_PROPERTY(int binaryByteCount READ binaryByteCount NOTIFY fileLoaded)
+    Q_PROPERTY(QString binarySummary READ binarySummary NOTIFY fileLoaded)
     // 供 QML 表格使用的选择模型
     Q_PROPERTY(QItemSelectionModel *selectionModel READ selectionModel CONSTANT)
     Q_PROPERTY(
@@ -87,25 +259,116 @@ public:
     int dataSize() const;
     QJsonObject metadataJson() const;
     void setMetadataJson(const QJsonObject &json);
-    QString headerHex() const;
-
     // 数据包 Getter
-    QString fileHexPreview() const;
     QItemSelectionModel *selectionModel() const;
     int packetSourceId() const;
     int packetChannelCount() const;
     int packetSamplingRate() const;
     int packetDataPointCount() const;
     QAbstractTableModel *tableModel() const;
+    QAbstractTableModel *channelModel() const;
+    QItemSelectionModel *channelSelectionModel() const;
     int packetDataEncodings() const;
     qlonglong packetTimestamp() const;
+    QString documentModeName() const;
+    QString documentStatus() const;
+    QString sourceFileName() const;
+    bool isDirty() const;
+    bool canModify() const;
+    bool canEdit() const;
+    bool canSaveAs() const;
+    QString metadataHeader() const;
+    QString metadataVersionText() const;
+    QString distanceUnit() const;
+    QString timeUnit() const;
+    QString projectName() const;
+    QString structuralType() const;
+    double longitude() const;
+    double latitude() const;
+    double northAngle() const;
+    QString footprintShape() const;
+    double footprintLength() const;
+    double footprintWidth() const;
+    double footprintRadius() const;
+    QString boundingBoxText() const;
+    QString polygonCornersText() const;
+    QString elevationText() const;
+    QString elevationSummary() const;
+    int elevationNum() const;
+    QString provider() const;
+    int channelNum() const;
+    QString eventName() const;
+    QString startTime() const;
+    qlonglong startTimestamp() const;
+    int samplingRate() const;
+    QString samplingIntervalText() const;
+    int dataNpts() const;
+    QString corrected() const;
+    int selectedChannelRow() const;
+    bool hasSelectedChannel() const;
+    bool canEditChannelOrder() const;
+    int selectedChannelNo() const;
+    QString selectedChannelId() const;
+    QString selectedChannelMeasurand() const;
+    double selectedChannelScale() const;
+    double selectedChannelAzimuth() const;
+    QString selectedChannelDirection() const;
+    double selectedChannelX() const;
+    double selectedChannelY() const;
+    double selectedChannelZ() const;
+    QVariantList geometryFloorOutlines() const;
+    QVariantList sensorLayoutPoints() const;
+    QString geometrySummary() const;
+    QAbstractTableModel *validationModel() const;
+    int validationErrorCount() const;
+    int validationWarningCount() const;
+    QString validationStatusText() const;
+    QAbstractTableModel *binaryModel() const;
+    int binaryByteCount() const;
+    QString binarySummary() const;
+    Q_INVOKABLE int binaryRowForOffset(int offset) const;
+    Q_INVOKABLE int findBinaryAscii(const QString &text, int startRow) const;
+    Q_INVOKABLE int findBinaryHex(const QString &hex, int startRow) const;
 
     Q_INVOKABLE void newFile();
     Q_INVOKABLE void openFile(const QString &fileUrl);
     Q_INVOKABLE void saveFile(const QString &fileUrl);
+    Q_INVOKABLE void beginEdit();
+    Q_INVOKABLE void validateDocument();
+    Q_INVOKABLE void runValidationReport();
+    Q_INVOKABLE void updateUnits(const QString &distanceUnit,
+                                 const QString &timeUnit);
+    Q_INVOKABLE void updateBuildingBasic(const QString &projectName,
+                                         const QString &structuralType);
+    Q_INVOKABLE void
+    updateGeoLocation(double longitude, double latitude, double northAngle);
+    Q_INVOKABLE void updateFootprint(const QString &shape,
+                                     double length,
+                                     double width,
+                                     double radius);
+    Q_INVOKABLE void updatePolygonCornersText(const QString &text);
+    Q_INVOKABLE void updateElevationText(const QString &text);
+    Q_INVOKABLE void updateProvider(const QString &provider);
+    Q_INVOKABLE void updateDataInfo(const QString &eventName,
+                                    int samplingRate,
+                                    int npts,
+                                    const QString &corrected);
+    Q_INVOKABLE void updateStartTimestamp(qlonglong timestamp);
+    Q_INVOKABLE void selectChannel(int row);
+    Q_INVOKABLE void addChannel();
+    Q_INVOKABLE void duplicateSelectedChannel();
+    Q_INVOKABLE void deleteSelectedChannel();
+    Q_INVOKABLE void updateSelectedChannel(const QString &channelId,
+                                           const QString &measurand,
+                                           double scale,
+                                           double azimuth,
+                                           double x,
+                                           double y,
+                                           double z);
     Q_INVOKABLE void importMetadata(const QString &fileUrl);
     Q_INVOKABLE void exportMetadata(const QString &fileUrl);
     Q_INVOKABLE void importDataBody(const QString &fileUrl);
+    Q_INVOKABLE void confirmImportDataBody(const QString &fileUrl);
     Q_INVOKABLE void exportDataBody(const QString &fileUrl);
     Q_INVOKABLE void copySelectedCells();
     Q_INVOKABLE void selectAllData();
@@ -123,18 +386,35 @@ signals:
     void metadataUpdated();
     void packetUpdated(); // 数据包更新信号
     void fileLoaded();    // 新增：文件整体加载完成信号
+    void documentUpdated();
+    void channelsUpdated();
+    void selectedChannelUpdated();
+    void geometryUpdated();
+    void validationUpdated();
+    void confirmDataImportNptsMismatch(const QString &fileUrl,
+                                       int expectedNpts,
+                                       int importedNpts,
+                                       int importedChannels);
     void showMessage(const QString &message, bool isError = false);
 
 private:
+    void emitAllDocumentSignals();
+    void refreshChannelModel();
+    void setSelectedChannelRow(int row);
+    void rebuildValidationReport();
+    [[nodiscard]] QList<ValidationTableModel::Issue>
+    collectValidationIssues() const;
+    void importDataBodyInternal(const QString &fileUrl, bool acceptNptsChange);
+
     DataTableModel *m_tableModel;          // 表格模型实例
     QItemSelectionModel *m_selectionModel; // 新增：选择模型实例
-    QByteArray m_rawFileBytes; // 新增：暂存读取到的文件字节，用于 Hex 预览
+    ChannelTableModel *m_channelModel;
+    QItemSelectionModel *m_channelSelectionModel;
+    ValidationTableModel *m_validationModel;
+    BinaryTableModel *m_binaryModel;
+    int m_selectedChannelRow{-1};
 
-#ifndef Q_MOC_RUN
-    qrest_data::FileHeader m_fileHeader;
-    qrest_data::Metadata m_metadata;
-    qrest_data::DataPacket m_dataPacket;
-#endif
+    QrestDocument m_document;
 };
 
 #endif // QREST_VIEW_MODEL_H
