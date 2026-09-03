@@ -1515,7 +1515,7 @@ ToolButton
 推荐使用：
 
 ```text
-SVG
+png
 ```
 
 优先。
@@ -1523,15 +1523,15 @@ SVG
 资源组织例如：
 
 ```text
-resources/icons/
+icons/
 
-new.svg
-open.svg
-edit.svg
-validate.svg
-save_as.svg
-json.svg
-binary.svg
+New.png
+Open.png
+Edit.png
+Validate.png
+SaveAs.png
+JSON.png
+Binary.png
 ```
 
 加入 qrc。
