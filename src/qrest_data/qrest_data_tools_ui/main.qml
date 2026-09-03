@@ -48,7 +48,7 @@ ApplicationWindow {
 
     function refreshMetadataFields() {
         distanceUnitBox.currentIndex = indexOfValue(["m", "mm", "cm"], viewModel.distanceUnit);
-        timeUnitBox.currentIndex = indexOfValue(["s", "ms"], viewModel.timeUnit);
+        timeUnitBox.currentIndex = 0;
         projectNameField.text = viewModel.projectName;
         structuralTypeBox.currentIndex = indexOfValue(["RC Frame", "Shear Wall", "Steel Frame", "Masonry", "Mixed Structure", "Other"], viewModel.structuralType);
         structuralTypeBox.editText = viewModel.structuralType;
@@ -72,6 +72,8 @@ ApplicationWindow {
     function refreshChannelFields() {
         channelNoLabel.text = viewModel.hasSelectedChannel ? viewModel.selectedChannelNo : "-";
         channelIdField.text = viewModel.selectedChannelId;
+        channelDeviceTypeBox.currentIndex = indexOfValue(["Accelerometer", "Velocity Sensor", "Displacement Sensor", "Strain Gauge", "Temperature Sensor", "Unknown", "Other"], viewModel.selectedChannelDeviceType);
+        channelDeviceTypeBox.editText = viewModel.selectedChannelDeviceType;
         channelMeasurandBox.currentIndex = indexOfValue(["Acceleration", "Velocity", "Displacement", "Strain", "Temperature", "Other"], viewModel.selectedChannelMeasurand);
         channelMeasurandBox.editText = viewModel.selectedChannelMeasurand;
         channelScaleField.text = viewModel.hasSelectedChannel ? viewModel.selectedChannelScale : "";
@@ -89,72 +91,6 @@ ApplicationWindow {
         tfDataPointCount.text = viewModel.packetDataPointCount;
         tfTimestamp.text = viewModel.packetTimestamp;
         cbEncoding.currentIndex = [0, 1, 10, 11].indexOf(viewModel.packetDataEncodings);
-    }
-
-    function geometryBounds() {
-        const floors = viewModel.geometryFloorOutlines;
-        const sensors = viewModel.sensorLayoutPoints;
-        let minX = Number.POSITIVE_INFINITY;
-        let maxX = Number.NEGATIVE_INFINITY;
-        let minY = Number.POSITIVE_INFINITY;
-        let maxY = Number.NEGATIVE_INFINITY;
-
-        function includePoint(x, y) {
-            minX = Math.min(minX, x);
-            maxX = Math.max(maxX, x);
-            minY = Math.min(minY, y);
-            maxY = Math.max(maxY, y);
-        }
-
-        for (let floor of floors) {
-            for (let point of floor.points)
-                includePoint(point.x, point.y);
-        }
-        for (let sensor of sensors)
-            includePoint(sensor.x, sensor.y);
-
-        return {
-            valid: isFinite(minX) && isFinite(minY),
-            minX: minX,
-            maxX: maxX,
-            minY: minY,
-            maxY: maxY
-        };
-    }
-
-    function canvasPoint(x, y, width, height, bounds) {
-        const pad = 18;
-        const planWidth = Math.max(width - 70, 80);
-        const spanX = Math.max(bounds.maxX - bounds.minX, 1e-6);
-        const spanY = Math.max(bounds.maxY - bounds.minY, 1e-6);
-        const scale = Math.min((planWidth - pad * 2) / spanX, (height - pad * 2) / spanY);
-        return {
-            x: pad + (x - bounds.minX) * scale,
-            y: height - pad - (y - bounds.minY) * scale
-        };
-    }
-
-    function selectSensorAt(mouseX, mouseY, width, height) {
-        const bounds = geometryBounds();
-        if (!bounds.valid)
-            return;
-
-        let bestRow = -1;
-        let bestDistance = 144;
-        for (let sensor of viewModel.sensorLayoutPoints) {
-            const point = canvasPoint(sensor.x, sensor.y, width, height, bounds);
-            const dx = point.x - mouseX;
-            const dy = point.y - mouseY;
-            const distance = dx * dx + dy * dy;
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                bestRow = sensor.row;
-            }
-        }
-
-        if (bestRow >= 0) {
-            viewModel.selectChannel(bestRow);
-        }
     }
 
     function jumpBinaryOffset() {
@@ -207,7 +143,6 @@ ApplicationWindow {
             if (viewModel.selectedChannelRow >= 0)
                 channelTable.positionViewAtRow(viewModel.selectedChannelRow, TableView.AlignCenter);
         }
-        onGeometryUpdated: sensorCanvas.requestPaint()
         onConfirmDataImportNptsMismatch: function (fileUrl, expectedNpts, importedNpts, importedChannels) {
             window.pendingImportDataUrl = fileUrl;
             dataImportMismatchLabel.text = "当前 NPTS 为 " + expectedNpts + "，导入数据为 " + importedNpts + " 行 / " + importedChannels + " 通道。";
@@ -457,106 +392,19 @@ ApplicationWindow {
                 }
             }
 
-            GridLayout {
+            QrestTableView {
+                id: binaryTable
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                columns: 2
-                rows: 2
-
-                Rectangle {
-                    Layout.preferredWidth: 48
-                    Layout.preferredHeight: 30
-                    color: "#d6d8db"
-                    border.color: "#cccccc"
-                    Text {
-                        anchors.centerIn: parent
-                        text: "#"
-                        font.pixelSize: 11
-                        color: "#666666"
-                    }
-                }
-
-                HorizontalHeaderView {
-                    syncView: binaryTable
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 30
-                    delegate: Rectangle {
-                        id: binaryHorizontalHeaderCell
-                        implicitWidth: 180
-                        implicitHeight: 30
-                        required property var display
-                        color: "#e9ecef"
-                        border.color: "#cccccc"
-                        Text {
-                            anchors.centerIn: parent
-                            text: binaryHorizontalHeaderCell.display
-                            font.bold: true
-                        }
-                    }
-                }
-
-                VerticalHeaderView {
-                    syncView: binaryTable
-                    Layout.fillHeight: true
-                    Layout.preferredWidth: 48
-                    delegate: Rectangle {
-                        id: binaryVerticalHeaderCell
-                        implicitWidth: 48
-                        implicitHeight: 30
-                        required property var display
-                        color: "#f1f3f5"
-                        border.color: "#dee2e6"
-                        Text {
-                            anchors.centerIn: parent
-                            text: binaryVerticalHeaderCell.display
-                            font.pixelSize: 12
-                            color: "#495057"
-                        }
-                    }
-                }
-
-                TableView {
-                    id: binaryTable
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    columnSpacing: 1
-                    rowSpacing: 1
-                    model: viewModel.binaryModel
-                    columnWidthProvider: function (column) {
-                        if (column === 0)
-                            return 100;
-                        if (column === 1)
-                            return 430;
-                        return 220;
-                    }
-
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AlwaysOn
-                    }
-                    ScrollBar.horizontal: ScrollBar {
-                        policy: ScrollBar.AsNeeded
-                    }
-
-                    delegate: Rectangle {
-                        id: binaryCell
-                        implicitWidth: 180
-                        implicitHeight: 28
-                        required property int row
-                        required property var display
-                        color: row % 2 === 0 ? "#ffffff" : "#f8f9fa"
-                        border.color: "#eeeeee"
-
-                        Text {
-                            anchors.fill: parent
-                            anchors.margins: 6
-                            verticalAlignment: Text.AlignVCenter
-                            text: binaryCell.display
-                            elide: Text.ElideRight
-                            font.family: "Consolas"
-                            color: "#1f2933"
-                        }
-                    }
+                model: viewModel.binaryModel
+                rowHeight: 28
+                numericColumnStart: 0
+                columnWidthProvider: function (column) {
+                    if (column === 0)
+                        return 100;
+                    if (column === 1)
+                        return 430;
+                    return 220;
                 }
             }
         }
@@ -720,31 +568,75 @@ ApplicationWindow {
                 anchors.rightMargin: 8
                 spacing: 8
 
-                Button {
+                ToolButton {
                     text: "New"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/New.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Create new qREST file"
                     onClicked: window.requestGuardedAction("new")
                 }
-                Button {
+                ToolButton {
                     text: "Open"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Open.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Open qREST file"
                     onClicked: window.requestGuardedAction("open")
                 }
-                Button {
+                ToolSeparator {}
+                ToolButton {
                     text: "Edit"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Edit.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Create editable copy"
                     enabled: viewModel.canEdit
                     onClicked: viewModel.beginEdit()
                 }
-                Button {
+                ToolButton {
                     text: "Validate"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Validate.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Validate current document"
                     onClicked: {
                         viewModel.validateDocument();
                         tabBar.currentIndex = 4;
                     }
                 }
-                Button {
+                ToolButton {
                     text: "Save As"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/SaveAs.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Save draft as a new file"
                     enabled: viewModel.canSaveAs
                     highlighted: viewModel.isDirty
                     onClicked: saveDialog.open()
+                }
+                ToolSeparator {}
+                ToolButton {
+                    text: "JSON"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/JSON.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Open raw metadata JSON"
+                    onClicked: {
+                        window.refreshMetadataFields();
+                        rawMetadataDialog.open();
+                    }
+                }
+                ToolButton {
+                    text: "Binary"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Binary.png"
+                    display: AbstractButton.TextBesideIcon
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Open read-only binary viewer"
+                    onClicked: {
+                        window.binarySearchStartRow = 0;
+                        binaryViewerDialog.open();
+                    }
                 }
                 Item {
                     Layout.fillWidth: true
@@ -1015,8 +907,8 @@ ApplicationWindow {
                             }
                             ComboBox {
                                 id: timeUnitBox
-                                model: ["s", "ms"]
-                                enabled: viewModel.canModify
+                                model: ["s"]
+                                enabled: false
                                 Layout.fillWidth: true
                             }
 
@@ -1286,131 +1178,6 @@ ApplicationWindow {
                         }
                     }
 
-                    GroupBox {
-                        title: "Instrument"
-                        Layout.fillWidth: true
-
-                        GridLayout {
-                            anchors.fill: parent
-                            columns: 4
-                            rowSpacing: 10
-                            columnSpacing: 10
-
-                            Label {
-                                text: "Provider"
-                            }
-                            TextField {
-                                id: providerField
-                                readOnly: !viewModel.canModify
-                                Layout.fillWidth: true
-                            }
-                            Label {
-                                text: "ChannelNum"
-                            }
-                            Label {
-                                text: viewModel.channelNum
-                                font.bold: true
-                            }
-
-                            Button {
-                                text: "Apply Instrument"
-                                enabled: viewModel.canModify
-                                Layout.columnSpan: 4
-                                Layout.alignment: Qt.AlignRight
-                                onClicked: viewModel.updateProvider(providerField.text)
-                            }
-                        }
-                    }
-
-                    GroupBox {
-                        title: "Data Info"
-                        Layout.fillWidth: true
-
-                        GridLayout {
-                            anchors.fill: parent
-                            columns: 4
-                            rowSpacing: 10
-                            columnSpacing: 10
-
-                            Label {
-                                text: "Event Name"
-                            }
-                            TextField {
-                                id: eventNameField
-                                readOnly: !viewModel.canModify
-                                Layout.fillWidth: true
-                            }
-                            Label {
-                                text: "StartTime"
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Label {
-                                    text: viewModel.startTime === "" ? "Auto" : viewModel.startTime
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                }
-                                Button {
-                                    text: "Set"
-                                    enabled: viewModel.canModify
-                                    onClicked: {
-                        window.timePickerTarget = "dataInfo";
-                        timePicker.open();
-                                    }
-                                }
-                            }
-
-                            Label {
-                                text: "Sampling Rate (Hz)"
-                            }
-                            TextField {
-                                id: samplingRateField
-                                readOnly: !viewModel.canModify
-                                validator: IntValidator {
-                                    bottom: 1
-                                    top: 65535
-                                }
-                                Layout.fillWidth: true
-                            }
-                            Label {
-                                text: "Sampling Interval"
-                            }
-                            Label {
-                                text: viewModel.samplingIntervalText
-                                font.bold: true
-                            }
-
-                            Label {
-                                text: "NPTS"
-                            }
-                            TextField {
-                                id: nptsField
-                                readOnly: !viewModel.canModify || viewModel.packetDataPointCount > 0
-                                validator: IntValidator {
-                                    bottom: 0
-                                }
-                                Layout.fillWidth: true
-                            }
-                            Label {
-                                text: "Corrected"
-                            }
-                            ComboBox {
-                                id: correctedBox
-                                model: ["NULL", "Corrected", "Unknown"]
-                                enabled: viewModel.canModify
-                                Layout.fillWidth: true
-                            }
-
-                            Button {
-                                text: "Apply Data Info"
-                                enabled: viewModel.canModify
-                                Layout.columnSpan: 4
-                                Layout.alignment: Qt.AlignRight
-                                onClicked: viewModel.updateDataInfo(eventNameField.text, parseInt(samplingRateField.text), parseInt(nptsField.text), correctedBox.currentText)
-                            }
-                        }
-                    }
-
                 }
             }
         }
@@ -1430,14 +1197,6 @@ ApplicationWindow {
                         text: "Channels"
                         font.pixelSize: 18
                         font.bold: true
-                    }
-                    Label {
-                        text: "Provider: " + (viewModel.provider === "" ? "-" : viewModel.provider)
-                        color: "#666666"
-                    }
-                    Label {
-                        text: "ChannelNum: " + viewModel.channelNum
-                        color: "#666666"
                     }
                     Label {
                         text: viewModel.canEditChannelOrder ? "" : "通道数量/顺序已锁定"
@@ -1463,6 +1222,32 @@ ApplicationWindow {
                     }
                 }
 
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    Label {
+                        text: "Provider"
+                    }
+                    TextField {
+                        id: providerField
+                        readOnly: !viewModel.canModify
+                        Layout.preferredWidth: Math.max(220, window.width * 0.28)
+                    }
+                    Button {
+                        text: "Apply Provider"
+                        enabled: viewModel.canModify
+                        onClicked: viewModel.updateProvider(providerField.text)
+                    }
+                    Label {
+                        text: "ChannelNum: " + viewModel.channelNum
+                        color: "#666666"
+                    }
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
+
                 SplitView {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
@@ -1470,128 +1255,37 @@ ApplicationWindow {
 
                     GroupBox {
                         title: "Channel List"
-                        SplitView.preferredWidth: 670
+                        SplitView.preferredWidth: Math.max(520, window.width * 0.62)
                         SplitView.minimumWidth: 460
                         Layout.fillHeight: true
 
-                        GridLayout {
+                        QrestTableView {
+                            id: channelTable
                             anchors.fill: parent
-                            columns: 2
-                            rows: 2
-
-                            Rectangle {
-                                Layout.preferredWidth: 48
-                                Layout.preferredHeight: 30
-                                color: "#d6d8db"
-                                border.color: "#cccccc"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "#"
-                                    font.pixelSize: 11
-                                    color: "#666666"
-                                }
+                            model: viewModel.channelModel
+                            selectionModel: viewModel.channelSelectionModel
+                            alwaysShowHorizontalScrollbar: true
+                            numericColumnStart: 5
+                            columnWidthProvider: function (column) {
+                                if (column === 1)
+                                    return 180;
+                                if (column === 2)
+                                    return 140;
+                                if (column === 3)
+                                    return 130;
+                                if (column === 4)
+                                    return 110;
+                                return 90;
                             }
-
-                            HorizontalHeaderView {
-                                id: channelHeader
-                                syncView: channelTable
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: 30
-                                delegate: Rectangle {
-                                    id: channelHorizontalHeaderCell
-                                    implicitWidth: 110
-                                    implicitHeight: 30
-                                    required property var display
-                                    color: "#e9ecef"
-                                    border.color: "#cccccc"
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: channelHorizontalHeaderCell.display
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                    }
-                                }
-                            }
-
-                            VerticalHeaderView {
-                                syncView: channelTable
-                                Layout.fillHeight: true
-                                Layout.preferredWidth: 48
-                                delegate: Rectangle {
-                                    id: channelVerticalHeaderCell
-                                    implicitWidth: 48
-                                    implicitHeight: 30
-                                    required property var display
-                                    color: "#f1f3f5"
-                                    border.color: "#dee2e6"
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: channelVerticalHeaderCell.display
-                                        font.pixelSize: 12
-                                        color: "#495057"
-                                    }
-                                }
-                            }
-
-                            TableView {
-                                id: channelTable
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-                                clip: true
-                                columnSpacing: 1
-                                rowSpacing: 1
-                                model: viewModel.channelModel
-                                selectionModel: viewModel.channelSelectionModel
-                                columnWidthProvider: function (column) {
-                                    if (column === 1)
-                                        return 180;
-                                    if (column === 2)
-                                        return 130;
-                                    if (column === 3)
-                                        return 110;
-                                    return 90;
-                                }
-
-                                ScrollBar.vertical: ScrollBar {
-                                    policy: ScrollBar.AlwaysOn
-                                }
-                                ScrollBar.horizontal: ScrollBar {
-                                    policy: ScrollBar.AlwaysOn
-                                }
-
-                                delegate: Rectangle {
-                                    id: channelCell
-                                    implicitWidth: 100
-                                    implicitHeight: 30
-                                    required property bool selected
-                                    required property int row
-                                    required property int column
-                                    required property var display
-                                    color: channelCell.selected ? "#0078d7" : ((channelCell.row % 2 === 0) ? "#ffffff" : "#f8f9fa")
-                                    border.color: "#eeeeee"
-
-                                    Text {
-                                        anchors.fill: parent
-                                        anchors.margins: 6
-                                        verticalAlignment: Text.AlignVCenter
-                                        text: channelCell.display
-                                        elide: Text.ElideRight
-                                        font.family: channelCell.column >= 4 ? "Consolas" : "Sans Serif"
-                                        color: channelCell.selected ? "white" : "black"
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: viewModel.selectChannel(channelCell.row)
-                                    }
-                                }
+                            onCellClicked: function (row, column) {
+                                viewModel.selectChannel(row);
                             }
                         }
                     }
 
                     GroupBox {
                         title: "Selected Channel"
-                        SplitView.preferredWidth: 330
+                        SplitView.preferredWidth: Math.max(320, window.width * 0.34)
                         SplitView.minimumWidth: 280
 
                         ColumnLayout {
@@ -1616,9 +1310,28 @@ ApplicationWindow {
                                 Label {
                                     text: "ChannelID"
                                 }
-                                TextField {
-                                    id: channelIdField
-                                    readOnly: !viewModel.canModify || !viewModel.hasSelectedChannel
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    TextField {
+                                        id: channelIdField
+                                        readOnly: !viewModel.canModify || !viewModel.hasSelectedChannel
+                                        Layout.fillWidth: true
+                                    }
+                                    Button {
+                                        text: "Set UNKNOWN"
+                                        enabled: viewModel.canModify && viewModel.hasSelectedChannel
+                                        onClicked: viewModel.setSelectedChannelUnknown()
+                                    }
+                                }
+
+                                Label {
+                                    text: "DeviceType"
+                                }
+                                ComboBox {
+                                    id: channelDeviceTypeBox
+                                    model: ["Accelerometer", "Velocity Sensor", "Displacement Sensor", "Strain Gauge", "Temperature Sensor", "Unknown", "Other"]
+                                    editable: true
+                                    enabled: viewModel.canModify && viewModel.hasSelectedChannel
                                     Layout.fillWidth: true
                                 }
 
@@ -1700,7 +1413,7 @@ ApplicationWindow {
                                     enabled: viewModel.canModify && viewModel.hasSelectedChannel
                                     Layout.columnSpan: 2
                                     Layout.alignment: Qt.AlignRight
-                                    onClicked: viewModel.updateSelectedChannel(channelIdField.text, channelMeasurandBox.editText, parseFloat(channelScaleField.text), parseFloat(channelAzimuthField.text), parseFloat(channelXField.text), parseFloat(channelYField.text), parseFloat(channelZField.text))
+                                    onClicked: viewModel.updateSelectedChannel(channelIdField.text, channelDeviceTypeBox.editText, channelMeasurandBox.editText, parseFloat(channelScaleField.text), parseFloat(channelAzimuthField.text), parseFloat(channelXField.text), parseFloat(channelYField.text), parseFloat(channelZField.text))
                                 }
                             }
 
@@ -1709,140 +1422,9 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
 
-                                ColumnLayout {
+                                SensorLayoutView {
                                     anchors.fill: parent
-                                    spacing: 6
-
-                                    Label {
-                                        text: viewModel.geometrySummary
-                                        color: "#666666"
-                                    }
-
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.fillHeight: true
-                                        Layout.minimumHeight: 180
-                                        color: "#ffffff"
-                                        border.color: "#cccccc"
-
-                                        Canvas {
-                                            id: sensorCanvas
-                                            anchors.fill: parent
-                                            anchors.margins: 8
-                                            onPaint: {
-                                                const ctx = getContext("2d");
-                                                ctx.clearRect(0, 0, width, height);
-
-                                                const floors = viewModel.geometryFloorOutlines;
-                                                const sensors = viewModel.sensorLayoutPoints;
-                                                let minX = Number.POSITIVE_INFINITY;
-                                                let maxX = Number.NEGATIVE_INFINITY;
-                                                let minY = Number.POSITIVE_INFINITY;
-                                                let maxY = Number.NEGATIVE_INFINITY;
-                                                let minZ = Number.POSITIVE_INFINITY;
-                                                let maxZ = Number.NEGATIVE_INFINITY;
-
-                                                function includePoint(x, y) {
-                                                    minX = Math.min(minX, x);
-                                                    maxX = Math.max(maxX, x);
-                                                    minY = Math.min(minY, y);
-                                                    maxY = Math.max(maxY, y);
-                                                }
-
-                                                for (let floor of floors) {
-                                                    minZ = Math.min(minZ, floor.z);
-                                                    maxZ = Math.max(maxZ, floor.z);
-                                                    for (let point of floor.points)
-                                                        includePoint(point.x, point.y);
-                                                }
-                                                for (let sensor of sensors)
-                                                    includePoint(sensor.x, sensor.y);
-
-                                                if (!isFinite(minX) || !isFinite(minY)) {
-                                                    ctx.fillStyle = "#777777";
-                                                    ctx.fillText("No geometry", 12, 24);
-                                                    return;
-                                                }
-
-                                                const pad = 18;
-                                                const planWidth = Math.max(width - 70, 80);
-                                                const spanX = Math.max(maxX - minX, 1e-6);
-                                                const spanY = Math.max(maxY - minY, 1e-6);
-                                                const scale = Math.min((planWidth - pad * 2) / spanX, (height - pad * 2) / spanY);
-
-                                                function sx(x) {
-                                                    return pad + (x - minX) * scale;
-                                                }
-                                                function sy(y) {
-                                                    return height - pad - (y - minY) * scale;
-                                                }
-
-                                                ctx.lineWidth = 1;
-                                                ctx.strokeStyle = "#8a8f98";
-                                                for (let floor of floors) {
-                                                    if (floor.points.length < 2)
-                                                        continue;
-                                                    ctx.beginPath();
-                                                    ctx.moveTo(sx(floor.points[0].x), sy(floor.points[0].y));
-                                                    for (let i = 1; i < floor.points.length; ++i)
-                                                        ctx.lineTo(sx(floor.points[i].x), sy(floor.points[i].y));
-                                                    ctx.stroke();
-                                                }
-
-                                                if (isFinite(minZ) && isFinite(maxZ) && floors.length > 0) {
-                                                    const axisX = Math.max(planWidth + 12, width - 54);
-                                                    const labelX = Math.min(axisX + 6, width - 34);
-                                                    const spanZ = Math.max(maxZ - minZ, 1e-6);
-
-                                                    function sz(z) {
-                                                        return height - pad - (z - minZ) / spanZ * (height - pad * 2);
-                                                    }
-
-                                                    ctx.strokeStyle = "#adb5bd";
-                                                    ctx.lineWidth = 1;
-                                                    ctx.beginPath();
-                                                    ctx.moveTo(axisX, pad);
-                                                    ctx.lineTo(axisX, height - pad);
-                                                    ctx.stroke();
-
-                                                    ctx.fillStyle = "#5f6b7a";
-                                                    ctx.font = "10px sans-serif";
-                                                    for (let floor of floors) {
-                                                        const y = sz(floor.z);
-                                                        ctx.strokeStyle = "#6c757d";
-                                                        ctx.beginPath();
-                                                        ctx.moveTo(axisX - 4, y);
-                                                        ctx.lineTo(width - 8, y);
-                                                        ctx.stroke();
-                                                        ctx.fillText(Number(floor.z).toFixed(2), labelX, y - 3);
-                                                    }
-                                                }
-
-                                                for (let sensor of sensors) {
-                                                    const x = sx(sensor.x);
-                                                    const y = sy(sensor.y);
-                                                    ctx.fillStyle = sensor.selected ? "#d92332" : "#0b7285";
-                                                    ctx.strokeStyle = sensor.selected ? "#d92332" : "#0b7285";
-                                                    ctx.beginPath();
-                                                    ctx.arc(x, y, sensor.selected ? 5 : 4, 0, Math.PI * 2);
-                                                    ctx.fill();
-
-                                                    if (Math.abs(sensor.ux) > 1e-9 || Math.abs(sensor.uy) > 1e-9) {
-                                                        ctx.beginPath();
-                                                        ctx.moveTo(x, y);
-                                                        ctx.lineTo(x + sensor.ux * 16, y - sensor.uy * 16);
-                                                        ctx.stroke();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        MouseArea {
-                                            anchors.fill: sensorCanvas
-                                            onClicked: function (mouse) {
-                                                window.selectSensorAt(mouse.x, mouse.y, sensorCanvas.width, sensorCanvas.height);
-                                            }
-                                        }
-                                    }
+                                    viewModel: viewModel
                                 }
                             }
                         }
@@ -1994,6 +1576,108 @@ ApplicationWindow {
                 anchors.margins: 10
                 spacing: 15
 
+                GroupBox {
+                    title: "Data Information"
+                    Layout.fillWidth: true
+
+                    GridLayout {
+                        anchors.fill: parent
+                        columns: 4
+                        rowSpacing: 10
+                        columnSpacing: 10
+
+                        Label {
+                            text: "Event Name"
+                        }
+                        TextField {
+                            id: eventNameField
+                            readOnly: !viewModel.canModify
+                            Layout.fillWidth: true
+                        }
+                        Label {
+                            text: "StartTime"
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Label {
+                                text: viewModel.startTime === "" ? "Auto" : viewModel.startTime
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Button {
+                                text: "Set"
+                                enabled: viewModel.canModify
+                                onClicked: {
+                                    window.timePickerTarget = "dataInfo";
+                                    timePicker.open();
+                                }
+                            }
+                        }
+
+                        Label {
+                            text: "Sampling Rate (Hz)"
+                        }
+                        TextField {
+                            id: samplingRateField
+                            readOnly: !viewModel.canModify
+                            validator: IntValidator {
+                                bottom: 1
+                                top: 65535
+                            }
+                            Layout.fillWidth: true
+                        }
+                        Label {
+                            text: "Sampling Interval"
+                        }
+                        Label {
+                            text: viewModel.samplingIntervalText
+                            font.bold: true
+                        }
+
+                        Label {
+                            text: "NPTS"
+                        }
+                        TextField {
+                            id: nptsField
+                            readOnly: !viewModel.canModify || viewModel.packetDataPointCount > 0
+                            validator: IntValidator {
+                                bottom: 0
+                            }
+                            Layout.fillWidth: true
+                        }
+                        Label {
+                            text: "Corrected"
+                        }
+                        ComboBox {
+                            id: correctedBox
+                            model: ["NULL", "Corrected", "Unknown"]
+                            enabled: viewModel.canModify
+                            Layout.fillWidth: true
+                        }
+
+                        RowLayout {
+                            Layout.columnSpan: 4
+                            Layout.alignment: Qt.AlignRight
+                            spacing: 8
+
+                            Button {
+                                text: "Import Data"
+                                enabled: viewModel.canModify
+                                onClicked: importDataDialog.open()
+                            }
+                            Button {
+                                text: "Export Data"
+                                onClicked: exportDataDialog.open()
+                            }
+                            Button {
+                                text: "Apply Data Info"
+                                enabled: viewModel.canModify
+                                onClicked: viewModel.updateDataInfo(eventNameField.text, parseInt(samplingRateField.text), parseInt(nptsField.text), correctedBox.currentText)
+                            }
+                        }
+                    }
+                }
+
                 // 上半部：数据包头 (Packet Header) 看板
                 GroupBox {
                     title: "包头信息 (Packet Header)"
@@ -2121,153 +1805,26 @@ ApplicationWindow {
                     Layout.fillHeight: true
                     font.bold: true
 
-                    // 2x2 网格布局，完美还原 Excel 的表头结构
-                    GridLayout {
+                    QrestTableView {
+                        id: tableView
                         anchors.fill: parent
-                        // spacing: 0
-                        columns: 2
-                        rows: 2
-
-                        // 左上角全选块
-                        Rectangle {
-                            z: 20
-                            Layout.preferredWidth: 80 // 增加宽度以匹配时间列
-                            Layout.preferredHeight: 30
-                            color: "#d6d8db"
-                            border.color: "#ccc"
-                            Text {
-                                anchors.centerIn: parent
-                                text: "Time(s)"
-                                font.pixelSize: 11
-                                color: "#666"
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                onClicked: viewModel.selectAllData()
-                            }
+                        model: viewModel.tableModel
+                        selectionModel: viewModel.selectionModel
+                        cornerWidth: 80
+                        cornerText: "Time(s)"
+                        numericColumnStart: 0
+                        alwaysShowHorizontalScrollbar: true
+                        interactive: false
+                        enableSelectionRectangle: true
+                        columnWidthProvider: function (column) {
+                            return 100;
                         }
-
-                        // 横向表头 (通道)
-                        HorizontalHeaderView {
-                            id: hHeader
-                            z: 10
-                            syncView: tableView
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 30
-                            delegate: Rectangle {
-                                id: dataHorizontalHeaderCell
-                                implicitWidth: 100
-                                implicitHeight: 30
-                                required property int column
-                                required property var display
-                                color: "#e9ecef"
-                                border.color: "#ccc"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: dataHorizontalHeaderCell.display
-                                    font.bold: true
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: viewModel.selectColumn(dataHorizontalHeaderCell.column)
-                                }
-                            }
+                        onCornerClicked: viewModel.selectAllData()
+                        onHorizontalHeaderClicked: function (column) {
+                            viewModel.selectColumn(column);
                         }
-                        // 纵向表头 (时间)
-                        VerticalHeaderView {
-                            id: vHeader
-                            z: 10
-                            syncView: tableView
-                            Layout.fillHeight: true
-                            Layout.preferredWidth: 80 // 增加宽度以完整显示 0.0000 格式
-                            delegate: Rectangle {
-                                id: dataVerticalHeaderCell
-                                implicitWidth: 80
-                                implicitHeight: 30
-                                required property int row
-                                required property var display
-                                color: "#f1f3f5"
-                                border.color: "#dee2e6"
-                                Text {
-                                    anchors.centerIn: parent
-                                    // 这里的 display 已经是由 C++ headerData 计算出的时间字符串
-                                    text: dataVerticalHeaderCell.display
-                                    font.family: "Consolas"
-                                    font.pixelSize: 12
-                                    color: "#495057"
-                                }
-                                MouseArea {
-                                    anchors.fill: parent
-                                    onClicked: viewModel.selectRow(dataVerticalHeaderCell.row)
-                                }
-                            }
-                        }
-
-                        // 数据表格区
-                        TableView {
-                            id: tableView
-                            z: 11
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-                            columnSpacing: 1
-                            rowSpacing: 1
-                            model: viewModel.tableModel
-                            selectionModel: viewModel.selectionModel
-                            interactive: false
-
-                            rightMargin: ScrollBar.vertical.visible ? ScrollBar.vertical.width : 0
-                            bottomMargin: ScrollBar.horizontal.visible ? ScrollBar.horizontal.height : 0
-
-                            ScrollBar.vertical: ScrollBar {
-                                z: 11
-                                policy: ScrollBar.AlwaysOn
-                            }
-                            ScrollBar.horizontal: ScrollBar {
-                                z: 11
-                                policy: ScrollBar.AlwaysOn
-                            }
-
-                            SelectionRectangle {
-                                target: tableView
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                // 接受滚轮，但不阻挡点击和拖拽（使得框选正常工作）
-                                acceptedButtons: Qt.NoButton
-                                onWheel: function (wheel) {
-                                    if (wheel.modifiers & Qt.ShiftModifier) {
-                                        // 按住 Shift 进行水平滚动
-                                        let newX = tableView.contentX - wheel.angleDelta.y;
-                                        let maxX = Math.max(0, tableView.contentWidth - tableView.width);
-                                        tableView.contentX = Math.max(0, Math.min(newX, maxX));
-                                    } else {
-                                        // 普通垂直滚动
-                                        let newY = tableView.contentY - wheel.angleDelta.y;
-                                        let maxY = Math.max(0, tableView.contentHeight - tableView.height);
-                                        tableView.contentY = Math.max(0, Math.min(newY, maxY));
-                                    }
-                                }
-                            }
-
-                            delegate: Rectangle {
-                                id: dataCell
-                                implicitWidth: 100
-                                implicitHeight: 30
-                                required property bool selected
-                                required property int row
-                                required property var display
-                                color: dataCell.selected ? "#0078d7" : ((dataCell.row % 2 == 0) ? "#ffffff" : "#f8f9fa")
-                                border.color: "#eee"
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: dataCell.display
-                                    font.family: "Consolas"
-                                    color: dataCell.selected ? "white" : "black"
-                                }
-                            }
+                        onVerticalHeaderClicked: function (row) {
+                            viewModel.selectRow(row);
                         }
                     }
                 }
@@ -2355,6 +1912,30 @@ ApplicationWindow {
                             }
                         }
                     }
+
+                    Rectangle {
+                        Layout.preferredWidth: 120
+                        Layout.preferredHeight: 56
+                        color: "#ebfbee"
+                        border.color: "#b2f2bb"
+                        radius: 6
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 2
+                            Label {
+                                text: viewModel.validationInfoCount
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                color: "#2b8a3e"
+                                font.bold: true
+                                font.pixelSize: 20
+                            }
+                            Label {
+                                text: "Info"
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                color: "#2f6f3e"
+                            }
+                        }
+                    }
                 }
 
                 GroupBox {
@@ -2362,107 +1943,18 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
 
-                    GridLayout {
+                    QrestTableView {
+                        id: validationTable
                         anchors.fill: parent
-                        columns: 2
-                        rows: 2
-
-                        Rectangle {
-                            Layout.preferredWidth: 48
-                            Layout.preferredHeight: 30
-                            color: "#d6d8db"
-                            border.color: "#cccccc"
-                            Text {
-                                anchors.centerIn: parent
-                                text: "#"
-                                font.pixelSize: 11
-                                color: "#666666"
-                            }
-                        }
-
-                        HorizontalHeaderView {
-                            syncView: validationTable
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: 30
-                            delegate: Rectangle {
-                                id: validationHorizontalHeaderCell
-                                implicitWidth: 160
-                                implicitHeight: 30
-                                required property var display
-                                color: "#e9ecef"
-                                border.color: "#cccccc"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: validationHorizontalHeaderCell.display
-                                    font.bold: true
-                                    elide: Text.ElideRight
-                                }
-                            }
-                        }
-
-                        VerticalHeaderView {
-                            syncView: validationTable
-                            Layout.fillHeight: true
-                            Layout.preferredWidth: 48
-                            delegate: Rectangle {
-                                id: validationVerticalHeaderCell
-                                implicitWidth: 48
-                                implicitHeight: 30
-                                required property var display
-                                color: "#f1f3f5"
-                                border.color: "#dee2e6"
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: validationVerticalHeaderCell.display
-                                    font.pixelSize: 12
-                                    color: "#495057"
-                                }
-                            }
-                        }
-
-                        TableView {
-                            id: validationTable
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            clip: true
-                            columnSpacing: 1
-                            rowSpacing: 1
-                            model: viewModel.validationModel
-                            columnWidthProvider: function (column) {
-                                if (column === 0)
-                                    return 100;
-                                if (column === 1)
-                                    return 140;
-                                return Math.max(420, validationTable.width - 240);
-                            }
-
-                            ScrollBar.vertical: ScrollBar {
-                                policy: ScrollBar.AlwaysOn
-                            }
-                            ScrollBar.horizontal: ScrollBar {
-                                policy: ScrollBar.AsNeeded
-                            }
-
-                            delegate: Rectangle {
-                                id: validationCell
-                                implicitWidth: 160
-                                implicitHeight: 32
-                                required property int row
-                                required property int column
-                                required property var display
-                                color: row % 2 === 0 ? "#ffffff" : "#f8f9fa"
-                                border.color: "#eeeeee"
-
-                                Text {
-                                    anchors.fill: parent
-                                    anchors.margins: 7
-                                    verticalAlignment: Text.AlignVCenter
-                                    text: validationCell.display
-                                    elide: Text.ElideRight
-                                    color: validationCell.column === 0 && validationCell.display === "Error" ? "#c92a2a" : (validationCell.column === 0 && validationCell.display === "Warning" ? "#9a6700" : "#1f2933")
-                                    font.bold: validationCell.column === 0
-                                }
-                            }
+                        model: viewModel.validationModel
+                        rowHeight: 32
+                        severityColors: true
+                        columnWidthProvider: function (column) {
+                            if (column === 0)
+                                return 100;
+                            if (column === 1)
+                                return 140;
+                            return Math.max(420, validationTable.width - 240);
                         }
                     }
                 }

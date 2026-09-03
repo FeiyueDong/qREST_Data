@@ -7,7 +7,6 @@
 #include <QGuiApplication>
 #include <QJsonDocument>
 #include <QRegularExpression>
-#include <QSet>
 #include <QStringList>
 #include <QUrl>
 #include <QVariantMap>
@@ -16,7 +15,34 @@
 #include <array>
 #include <cmath>
 
+#include "validation.hpp"
+
 namespace {
+
+struct ChannelDefaults {
+    QString deviceType{"Accelerometer"};
+    QString measurand{"Acceleration"};
+    double scale{1.0};
+};
+
+struct Point2D {
+    double x{};
+    double y{};
+};
+
+struct Point3D {
+    double x{};
+    double y{};
+    double z{};
+};
+
+struct ProjectedBounds {
+    bool valid{false};
+    double minX{};
+    double maxX{};
+    double minY{};
+    double maxY{};
+};
 
 QString formatDouble(double value) { return QString::number(value, 'g', 12); }
 
@@ -170,6 +196,10 @@ bool nearlyAzimuth(double value, double target, double tolerance = 5.0) {
     return diff <= tolerance || diff >= 360.0 - tolerance;
 }
 
+bool isUnknownChannelId(const QString &channelId) {
+    return channelId.trimmed() == "UNKNOWN";
+}
+
 QString channelDirectionFromAzimuth(double azimuth) {
     if (!std::isfinite(azimuth)) {
         return "UNSUPPORTED";
@@ -186,6 +216,96 @@ QString channelDirectionFromAzimuth(double azimuth) {
     return "HORIZONTAL";
 }
 
+Point2D projectPoint(Point3D point) {
+    return {.x = point.x - point.y, .y = (point.x + point.y) * 0.45 + point.z};
+}
+
+Point2D projectVector(Point3D vector) {
+    const Point2D origin = projectPoint({0.0, 0.0, 0.0});
+    const Point2D target = projectPoint(vector);
+    return {.x = target.x - origin.x, .y = target.y - origin.y};
+}
+
+void includeProjected(ProjectedBounds &bounds, Point2D point) {
+    if (!std::isfinite(point.x) || !std::isfinite(point.y)) {
+        return;
+    }
+    if (!bounds.valid) {
+        bounds.valid = true;
+        bounds.minX = bounds.maxX = point.x;
+        bounds.minY = bounds.maxY = point.y;
+        return;
+    }
+    bounds.minX = std::min(bounds.minX, point.x);
+    bounds.maxX = std::max(bounds.maxX, point.x);
+    bounds.minY = std::min(bounds.minY, point.y);
+    bounds.maxY = std::max(bounds.maxY, point.y);
+}
+
+std::vector<Point2D> footprintPoints(
+    const qrest_data::Metadata::BuildingInfoStruct::StructuralFootprintStruct
+        &footprint) {
+    std::vector<Point2D> points;
+    if (footprint.Shape == "Rectangular") {
+        const double halfLength = footprint.Parameters.Length / 2.0;
+        const double halfWidth = footprint.Parameters.Width / 2.0;
+        points = {{-halfLength, -halfWidth},
+                  {halfLength, -halfWidth},
+                  {halfLength, halfWidth},
+                  {-halfLength, halfWidth}};
+    } else if (footprint.Shape == "Circular") {
+        constexpr int segments = 48;
+        constexpr double pi = 3.14159265358979323846;
+        points.reserve(segments);
+        for (int i = 0; i < segments; ++i) {
+            const double angle = static_cast<double>(i) / segments * 2.0 * pi;
+            points.push_back({std::cos(angle) * footprint.Parameters.Radius,
+                              std::sin(angle) * footprint.Parameters.Radius});
+        }
+    } else if (footprint.Shape == "Polygon") {
+        points.reserve(footprint.Parameters.Corners.size());
+        for (const auto &corner : footprint.Parameters.Corners) {
+            points.push_back({corner[0], corner[1]});
+        }
+    }
+    return points;
+}
+
+Point3D sensorDirectionVector(double azimuth) {
+    constexpr double pi = 3.14159265358979323846;
+    if (std::abs(azimuth + 1.0) < 1e-9) {
+        return {0.0, 0.0, 1.0};
+    }
+    if (std::isfinite(azimuth)) {
+        const double radians = azimuth * pi / 180.0;
+        return {std::sin(radians), std::cos(radians), 0.0};
+    }
+    return {0.0, 0.0, 0.0};
+}
+
+ProjectedBounds structureProjectedBounds(const qrest_data::Metadata &metadata) {
+    ProjectedBounds bounds;
+    const auto points =
+        footprintPoints(metadata.BuildingInfo.StructuralFootprint);
+    for (double elevation : metadata.BuildingInfo.Elevation) {
+        for (const Point2D &point : points) {
+            includeProjected(bounds,
+                             projectPoint({point.x, point.y, elevation}));
+        }
+    }
+    if (!bounds.valid) {
+        includeProjected(bounds, {-0.5, -0.5});
+        includeProjected(bounds, {0.5, 0.5});
+    }
+    const double marginX = std::max((bounds.maxX - bounds.minX) * 0.08, 0.5);
+    const double marginY = std::max((bounds.maxY - bounds.minY) * 0.08, 0.5);
+    bounds.minX -= marginX;
+    bounds.maxX += marginX;
+    bounds.minY -= marginY;
+    bounds.maxY += marginY;
+    return bounds;
+}
+
 void renumberChannels(qrest_data::Metadata &metadata) {
     auto &channels = metadata.InstrumentInfo.Channels;
     for (size_t i = 0; i < channels.size(); ++i) {
@@ -194,16 +314,53 @@ void renumberChannels(qrest_data::Metadata &metadata) {
     metadata.InstrumentInfo.ChannelNum = static_cast<int>(channels.size());
 }
 
+void normalizeMetadata(qrest_data::Metadata &metadata) {
+    metadata.Header = "qREST_DATA";
+    metadata.Version = {1, 0, 0};
+    if (metadata.Units[0].empty()) {
+        metadata.Units[0] = "m";
+    }
+    metadata.Units[1] = "s";
+    metadata.BuildingInfo.ElevationNum =
+        static_cast<int>(metadata.BuildingInfo.Elevation.size());
+    for (auto &channel : metadata.InstrumentInfo.Channels) {
+        if (channel.DeviceType.empty()) {
+            channel.DeviceType = "Unknown";
+        }
+    }
+    renumberChannels(metadata);
+    updateBoundingBox(metadata);
+}
+
 qrest_data::Metadata::InstrumentInfoStruct::ChannelStruct
-makeDefaultChannel(int channelNo) {
+makeDefaultChannel(int channelNo, const ChannelDefaults &defaults = {}) {
     qrest_data::Metadata::InstrumentInfoStruct::ChannelStruct channel;
     channel.ChannelNo = channelNo;
-    channel.ChannelID = QString("CH%1").arg(channelNo).toStdString();
-    channel.Measurand = "Acceleration";
-    channel.Scale = 1.0;
-    channel.Azimuth = 90.0;
+    channel.ChannelID = "UNKNOWN";
+    channel.DeviceType = defaults.deviceType.toStdString();
+    channel.Measurand = defaults.measurand.toStdString();
+    channel.Scale = defaults.scale;
+    channel.Azimuth = -1.0;
     channel.LocationXYZ = {0.0, 0.0, 0.0};
     return channel;
+}
+
+ChannelDefaults
+channelDefaultsFromMetadata(const qrest_data::Metadata &metadata) {
+    ChannelDefaults defaults;
+    if (!metadata.InstrumentInfo.Channels.empty()) {
+        const auto &last = metadata.InstrumentInfo.Channels.back();
+        if (!last.DeviceType.empty()) {
+            defaults.deviceType = QString::fromStdString(last.DeviceType);
+        }
+        if (!last.Measurand.empty()) {
+            defaults.measurand = QString::fromStdString(last.Measurand);
+        }
+        if (std::isfinite(last.Scale) && last.Scale != 0.0) {
+            defaults.scale = last.Scale;
+        }
+    }
+    return defaults;
 }
 
 } // namespace
@@ -303,7 +460,7 @@ int ChannelTableModel::rowCount(const QModelIndex &parent) const {
 int ChannelTableModel::columnCount(const QModelIndex &parent) const {
     if (parent.isValid() || !m_metadata)
         return 0;
-    return 9;
+    return 10;
 }
 
 QVariant ChannelTableModel::data(const QModelIndex &index, int role) const {
@@ -322,18 +479,20 @@ QVariant ChannelTableModel::data(const QModelIndex &index, int role) const {
         case 1:
             return QString::fromStdString(channel.ChannelID);
         case 2:
-            return QString::fromStdString(channel.Measurand);
+            return QString::fromStdString(channel.DeviceType);
         case 3:
-            return channelDirectionFromAzimuth(channel.Azimuth);
+            return QString::fromStdString(channel.Measurand);
         case 4:
-            return formatDouble(channel.Scale);
+            return channelDirectionFromAzimuth(channel.Azimuth);
         case 5:
-            return formatDouble(channel.Azimuth);
+            return formatDouble(channel.Scale);
         case 6:
-            return formatDouble(channel.LocationXYZ[0]);
+            return formatDouble(channel.Azimuth);
         case 7:
-            return formatDouble(channel.LocationXYZ[1]);
+            return formatDouble(channel.LocationXYZ[0]);
         case 8:
+            return formatDouble(channel.LocationXYZ[1]);
+        case 9:
             return formatDouble(channel.LocationXYZ[2]);
         default:
             return QVariant();
@@ -357,18 +516,20 @@ QVariant ChannelTableModel::headerData(int section,
         case 1:
             return "Channel ID";
         case 2:
-            return "Measurand";
+            return "Device Type";
         case 3:
-            return "Direction";
+            return "Measurand";
         case 4:
-            return "Scale";
+            return "Direction";
         case 5:
-            return "Azimuth";
+            return "Scale";
         case 6:
-            return "X";
+            return "Azimuth";
         case 7:
-            return "Y";
+            return "X";
         case 8:
+            return "Y";
+        case 9:
             return "Z";
         default:
             return QVariant();
@@ -464,6 +625,13 @@ int ValidationTableModel::warningCount() const {
     return static_cast<int>(std::count_if(
         m_issues.cbegin(), m_issues.cend(), [](const Issue &issue) {
             return issue.severity == Severity::Warning;
+        }));
+}
+
+int ValidationTableModel::infoCount() const {
+    return static_cast<int>(std::count_if(
+        m_issues.cbegin(), m_issues.cend(), [](const Issue &issue) {
+            return issue.severity == Severity::Info;
         }));
 }
 
@@ -595,9 +763,12 @@ void QrestViewModel::setMetadataJson(const QJsonObject &json) {
     std::string jsonStr =
         QJsonDocument(json).toJson(QJsonDocument::Compact).toStdString();
     try {
-        m_document.replaceMetadata(qrest_data::Metadata::from_bytes(jsonStr));
+        qrest_data::Metadata metadata =
+            qrest_data::Metadata::from_bytes(jsonStr);
+        normalizeMetadata(metadata);
+        m_document.replaceMetadata(metadata);
         emitAllDocumentSignals();
-        emit showMessage("元数据已修改");
+        emit showMessage("元数据已修改，派生字段已重新计算");
     } catch (const std::exception &e) {
         emit showMessage(QString("更新元数据失败: %1").arg(e.what()), true);
     }
@@ -853,6 +1024,16 @@ QString QrestViewModel::selectedChannelId() const {
             .ChannelID);
 }
 
+QString QrestViewModel::selectedChannelDeviceType() const {
+    if (!hasSelectedChannel()) {
+        return QString();
+    }
+    return QString::fromStdString(
+        m_document.metadata()
+            .InstrumentInfo.Channels[static_cast<size_t>(m_selectedChannelRow)]
+            .DeviceType);
+}
+
 QString QrestViewModel::selectedChannelMeasurand() const {
     if (!hasSelectedChannel()) {
         return QString();
@@ -967,11 +1148,14 @@ QVariantList QrestViewModel::sensorLayoutPoints() const {
         const auto &channel = channels[static_cast<size_t>(i)];
         double ux = 0.0;
         double uy = 0.0;
+        double uz = 0.0;
         if (std::isfinite(channel.Azimuth)
             && std::abs(channel.Azimuth + 1.0) >= 1e-9) {
             const double radians = channel.Azimuth * pi / 180.0;
             ux = std::sin(radians);
             uy = std::cos(radians);
+        } else if (std::abs(channel.Azimuth + 1.0) < 1e-9) {
+            uz = 1.0;
         }
 
         sensors.append(QVariantMap{
@@ -985,10 +1169,127 @@ QVariantList QrestViewModel::sensorLayoutPoints() const {
             {"z", channel.LocationXYZ[2]},
             {"ux", ux},
             {"uy", uy},
+            {"uz", uz},
             {"selected", i == m_selectedChannelRow},
         });
     }
     return sensors;
+}
+
+QVariantList QrestViewModel::structureEdges() const {
+    const auto &metadata = m_document.metadata();
+    const auto footprint =
+        footprintPoints(metadata.BuildingInfo.StructuralFootprint);
+    const auto &elevations = metadata.BuildingInfo.Elevation;
+    QVariantList edges;
+    if (footprint.size() < 2 || elevations.empty()) {
+        return edges;
+    }
+
+    for (double elevation : elevations) {
+        for (size_t i = 0; i < footprint.size(); ++i) {
+            const Point2D &from = footprint[i];
+            const Point2D &to = footprint[(i + 1) % footprint.size()];
+            const Point2D p1 = projectPoint({from.x, from.y, elevation});
+            const Point2D p2 = projectPoint({to.x, to.y, elevation});
+            edges.append(QVariantMap{{"x1", p1.x},
+                                     {"y1", p1.y},
+                                     {"x2", p2.x},
+                                     {"y2", p2.y},
+                                     {"kind", "floor"}});
+        }
+    }
+
+    if (elevations.size() >= 2) {
+        const double bottom = elevations.front();
+        const double top = elevations.back();
+        for (const Point2D &point : footprint) {
+            const Point2D p1 = projectPoint({point.x, point.y, bottom});
+            const Point2D p2 = projectPoint({point.x, point.y, top});
+            edges.append(QVariantMap{{"x1", p1.x},
+                                     {"y1", p1.y},
+                                     {"x2", p2.x},
+                                     {"y2", p2.y},
+                                     {"kind", "vertical"}});
+        }
+    }
+    return edges;
+}
+
+QVariantList QrestViewModel::structureSensors() const {
+    QVariantList sensors;
+    const auto &channels = m_document.metadata().InstrumentInfo.Channels;
+    for (int i = 0; i < static_cast<int>(channels.size()); ++i) {
+        const auto &channel = channels[static_cast<size_t>(i)];
+        const Point3D direction = sensorDirectionVector(channel.Azimuth);
+        const Point2D point = projectPoint({channel.LocationXYZ[0],
+                                            channel.LocationXYZ[1],
+                                            channel.LocationXYZ[2]});
+        const Point2D projectedDirection = projectVector(direction);
+        sensors.append(QVariantMap{
+            {"row", i},
+            {"channelNo", channel.ChannelNo},
+            {"channelId", QString::fromStdString(channel.ChannelID)},
+            {"deviceType", QString::fromStdString(channel.DeviceType)},
+            {"direction", channelDirectionFromAzimuth(channel.Azimuth)},
+            {"x", point.x},
+            {"y", point.y},
+            {"dx", projectedDirection.x},
+            {"dy", projectedDirection.y},
+            {"ux", direction.x},
+            {"uy", direction.y},
+            {"uz", direction.z},
+            {"selected", i == m_selectedChannelRow},
+        });
+    }
+    return sensors;
+}
+
+QVariantList QrestViewModel::structureAxes() const {
+    const auto &metadata = m_document.metadata();
+    constexpr double pi = 3.14159265358979323846;
+    const double length =
+        std::max(
+            {metadata.BuildingInfo.StructuralFootprint.BoundingBox.MaxX
+                 - metadata.BuildingInfo.StructuralFootprint.BoundingBox.MinX,
+             metadata.BuildingInfo.StructuralFootprint.BoundingBox.MaxY
+                 - metadata.BuildingInfo.StructuralFootprint.BoundingBox.MinY,
+             metadata.BuildingInfo.Elevation.empty()
+                 ? 1.0
+                 : metadata.BuildingInfo.Elevation.back()
+                       - metadata.BuildingInfo.Elevation.front(),
+             1.0})
+        * 0.22;
+    const auto makeAxis = [](const QString &label, Point3D vector) {
+        const Point2D p = projectVector(vector);
+        return QVariantMap{{"label", label},
+                           {"x1", 0.0},
+                           {"y1", 0.0},
+                           {"x2", p.x},
+                           {"y2", p.y}};
+    };
+
+    QVariantList axes;
+    axes.append(makeAxis("X", {length, 0.0, 0.0}));
+    axes.append(makeAxis("Y", {0.0, length, 0.0}));
+    axes.append(makeAxis("Z", {0.0, 0.0, length}));
+
+    const double northAngle =
+        metadata.BuildingInfo.GeoLocation.NorthAngle * pi / 180.0;
+    axes.append(makeAxis(
+        "N",
+        {std::sin(northAngle) * length, std::cos(northAngle) * length, 0.0}));
+    return axes;
+}
+
+QVariantMap QrestViewModel::structureViewBounds() const {
+    const ProjectedBounds bounds =
+        structureProjectedBounds(m_document.metadata());
+    return QVariantMap{{"valid", bounds.valid},
+                       {"minX", bounds.minX},
+                       {"maxX", bounds.maxX},
+                       {"minY", bounds.minY},
+                       {"maxY", bounds.maxY}};
 }
 
 QString QrestViewModel::geometrySummary() const {
@@ -1012,13 +1313,21 @@ int QrestViewModel::validationWarningCount() const {
     return m_validationModel ? m_validationModel->warningCount() : 0;
 }
 
+int QrestViewModel::validationInfoCount() const {
+    return m_validationModel ? m_validationModel->infoCount() : 0;
+}
+
 QString QrestViewModel::validationStatusText() const {
     const int errors = validationErrorCount();
     const int warnings = validationWarningCount();
+    const int infos = validationInfoCount();
     if (errors == 0 && warnings == 0) {
         return "Validation passed";
     }
-    return QString("%1 errors, %2 warnings").arg(errors).arg(warnings);
+    return QString("%1 errors, %2 warnings, %3 info")
+        .arg(errors)
+        .arg(warnings)
+        .arg(infos);
 }
 
 QAbstractTableModel *QrestViewModel::binaryModel() const {
@@ -1094,7 +1403,7 @@ void QrestViewModel::openFile(const QString &fileUrl) {
 
 void QrestViewModel::saveFile(const QString &fileUrl) {
     try {
-        rebuildValidationReport();
+        rebuildValidationReport(true);
         if (validationErrorCount() > 0) {
             emit showMessage(QString("保存前校验失败: %1 个错误")
                                  .arg(validationErrorCount()),
@@ -1159,7 +1468,7 @@ void QrestViewModel::beginEdit() {
 }
 
 void QrestViewModel::validateDocument() {
-    rebuildValidationReport();
+    rebuildValidationReport(true);
     if (validationErrorCount() == 0) {
         if (validationWarningCount() == 0) {
             emit showMessage("校验通过");
@@ -1180,6 +1489,7 @@ void QrestViewModel::runValidationReport() { validateDocument(); }
 
 void QrestViewModel::updateUnits(const QString &distanceUnit,
                                  const QString &timeUnit) {
+    Q_UNUSED(timeUnit)
     if (!canModify()) {
         emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
         return;
@@ -1187,10 +1497,10 @@ void QrestViewModel::updateUnits(const QString &distanceUnit,
 
     try {
         qrest_data::Metadata metadata = m_document.metadata();
-        metadata.Units = {distanceUnit.toStdString(), timeUnit.toStdString()};
+        metadata.Units = {distanceUnit.toStdString(), "s"};
         m_document.replaceMetadata(metadata);
         emitAllDocumentSignals();
-        emit showMessage("单位声明已更新，已有数值未自动换算");
+        emit showMessage("距离单位已更新，时间单位固定为 s");
     } catch (const std::exception &e) {
         emit showMessage(QString("更新单位失败: %1").arg(e.what()), true);
     }
@@ -1478,16 +1788,10 @@ void QrestViewModel::addChannel() {
 
     try {
         qrest_data::Metadata metadata = m_document.metadata();
-        qrest_data::Metadata::InstrumentInfoStruct::ChannelStruct channel;
-        if (!metadata.InstrumentInfo.Channels.empty()) {
-            channel = metadata.InstrumentInfo.Channels.back();
-            channel.ChannelID.clear();
-        } else {
-            channel.Measurand = "Acceleration";
-            channel.Scale = 1.0;
-            channel.Azimuth = 90.0;
-            channel.LocationXYZ = {0.0, 0.0, 0.0};
-        }
+        qrest_data::Metadata::InstrumentInfoStruct::ChannelStruct channel =
+            makeDefaultChannel(
+                static_cast<int>(metadata.InstrumentInfo.Channels.size()) + 1,
+                channelDefaultsFromMetadata(metadata));
 
         metadata.InstrumentInfo.Channels.push_back(channel);
         renumberChannels(metadata);
@@ -1572,6 +1876,7 @@ void QrestViewModel::deleteSelectedChannel() {
 }
 
 void QrestViewModel::updateSelectedChannel(const QString &channelId,
+                                           const QString &deviceType,
                                            const QString &measurand,
                                            double scale,
                                            double azimuth,
@@ -1590,6 +1895,10 @@ void QrestViewModel::updateSelectedChannel(const QString &channelId,
     const QString trimmedId = channelId.trimmed();
     if (trimmedId.isEmpty()) {
         emit showMessage("ChannelID 不能为空", true);
+        return;
+    }
+    if (deviceType.trimmed().isEmpty()) {
+        emit showMessage("DeviceType 不能为空", true);
         return;
     }
     if (measurand.trimmed().isEmpty()) {
@@ -1616,7 +1925,8 @@ void QrestViewModel::updateSelectedChannel(const QString &channelId,
             }
             if (QString::fromStdString(
                     channels[static_cast<size_t>(i)].ChannelID)
-                == trimmedId) {
+                    == trimmedId
+                && !isUnknownChannelId(trimmedId)) {
                 emit showMessage("ChannelID 必须唯一", true);
                 return;
             }
@@ -1624,6 +1934,7 @@ void QrestViewModel::updateSelectedChannel(const QString &channelId,
 
         auto &channel = channels[static_cast<size_t>(m_selectedChannelRow)];
         channel.ChannelID = trimmedId.toStdString();
+        channel.DeviceType = deviceType.trimmed().toStdString();
         channel.Measurand = measurand.trimmed().toStdString();
         channel.Scale = scale;
         channel.Azimuth = azimuth;
@@ -1636,6 +1947,33 @@ void QrestViewModel::updateSelectedChannel(const QString &channelId,
         emit showMessage("通道信息已更新");
     } catch (const std::exception &e) {
         emit showMessage(QString("更新通道失败: %1").arg(e.what()), true);
+    }
+}
+
+void QrestViewModel::setSelectedChannelUnknown() {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+    if (!hasSelectedChannel()) {
+        emit showMessage("请先选择一个通道", true);
+        return;
+    }
+
+    try {
+        qrest_data::Metadata metadata = m_document.metadata();
+        auto &channel =
+            metadata.InstrumentInfo
+                .Channels[static_cast<size_t>(m_selectedChannelRow)];
+        channel.ChannelID = "UNKNOWN";
+        renumberChannels(metadata);
+        m_document.replaceMetadata(metadata);
+        refreshChannelModel();
+        setSelectedChannelRow(m_selectedChannelRow);
+        emitAllDocumentSignals();
+        emit showMessage("ChannelID 已设置为 UNKNOWN");
+    } catch (const std::exception &e) {
+        emit showMessage(QString("设置 UNKNOWN 失败: %1").arg(e.what()), true);
     }
 }
 
@@ -1690,9 +2028,9 @@ void QrestViewModel::updatePacketHeader(int sourceId,
     if (!m_document.dataPacket().get_data().empty()
         && (channelCount != m_document.dataPacket().get_channel_count()
             || channelCount != static_cast<int>(channels.size()))) {
-        emit showMessage(
-            "已有数据包体后不允许通过包头重排通道，请保持 Packet 与 Channels 数量一致",
-            true);
+        emit showMessage("已有数据包体后不允许通过包头重排通道，请保持 Packet "
+                         "与 Channels 数量一致",
+                         true);
         return;
     }
 
@@ -1975,7 +2313,7 @@ void QrestViewModel::emitAllDocumentSignals() {
 }
 
 QList<ValidationTableModel::Issue>
-QrestViewModel::collectValidationIssues() const {
+QrestViewModel::collectValidationIssues(bool finalValidation) const {
     QList<ValidationTableModel::Issue> issues;
     auto addIssue = [&issues](ValidationTableModel::Severity severity,
                               const QString &area,
@@ -1983,59 +2321,34 @@ QrestViewModel::collectValidationIssues() const {
         issues.append({severity, area, message});
     };
 
-    QStringList documentErrors;
-    if (!m_document.validate(&documentErrors)) {
-        for (const QString &error : documentErrors) {
-            addIssue(ValidationTableModel::Severity::Error, "Document", error);
-        }
-    }
-
     const qrest_data::Metadata &metadata = m_document.metadata();
     const qrest_data::DataPacket &packet = m_document.dataPacket();
+    const qrest_data::tools::ValidationOptions options{
+        finalValidation ? qrest_data::tools::ValidationMode::Final
+                        : qrest_data::tools::ValidationMode::Draft};
+    const auto coreReport =
+        qrest_data::tools::validate_qrest_content(metadata,
+                                                  packet.get_channel_count(),
+                                                  packet.get_sampling_rate(),
+                                                  packet.get_data_point_count(),
+                                                  packet.get_timestamp(),
+                                                  packet.get_data().size(),
+                                                  options);
 
-    if (metadata.Header != "qREST_DATA") {
+    for (const std::string &error : coreReport.errors) {
         addIssue(ValidationTableModel::Severity::Error,
-                 "Metadata",
-                 "Header 必须为 qREST_DATA");
+                 "Core",
+                 QString::fromStdString(error));
     }
-    if (metadata.Units[0].empty() || metadata.Units[1].empty()) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Metadata",
-                 "Units 中的距离单位和时间单位不能为空");
-    }
-
-    const auto &footprint = metadata.BuildingInfo.StructuralFootprint;
-    if (footprint.Shape == "Rectangular") {
-        if (footprint.Parameters.Length <= 0.0
-            || footprint.Parameters.Width <= 0.0
-            || !std::isfinite(footprint.Parameters.Length)
-            || !std::isfinite(footprint.Parameters.Width)) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Building",
-                     "Rectangular footprint 需要有效的 Length 和 Width");
-        }
-    } else if (footprint.Shape == "Circular") {
-        if (footprint.Parameters.Radius <= 0.0
-            || !std::isfinite(footprint.Parameters.Radius)) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Building",
-                     "Circular footprint 需要有效的 Radius");
-        }
-    } else if (footprint.Shape == "Polygon") {
-        if (footprint.Parameters.Corners.size() < 3) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Building",
-                     "Polygon footprint 至少需要 3 个顶点");
-        }
-    } else {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Building",
-                 QString("未知 StructuralFootprint Shape: %1")
-                     .arg(QString::fromStdString(footprint.Shape)));
+    for (const std::string &warning : coreReport.warnings) {
+        addIssue(ValidationTableModel::Severity::Warning,
+                 "Core",
+                 QString::fromStdString(warning));
     }
 
     qrest_data::Metadata expectedMetadata = metadata;
     updateBoundingBox(expectedMetadata);
+    const auto &footprint = metadata.BuildingInfo.StructuralFootprint;
     const auto &bbox = footprint.BoundingBox;
     const auto &expectedBox =
         expectedMetadata.BuildingInfo.StructuralFootprint.BoundingBox;
@@ -2053,93 +2366,12 @@ QrestViewModel::collectValidationIssues() const {
     }
 
     const auto &elevations = metadata.BuildingInfo.Elevation;
-    if (elevations.empty()) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Building",
-                 "Elevation 至少需要一个数值");
-    }
-    if (metadata.BuildingInfo.ElevationNum
-        != static_cast<int>(elevations.size())) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Building",
-                 "ElevationNum 必须等于 Elevation.size()");
-    }
-    for (size_t i = 1; i < elevations.size(); ++i) {
-        if (std::abs(elevations[i] - elevations[i - 1]) < 1e-12) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Building",
-                     "Elevation 存在重复值");
-            break;
-        }
-        if (elevations[i] <= elevations[i - 1]) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Building",
-                     "Elevation 必须严格递增");
-            break;
-        }
-    }
-
     const auto &channels = metadata.InstrumentInfo.Channels;
-    if (metadata.InstrumentInfo.ChannelNum
-        != static_cast<int>(channels.size())) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Channels",
-                 "ChannelNum 必须等于 Channels.size()");
-    }
-    if (channels.empty()) {
-        addIssue(ValidationTableModel::Severity::Warning,
-                 "Channels",
-                 "尚未配置任何通道");
-    }
-
-    QSet<QString> channelIds;
     for (int i = 0; i < static_cast<int>(channels.size()); ++i) {
         const auto &channel = channels[static_cast<size_t>(i)];
         const QString label =
             QString("Channel %1")
                 .arg(channel.ChannelNo > 0 ? channel.ChannelNo : i + 1);
-        if (channel.ChannelNo != i + 1) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 ChannelNo 应为 %2").arg(label).arg(i + 1));
-        }
-
-        const QString id = QString::fromStdString(channel.ChannelID).trimmed();
-        if (id.isEmpty()) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 ChannelID 不能为空").arg(label));
-        } else if (channelIds.contains(id)) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("重复 ChannelID: %1").arg(id));
-        } else {
-            channelIds.insert(id);
-        }
-
-        if (QString::fromStdString(channel.Measurand).trimmed().isEmpty()) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 Measurand 不能为空").arg(label));
-        }
-        if (!std::isfinite(channel.Scale) || channel.Scale == 0.0) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 Scale 必须是非零有效数字").arg(label));
-        }
-        if (!(std::abs(channel.Azimuth + 1.0) < 1e-9
-              || (channel.Azimuth >= 0.0 && channel.Azimuth < 360.0))) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 Azimuth 必须为 -1 或 [0, 360)").arg(label));
-        }
-        if (!std::isfinite(channel.LocationXYZ[0])
-            || !std::isfinite(channel.LocationXYZ[1])
-            || !std::isfinite(channel.LocationXYZ[2])) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Channels",
-                     QString("%1 的 LocationXYZ 必须是有效数字").arg(label));
-        }
 
         if (std::isfinite(bbox.MinX) && std::isfinite(bbox.MaxX)
             && std::isfinite(bbox.MinY) && std::isfinite(bbox.MaxY)
@@ -2161,60 +2393,16 @@ QrestViewModel::collectValidationIssues() const {
         }
     }
 
-    if (metadata.DataInfo.DT <= 0.0 || !std::isfinite(metadata.DataInfo.DT)) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Data",
-                 "DataInfo.DT 必须大于 0");
-    }
-    if (metadata.DataInfo.NPTS < 0) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Data",
-                 "DataInfo.NPTS 不能为负数");
-    }
-
-    if (!packet.get_data().empty()) {
-        if (packet.get_channel_count()
-            != static_cast<uint16_t>(channels.size())) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Data",
-                     "Packet channel_count 必须等于 Channels.size()");
-        }
-        if (metadata.DataInfo.NPTS >= 0
-            && packet.get_data_point_count()
-                   != static_cast<uint32_t>(metadata.DataInfo.NPTS)) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Data",
-                     "Packet data_point_count 必须等于 DataInfo.NPTS");
-        }
-    } else if (packet.get_channel_count() > 0
-               || packet.get_data_point_count() > 0) {
-        addIssue(ValidationTableModel::Severity::Warning,
-                 "Data",
-                 "Packet header 包含维度但没有包体数据");
-    }
-
-    if (packet.get_sampling_rate() > 0 && metadata.DataInfo.DT > 0.0) {
-        const int metadataRate = samplingRateFromMetadata(metadata);
-        if (metadataRate != packet.get_sampling_rate()) {
-            addIssue(ValidationTableModel::Severity::Error,
-                     "Data",
-                     "Packet sampling_rate 与 DataInfo.DT 不一致");
-        }
-    } else if (packet.get_sampling_rate() == 0 && !packet.get_data().empty()) {
-        addIssue(ValidationTableModel::Severity::Error,
-                 "Data",
-                 "已导入数据但 Packet sampling_rate 为 0");
-    }
-
     return issues;
 }
 
-void QrestViewModel::rebuildValidationReport() {
+void QrestViewModel::rebuildValidationReport(bool finalValidation) {
     if (!m_validationModel) {
         return;
     }
 
-    QList<ValidationTableModel::Issue> issues = collectValidationIssues();
+    QList<ValidationTableModel::Issue> issues =
+        collectValidationIssues(finalValidation);
     if (issues.empty()) {
         issues.append({ValidationTableModel::Severity::Info,
                        "Document",

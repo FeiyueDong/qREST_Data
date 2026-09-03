@@ -10,6 +10,7 @@
 #include <QString>
 #include <QtQml>
 #include <QVariantList>
+#include <QVariantMap>
 
 #include "qrest_document.h"
 
@@ -103,6 +104,7 @@ public:
     void clear();
     [[nodiscard]] int errorCount() const;
     [[nodiscard]] int warningCount() const;
+    [[nodiscard]] int infoCount() const;
 
 private:
     QList<Issue> m_issues;
@@ -215,6 +217,8 @@ class QrestViewModel : public QObject {
                    selectedChannelUpdated)
     Q_PROPERTY(QString selectedChannelMeasurand READ selectedChannelMeasurand
                    NOTIFY selectedChannelUpdated)
+    Q_PROPERTY(QString selectedChannelDeviceType READ selectedChannelDeviceType
+                   NOTIFY selectedChannelUpdated)
     Q_PROPERTY(double selectedChannelScale READ selectedChannelScale NOTIFY
                    selectedChannelUpdated)
     Q_PROPERTY(double selectedChannelAzimuth READ selectedChannelAzimuth NOTIFY
@@ -232,12 +236,22 @@ class QrestViewModel : public QObject {
     Q_PROPERTY(QVariantList sensorLayoutPoints READ sensorLayoutPoints NOTIFY
                    geometryUpdated)
     Q_PROPERTY(
+        QVariantList structureEdges READ structureEdges NOTIFY geometryUpdated)
+    Q_PROPERTY(QVariantList structureSensors READ structureSensors NOTIFY
+                   geometryUpdated)
+    Q_PROPERTY(
+        QVariantList structureAxes READ structureAxes NOTIFY geometryUpdated)
+    Q_PROPERTY(QVariantMap structureViewBounds READ structureViewBounds NOTIFY
+                   geometryUpdated)
+    Q_PROPERTY(
         QString geometrySummary READ geometrySummary NOTIFY geometryUpdated)
     Q_PROPERTY(
         QAbstractTableModel *validationModel READ validationModel CONSTANT)
     Q_PROPERTY(int validationErrorCount READ validationErrorCount NOTIFY
                    validationUpdated)
     Q_PROPERTY(int validationWarningCount READ validationWarningCount NOTIFY
+                   validationUpdated)
+    Q_PROPERTY(int validationInfoCount READ validationInfoCount NOTIFY
                    validationUpdated)
     Q_PROPERTY(QString validationStatusText READ validationStatusText NOTIFY
                    validationUpdated)
@@ -309,6 +323,7 @@ public:
     bool canEditChannelOrder() const;
     int selectedChannelNo() const;
     QString selectedChannelId() const;
+    QString selectedChannelDeviceType() const;
     QString selectedChannelMeasurand() const;
     double selectedChannelScale() const;
     double selectedChannelAzimuth() const;
@@ -318,10 +333,15 @@ public:
     double selectedChannelZ() const;
     QVariantList geometryFloorOutlines() const;
     QVariantList sensorLayoutPoints() const;
+    QVariantList structureEdges() const;
+    QVariantList structureSensors() const;
+    QVariantList structureAxes() const;
+    QVariantMap structureViewBounds() const;
     QString geometrySummary() const;
     QAbstractTableModel *validationModel() const;
     int validationErrorCount() const;
     int validationWarningCount() const;
+    int validationInfoCount() const;
     QString validationStatusText() const;
     QAbstractTableModel *binaryModel() const;
     int binaryByteCount() const;
@@ -359,12 +379,14 @@ public:
     Q_INVOKABLE void duplicateSelectedChannel();
     Q_INVOKABLE void deleteSelectedChannel();
     Q_INVOKABLE void updateSelectedChannel(const QString &channelId,
+                                           const QString &deviceType,
                                            const QString &measurand,
                                            double scale,
                                            double azimuth,
                                            double x,
                                            double y,
                                            double z);
+    Q_INVOKABLE void setSelectedChannelUnknown();
     Q_INVOKABLE void importMetadata(const QString &fileUrl);
     Q_INVOKABLE void exportMetadata(const QString &fileUrl);
     Q_INVOKABLE void importDataBody(const QString &fileUrl);
@@ -401,9 +423,9 @@ private:
     void emitAllDocumentSignals();
     void refreshChannelModel();
     void setSelectedChannelRow(int row);
-    void rebuildValidationReport();
+    void rebuildValidationReport(bool finalValidation = false);
     [[nodiscard]] QList<ValidationTableModel::Issue>
-    collectValidationIssues() const;
+    collectValidationIssues(bool finalValidation = false) const;
     void importDataBodyInternal(const QString &fileUrl, bool acceptNptsChange);
 
     DataTableModel *m_tableModel;          // 表格模型实例

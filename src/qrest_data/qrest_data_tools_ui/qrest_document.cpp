@@ -152,6 +152,7 @@ void QrestDocument::saveAs(const QString &fileUrl) {
     m_sourcePath = localPath;
     m_rawFileBytes = bytes;
     m_originalBytes = bytes;
+    m_mode = Mode::View;
     setDirty(false);
 }
 

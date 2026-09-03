@@ -686,9 +686,9 @@ int run_inspect_command(const InspectCommand &command) {
         std::cout << "  channel_list:\n";
         for (const auto &channel : file.metadata.InstrumentInfo.Channels) {
             std::cout << "    " << channel.ChannelNo << ": "
-                      << channel.ChannelID << ", " << channel.Measurand
-                      << ", azimuth=" << channel.Azimuth << ", location=["
-                      << channel.LocationXYZ[0] << ", "
+                      << channel.ChannelID << ", " << channel.DeviceType << ", "
+                      << channel.Measurand << ", azimuth=" << channel.Azimuth
+                      << ", location=[" << channel.LocationXYZ[0] << ", "
                       << channel.LocationXYZ[1] << ", "
                       << channel.LocationXYZ[2] << "]\n";
         }

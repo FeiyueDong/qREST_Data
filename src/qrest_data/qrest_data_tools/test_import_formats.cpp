@@ -2,6 +2,7 @@
 #include "formats/mseed/modified_mseed_export.hpp"
 #include "formats/tdms/tdms_export.hpp"
 #include "qrest_file.hpp"
+#include "validation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -51,6 +52,10 @@ make_metadata(const std::vector<std::string> &labels, int npts, double dt) {
     metadata.BuildingInfo.ProjectName = "ImportFormatTest";
     metadata.BuildingInfo.StructuralType = "UNKNOWN";
     metadata.BuildingInfo.StructuralFootprint.Shape = "Rectangular";
+    metadata.BuildingInfo.StructuralFootprint.Parameters.Length = 1.0;
+    metadata.BuildingInfo.StructuralFootprint.Parameters.Width = 1.0;
+    metadata.BuildingInfo.Elevation = {0.0};
+    metadata.BuildingInfo.ElevationNum = 1;
     metadata.InstrumentInfo.Provider = "TestProvider";
     metadata.InstrumentInfo.ChannelNum = static_cast<int>(labels.size());
     metadata.InstrumentInfo.Channels.reserve(labels.size());
@@ -58,6 +63,7 @@ make_metadata(const std::vector<std::string> &labels, int npts, double dt) {
         qrest_data::Metadata::InstrumentInfoStruct::ChannelStruct channel;
         channel.ChannelNo = static_cast<int>(i + 1);
         channel.ChannelID = labels[i];
+        channel.DeviceType = "S05";
         channel.Measurand = "Acceleration";
         channel.Scale = 1.0;
         channel.Azimuth = -1.0;
@@ -353,6 +359,36 @@ void test_hdf5_bridge() {
     std::filesystem::remove(hdf5_path);
 }
 
+void test_unknown_channel_id_validation() {
+    auto metadata = make_metadata({"UNKNOWN", "UNKNOWN", "A101"}, 4, 0.01);
+    const auto report = qrest_data::tools::validate_metadata(metadata);
+    if (!report.ok()) {
+        throw std::runtime_error("UNKNOWN ChannelID must not be duplicate");
+    }
+    require_equal(report.warnings.size(),
+                  std::size_t{1},
+                  "UNKNOWN ChannelID summary warning");
+}
+
+void test_metadata_device_type_and_extension_round_trip() {
+    auto metadata = make_metadata({"UNKNOWN"}, 4, 0.01);
+    metadata.Extension["SiteTag"] = "Bridge-A";
+    metadata.InstrumentInfo.Channels[0].Extension["VendorField"] = 42;
+
+    const auto parsed = qrest_data::Metadata::from_bytes(metadata.to_bytes());
+    require_equal(parsed.InstrumentInfo.Channels[0].DeviceType,
+                  std::string{"S05"},
+                  "DeviceType round-trip");
+    require_equal(parsed.Extension.at("SiteTag").get<std::string>(),
+                  std::string{"Bridge-A"},
+                  "Top-level extension round-trip");
+    require_equal(parsed.InstrumentInfo.Channels[0]
+                      .Extension.at("VendorField")
+                      .get<int>(),
+                  42,
+                  "Channel extension round-trip");
+}
+
 } // namespace
 
 int main() {
@@ -361,6 +397,8 @@ int main() {
         test_tdms_sample();
         test_tdms_directory_mapping();
         test_hdf5_bridge();
+        test_unknown_channel_id_validation();
+        test_metadata_device_type_and_extension_round_trip();
         std::cout << "qREST import format tests passed.\n";
         return 0;
     } catch (const std::exception &e) {
