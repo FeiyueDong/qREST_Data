@@ -350,7 +350,7 @@ ApplicationWindow {
         x: (window.width - width) / 2
         y: (window.height - height) / 2
 
-        ColumnLayout {
+        ScrollView {
             anchors.fill: parent
             spacing: 8
 

@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_document.cpp" />
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -22,6 +23,9 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_document.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{837E05E8-FB5C-44C1-AC20-42E636B1746E}</ProjectGuid>
