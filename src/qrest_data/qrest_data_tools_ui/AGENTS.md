@@ -19,6 +19,12 @@ Important local contracts:
   validation, and Save As behavior.
 - `QrestViewModel` is the C++ facade exposed to QML as
   `DataTools.Backend 1.0`.
+- `main.qml` should stay as the application shell: window state, menus,
+  toolbar, file dialogs, and page wiring. Frequently edited page bodies belong
+  in `OverviewPage.qml`, `ChannelsPage.qml`, `DataPage.qml`, and
+  `ValidationPage.qml`.
+- Advanced or workflow dialogs belong in focused `*Dialog.qml` files. Keep
+  dialog-local fields and temporary search/selection state inside those files.
 - `ChannelTableModel` exposes schema-backed channel metadata. Do not add
   GUI-only persisted fields; display-only derived values such as Direction
   should be computed from existing schema fields.
@@ -33,7 +39,7 @@ Important local contracts:
 - `BinaryTableModel` exposes complete file bytes as offset/hex/ASCII rows for
   the Advanced Binary Viewer. Keep binary viewing read-only and avoid
   pre-formatting the whole file into one giant string.
-- `DataTableModel` exposes packet-body samples to `TableView`.
+- `DataTableModel` exposes packet-body samples to `QrestTableView`.
 - `QrestTableView.qml` owns the shared corner/header/body/scrollbar shell for
   binary, channel, data, and validation tables. Prefer extending this component
   over copying another header/table block into a page.

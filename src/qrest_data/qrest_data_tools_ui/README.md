@@ -19,15 +19,18 @@ types instead of being reimplemented in QML.
 
 - `main.cpp` starts `QGuiApplication`, registers `QrestViewModel`, and loads
   `main.qml` from the Qt resource path.
-- `main.qml` defines the current single-window UI:
+- `main.qml` defines the single-window shell:
   - file menu actions for new/open/save qREST files,
   - data menu actions for importing/exporting metadata JSON and packet body
     text,
-  - workspace tabs for overview, building metadata, channels, data, and
-    validation,
-  - advanced dialogs for raw metadata JSON, binary bytes, and header/packet
-    inspection,
-  - a packet-body `QrestTableView` with row/column selection and copy support.
+  - toolbar actions and workspace tabs for overview, building metadata,
+    channels, data, and validation,
+  - window-level dirty-document guards and file dialogs.
+- `OverviewPage.qml`, `ChannelsPage.qml`, `DataPage.qml`, and
+  `ValidationPage.qml` contain the frequently edited page bodies.
+- `RawMetadataDialog.qml`, `BinaryViewerDialog.qml`,
+  `PacketInspectorDialog.qml`, `DataImportMismatchDialog.qml`, and
+  `TimePickerDialog.qml` contain the advanced and workflow dialogs.
 - `SensorLayoutView.qml` renders the Channels page sensor layout from C++
   projected geometry data.
 - `QrestTableView.qml` provides the shared corner/header/body/scrollbar table
@@ -56,7 +59,7 @@ Opening a qREST file reads the full file into memory, then parses it in order:
 2. `Metadata::from_bytes()` parses the JSON metadata block.
 3. `DataPacket::from_bytes()` parses and validates the packet header, payload,
    encoding, and checksum.
-4. `DataTableModel::loadData()` exposes the packet body to `TableView`.
+4. `DataTableModel::loadData()` exposes the packet body to `QrestTableView`.
 
 Opened files enter read-only `View` mode. Editing requires `Edit`, which creates
 an in-memory draft. Draft changes are never written back to the original file;
@@ -127,7 +130,7 @@ the qREST channel-major packet layout.
 - Grow the geometry service into a dedicated model if it needs caching,
   selection metadata, or multiple camera modes. The current implementation
   computes projected edges/sensors/axes in `QrestViewModel`.
-- Add issue-to-field navigation after the main navigation is finalized. The
+- Add issue-to-field navigation after the page components settle. The
   validation model currently carries severity, area, and message only.
 - Improve large-file behavior: the binary viewer no longer pre-formats the
   whole file, but the data table still exposes all packet rows.
