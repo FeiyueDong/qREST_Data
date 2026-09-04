@@ -2,6 +2,7 @@
     <qresource prefix="/qt/qml/qrest_data_tools_gui">
         <file>qml/main.qml</file>
         <file>qml/BinaryViewerDialog.qml</file>
+        <file>qml/BuildingPage.qml</file>
         <file>qml/ChannelsPage.qml</file>
         <file>qml/DataImportMismatchDialog.qml</file>
         <file>qml/DataPage.qml</file>
@@ -19,5 +20,6 @@
         <file>icon/Open.png</file>
         <file>icon/SaveAs.png</file>
         <file>icon/Validate.png</file>
+        <file>icon/logo.png</file>
     </qresource>
 </RCC>

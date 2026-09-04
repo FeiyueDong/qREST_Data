@@ -26,8 +26,9 @@ types instead of being reimplemented in QML.
   - toolbar actions and workspace tabs for overview, building metadata,
     channels, data, and validation,
   - window-level dirty-document guards and file dialogs.
-- `OverviewPage.qml`, `ChannelsPage.qml`, `DataPage.qml`, and
-  `ValidationPage.qml` contain the frequently edited page bodies.
+- `OverviewPage.qml`, `BuildingPage.qml`, `ChannelsPage.qml`,
+  `DataPage.qml`, and `ValidationPage.qml` contain the frequently edited page
+  bodies.
 - `RawMetadataDialog.qml`, `BinaryViewerDialog.qml`,
   `PacketInspectorDialog.qml`, `DataImportMismatchDialog.qml`, and
   `TimePickerDialog.qml` contain the advanced and workflow dialogs.
@@ -35,6 +36,8 @@ types instead of being reimplemented in QML.
   projected geometry data.
 - `QrestTableView.qml` provides the shared corner/header/body/scrollbar table
   shell used by the binary, channel, data, and validation tables.
+- `icon/logo.png` is bundled into `qml.qrc` and is used as the application
+  window icon from `main.cpp`.
 - `qrest_document.h/.cpp` owns the current document state:
   - `View` for opened read-only files,
   - `EditDraft` for editable copies of opened files,
@@ -86,12 +89,14 @@ the qREST channel-major packet layout.
 
 ## Current UI Behavior
 
-- Overview tab: summarizes the current document, building, channel, data, and
-  validation state.
+- Overview tab: presents a dashboard-style summary of the current document,
+  building, channel, data, and validation state without workflow navigation
+  buttons.
 - Building tab: exposes format summary, document units, building basics,
   geolocation, footprint, and elevation. Rectangular, circular, and polygon
   footprints are editable; polygon corner edits refresh the derived bounding
-  box. The time unit is fixed to `s`.
+  box. Elevation editing uses a bounded multi-line editor with the parsed level
+  count outside the scroll area. The time unit is fixed to `s`.
 - Channels tab: lists channel metadata and edits the schema-backed fields
   `ChannelID`, `DeviceType`, `Measurand`, `Scale`, `Azimuth`, and
   `LocationXYZ`. `UNKNOWN` is a valid ChannelID shortcut and is not treated as a
@@ -99,6 +104,8 @@ the qREST channel-major packet layout.
   `ChannelNo` and `ChannelNum` are derived when editing through this page. The
   selected-channel panel includes a 2.5D wireframe sensor layout generated from
   footprint, elevation, channel positions, channel azimuths, axes, and North.
+  The layout renderer centers the active footprint in the available canvas and
+  uses the same transform for hit-testing and drawing.
 - Data packet tab: exposes DataInfo fields, packet-body import/export, packet
   header fields, timestamp selection, encoding selection, and packet-body table
   browsing/copying. Text import checks channel count and asks before replacing
@@ -109,7 +116,9 @@ the qREST channel-major packet layout.
   warnings are appended in the view model.
 - Advanced menu:
   - Raw Metadata JSON can view, format, and apply metadata JSON to the current
-    draft. Apply restores fixed fields and normalizes derived metadata.
+    draft. Apply restores fixed fields and normalizes derived metadata. The
+    JSON editor opens at the top and keeps action buttons fixed below the
+    scroll area.
   - Binary Viewer shows all current qREST bytes through a row-based table model,
     with offset jump and ASCII/hex search.
   - Header / Packet Inspector shows low-level file and packet fields.
@@ -136,6 +145,8 @@ the qREST channel-major packet layout.
   whole file, but the data table still exposes all packet rows.
 - Keep binary-format edits in `qrest_data_lib`; this UI should orchestrate and
   present library behavior.
+- Metadata header/version defaults come from `qrest_data::format` constants in
+  `metadata.hpp`; avoid reintroducing local string/version literals in the GUI.
 
 ## Build And Run
 

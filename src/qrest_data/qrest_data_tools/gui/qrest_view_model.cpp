@@ -315,8 +315,8 @@ void renumberChannels(qrest_data::Metadata &metadata) {
 }
 
 void normalizeMetadata(qrest_data::Metadata &metadata) {
-    metadata.Header = "qREST_DATA";
-    metadata.Version = {1, 0, 0};
+    metadata.Header = qrest_data::format::metadata_header;
+    metadata.Version = qrest_data::format::metadata_version;
     if (metadata.Units[0].empty()) {
         metadata.Units[0] = "m";
     }

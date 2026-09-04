@@ -107,10 +107,10 @@ ValidationReport validate_metadata(const Metadata &metadata,
     ValidationReport report;
     const ValidationMode mode = options.mode;
 
-    if (metadata.Header != "qREST_DATA") {
+    if (metadata.Header != qrest_data::format::metadata_header) {
         add_error(report, "Header must be qREST_DATA");
     }
-    if (metadata.Version[0] != 1) {
+    if (metadata.Version[0] != qrest_data::format::metadata_major_version) {
         add_warning(report, "Metadata major version is not 1");
     }
     if (metadata.Units[0].empty() || metadata.Units[1].empty()) {
@@ -272,9 +272,6 @@ validate_qrest_content(const Metadata &metadata,
                        ValidationOptions options) {
     ValidationReport report = validate_metadata(metadata, options);
     const ValidationMode mode = options.mode;
-    if (mode == ValidationMode::Final && !report.ok()) {
-        return report;
-    }
 
     const auto &channels = metadata.InstrumentInfo.Channels;
     if (packet_channel_count != static_cast<std::uint16_t>(channels.size())) {

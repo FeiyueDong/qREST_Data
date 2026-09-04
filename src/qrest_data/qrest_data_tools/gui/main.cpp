@@ -1,9 +1,11 @@
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include "qrest_view_model.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
+    app.setWindowIcon(QIcon(":/qt/qml/qrest_data_tools_gui/icon/logo.png"));
 
     // 参数：(包名, 主版本, 次版本, 在 QML 中使用的类型名)
     qmlRegisterType<QrestViewModel>(

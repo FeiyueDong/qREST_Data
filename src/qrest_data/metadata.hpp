@@ -3,6 +3,7 @@
 #define QREST_DATA_METADATA_HPP
 
 #include <array>
+#include <cmath>
 #include <initializer_list>
 #include <stdexcept>
 #include <string>
@@ -12,6 +13,13 @@
 #include "nlohmann/json.hpp"
 
 namespace qrest_data {
+
+namespace format {
+inline constexpr char metadata_header[] = "qREST_DATA";
+inline constexpr std::array<int, 3> metadata_version{1, 0, 0};
+inline constexpr int metadata_major_version = metadata_version[0];
+} // namespace format
+
 class Metadata {
 public:
     struct BuildingInfoStruct {
@@ -80,8 +88,8 @@ public:
 
 public:
     // 元数据取用频繁，故设计为公有成员变量，且变量名和JSON字段名保持一致
-    std::string Header{"qREST_DATA"};           // 文件标识
-    std::array<int, 3> Version{1, 0, 0};        // 版本号
+    std::string Header{format::metadata_header}; // 文件标识
+    std::array<int, 3> Version{format::metadata_version}; // 版本号
     std::array<std::string, 2> Units{"m", "s"}; // 单位
     BuildingInfoStruct BuildingInfo{};
     InstrumentInfoStruct InstrumentInfo{};
@@ -288,7 +296,12 @@ inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info) {
     j.at("NPTS").get_to(info.NPTS);
     j.at("DT").get_to(info.DT);
     j.at("Corrected").get_to(info.Corrected);
-    info.Frequency = static_cast<int>(1.0 / info.DT + 0.5); // 四舍五入取整
+    if (info.DT > 0.0 && std::isfinite(info.DT)) {
+        info.Frequency =
+            static_cast<int>(1.0 / info.DT + 0.5); // 四舍五入取整
+    } else {
+        info.Frequency = 0.0;
+    }
 }
 
 // --- 顶级 Metadata 类 ---

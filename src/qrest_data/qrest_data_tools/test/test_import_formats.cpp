@@ -389,6 +389,57 @@ void test_metadata_device_type_and_extension_round_trip() {
                   "Channel extension round-trip");
 }
 
+void test_metadata_dt_zero_parses_without_invalid_frequency() {
+    auto metadata = make_metadata({"A101"}, 4, 0.01);
+    nlohmann::json json = metadata;
+    json["DataInfo"]["DT"] = 0.0;
+
+    const auto parsed = qrest_data::Metadata::from_bytes(json.dump());
+    require_equal(parsed.DataInfo.DT, 0.0, "DT zero round-trip");
+    require_equal(parsed.DataInfo.Frequency,
+                  0.0,
+                  "Invalid DT should produce zero Frequency");
+}
+
+void test_final_validation_reports_independent_packet_errors() {
+    auto metadata = make_metadata({"A101"}, 4, 0.01);
+    metadata.Header = "BAD_HEADER";
+
+    const auto report = qrest_data::tools::validate_qrest_content(
+        metadata,
+        2,
+        50,
+        3,
+        1,
+        5,
+        {qrest_data::tools::ValidationMode::Final});
+
+    auto has_error = [&report](const std::string &needle) {
+        return std::any_of(report.errors.cbegin(),
+                           report.errors.cend(),
+                           [&needle](const std::string &message) {
+                               return message.find(needle)
+                                      != std::string::npos;
+                           });
+    };
+
+    if (!has_error("Header must be qREST_DATA")) {
+        throw std::runtime_error("Final validation must report metadata error");
+    }
+    if (!has_error("Packet channel_count")) {
+        throw std::runtime_error(
+            "Final validation must continue to packet channel count");
+    }
+    if (!has_error("Packet data_point_count")) {
+        throw std::runtime_error(
+            "Final validation must continue to packet NPTS");
+    }
+    if (!has_error("Packet data size mismatch")) {
+        throw std::runtime_error(
+            "Final validation must continue to packet data size");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -399,6 +450,8 @@ int main() {
         test_hdf5_bridge();
         test_unknown_channel_id_validation();
         test_metadata_device_type_and_extension_round_trip();
+        test_metadata_dt_zero_parses_without_invalid_frequency();
+        test_final_validation_reports_independent_packet_errors();
         std::cout << "qREST import format tests passed.\n";
         return 0;
     } catch (const std::exception &e) {

@@ -21,8 +21,8 @@ Important local contracts:
   `DataTools.Backend 1.0`.
 - `main.qml` should stay as the application shell: window state, menus,
   toolbar, file dialogs, and page wiring. Frequently edited page bodies belong
-  in `OverviewPage.qml`, `ChannelsPage.qml`, `DataPage.qml`, and
-  `ValidationPage.qml`.
+  in `OverviewPage.qml`, `BuildingPage.qml`, `ChannelsPage.qml`,
+  `DataPage.qml`, and `ValidationPage.qml`.
 - Advanced or workflow dialogs belong in focused `*Dialog.qml` files. Keep
   dialog-local fields and temporary search/selection state inside those files.
 - `ChannelTableModel` exposes schema-backed channel metadata. Do not add
@@ -51,6 +51,9 @@ Important local contracts:
 - Existing qREST files must open read-only; modifications require an editable
   draft and must be saved through Save As. After Save As succeeds, the saved
   file becomes the current read-only View document.
+- `icon/logo.png` is the bundled application logo. Keep icon resources in
+  `qml.qrc` and prefer resource URLs/paths that work from both Xmake and Visual
+  Studio builds.
 
 For future metadata UI work, prefer structured C++ properties or focused QML
 models over ad hoc string editing. Keep validation explicit for channel counts,
