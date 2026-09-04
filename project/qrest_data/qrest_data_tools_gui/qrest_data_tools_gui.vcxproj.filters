@@ -86,5 +86,8 @@
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ValidationPage.qml">
       <Filter>Form Files</Filter>
     </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BuildingPage.qml">
+      <Filter>Form Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

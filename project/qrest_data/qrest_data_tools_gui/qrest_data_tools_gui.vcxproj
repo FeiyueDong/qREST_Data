@@ -24,6 +24,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BinaryViewerDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BuildingPage.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ChannelsPage.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataImportMismatchDialog.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataPage.qml" />

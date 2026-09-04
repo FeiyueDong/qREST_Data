@@ -121,12 +121,12 @@ ColumnLayout {
                 }
 
                 const axisOrigin = {
-                    x: 26,
-                    y: height - 26
+                    x: 50,
+                    y: height - 50
                 };
-                ctx.font = "11px sans-serif";
+                ctx.font = "12px sans-serif";
                 for (let axis of axes) {
-                    const length = axis.label === "N" ? 30 : 24;
+                    const length = axis.label === "N" ? 50 : 24;
                     const norm = Math.max(Math.abs(axis.x2) + Math.abs(axis.y2), 1e-6);
                     const x2 = axisOrigin.x + axis.x2 / norm * length;
                     const y2 = axisOrigin.y - axis.y2 / norm * length;
@@ -141,10 +141,10 @@ ColumnLayout {
                     ctx.fillStyle = sensor.selected ? "#d92332" : "#0b7285";
                     ctx.strokeStyle = sensor.selected ? "#d92332" : "#0b7285";
                     ctx.beginPath();
-                    ctx.arc(point.x, point.y, sensor.selected ? 7 : 4, 0, Math.PI * 2);
+                    ctx.arc(point.x, point.y, sensor.selected ? 6 : 4, 0, Math.PI * 2);
                     ctx.fill();
                     if (sensor.selected) {
-                        ctx.lineWidth = 2;
+                        ctx.lineWidth = 1.5;
                         ctx.strokeStyle = "#8f101c";
                         ctx.stroke();
                         ctx.lineWidth = 1;
