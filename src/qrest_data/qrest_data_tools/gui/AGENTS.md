@@ -27,7 +27,8 @@ Important local contracts:
 - Advanced or workflow dialogs belong in focused `*Dialog.qml` files. Keep
   dialog-local fields and temporary search/selection state inside those files.
 - External data import UI belongs in `ExternalImportDialog.qml` and
-  `QrestViewModel`; parsing must stay in `qrest_data_tools_core`.
+  `QrestViewModel`; parsing and import option semantics must stay in
+  `qrest_data_tools_core`.
 - Help documents are shown through `DocumentViewerDialog.qml`; keep user-facing
   guide content in `doc/helper.md` or bundled project documentation instead of
   mixing it into the developer README.
@@ -77,8 +78,9 @@ Use `FieldLabel.qml` with stable metadata field keys when adding structured
 fields. Do not duplicate long tooltip text in individual pages; update
 `doc/Description.json` instead.
 Geometry data is derived in C++ as 2.5D projected structure edges, sensors,
-directions, axes, and North; `SensorLayoutView.qml` renders and hit-tests that
-model and also supports plan/X-Z/Y-Z inspection from real metadata coordinates.
+directions, axes, and North; `SensorLayoutView.qml` renders, filters, hovers,
+and hit-tests that model and also supports plan/X-Z/Y-Z inspection from real
+metadata coordinates.
 Keep future geometry calculations out of ad hoc QML logic when they affect
 interpretation or validation.
 Text data import should reject channel-count mismatches and ask before replacing
@@ -87,7 +89,8 @@ supports offset jump plus ASCII/hex search and should remain read-only.
 External import mapping should stay decoupled from `ChannelID`; use
 `ExternalChannelMapping` and qREST ChannelNo/index targets instead of reviving
 the old `X1/Y1/Z1` hard requirement. GUI imports should read external datasets
-asynchronously, preview source channels, validate one-to-one mappings, and only
+asynchronously, pass TDMS/MiniSEED option values through to Core option
+structures, preview source channels, validate one-to-one mappings, and only
 write to the Draft after explicit Apply.
 
 Build the target with:

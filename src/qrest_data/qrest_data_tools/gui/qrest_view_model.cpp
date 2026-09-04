@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <stdexcept>
 #include <sstream>
 
 #include "../core/validation.hpp"
@@ -56,18 +57,147 @@ QString toLocalPath(const QString &fileUrl) {
     return localPath;
 }
 
+QString optionString(const QVariantMap &options,
+                     const QString &key,
+                     const QString &fallback) {
+    const QVariant value = options.value(key);
+    if (!value.isValid()) {
+        return fallback;
+    }
+    const QString text = value.toString().trimmed();
+    return text.isEmpty() ? fallback : text;
+}
+
+double optionDouble(const QVariantMap &options,
+                    const QString &key,
+                    double fallback) {
+    const QVariant value = options.value(key);
+    if (!value.isValid()) {
+        return fallback;
+    }
+    bool ok = false;
+    const double parsed = value.toDouble(&ok);
+    if (!ok || !std::isfinite(parsed)) {
+        throw std::runtime_error("invalid numeric import option: "
+                                 + key.toStdString());
+    }
+    return parsed;
+}
+
+int optionInt(const QVariantMap &options, const QString &key, int fallback) {
+    const QVariant value = options.value(key);
+    if (!value.isValid()) {
+        return fallback;
+    }
+    bool ok = false;
+    const int parsed = value.toInt(&ok);
+    if (!ok) {
+        throw std::runtime_error("invalid integer import option: "
+                                 + key.toStdString());
+    }
+    return parsed;
+}
+
+bool optionBool(const QVariantMap &options,
+                const QString &key,
+                bool fallback) {
+    const QVariant value = options.value(key);
+    return value.isValid() ? value.toBool() : fallback;
+}
+
+qrest_data::tools::TdmsImportOptions
+tdmsOptionsFromMap(const QVariantMap &options) {
+    qrest_data::tools::TdmsImportOptions parsed;
+
+    const QString unit =
+        optionString(options, "targetUnit", "cm/s^2").toLower();
+    if (unit == "m/s2" || unit == "m/s^2" || unit == "m/s²") {
+        parsed.output_unit =
+            qrest_data::tools::TdmsImportOptions::Unit::
+                MeterPerSecondSquared;
+    } else if (unit == "cm/s2" || unit == "cm/s^2" || unit == "cm/s²") {
+        parsed.output_unit =
+            qrest_data::tools::TdmsImportOptions::Unit::
+                CentimeterPerSecondSquared;
+    } else {
+        throw std::runtime_error("unsupported TDMS target unit: "
+                                 + unit.toStdString());
+    }
+
+    const QString sensitivity =
+        optionString(options, "sensitivitySelection", "acquisition")
+            .toLower();
+    if (sensitivity == "acquisition") {
+        parsed.sensitivity_selection =
+            qrest_data::tools::TdmsImportOptions::SensitivitySelection::
+                Acquisition;
+    } else if (sensitivity == "first") {
+        parsed.sensitivity_selection =
+            qrest_data::tools::TdmsImportOptions::SensitivitySelection::First;
+    } else if (sensitivity == "last") {
+        parsed.sensitivity_selection =
+            qrest_data::tools::TdmsImportOptions::SensitivitySelection::Last;
+    } else if (sensitivity == "explicit") {
+        parsed.sensitivity_selection =
+            qrest_data::tools::TdmsImportOptions::SensitivitySelection::
+                Explicit;
+    } else {
+        throw std::runtime_error("unsupported TDMS sensitivity selection: "
+                                 + sensitivity.toStdString());
+    }
+
+    parsed.explicit_sensitivity =
+        optionDouble(options, "explicitSensitivity", 0.0);
+    parsed.sensitivity_storage_scale =
+        optionDouble(options, "sensitivityStorageScale", 100.0);
+    parsed.post_scale = optionDouble(options, "postScale", 1.0);
+    parsed.output_counts = optionBool(options, "outputCounts", false);
+    parsed.verify_time_axis = optionBool(options, "verifyTimeAxis", true);
+    return parsed;
+}
+
+qrest_data::tools::MseedImportOptions
+mseedOptionsFromMap(const QVariantMap &options) {
+    qrest_data::tools::MseedImportOptions parsed;
+    const int groupIndex = optionInt(options, "groupIndex", 0);
+    if (groupIndex < 0) {
+        throw std::runtime_error("MiniSEED group index must be non-negative");
+    }
+    parsed.group_index = static_cast<std::size_t>(groupIndex);
+    parsed.include_dimensionless =
+        optionBool(options, "includeDimensionless", false);
+
+    const QString gapPolicy =
+        optionString(options, "gapPolicy", "fill_nan").toLower();
+    if (gapPolicy == "fill_nan" || gapPolicy == "fillnan") {
+        parsed.gap_policy =
+            qrest_data::tools::MseedImportOptions::GapPolicy::FillNaN;
+    } else if (gapPolicy == "error") {
+        parsed.gap_policy =
+            qrest_data::tools::MseedImportOptions::GapPolicy::Error;
+    } else if (gapPolicy == "ignore") {
+        parsed.gap_policy =
+            qrest_data::tools::MseedImportOptions::GapPolicy::Ignore;
+    } else {
+        throw std::runtime_error("unsupported MiniSEED gap policy: "
+                                 + gapPolicy.toStdString());
+    }
+    return parsed;
+}
+
 ExternalImportResult loadExternalImportWorker(QString format,
-                                              QString localPath) {
+                                              QString localPath,
+                                              QVariantMap options) {
     ExternalImportResult result;
     result.format = format;
     result.path = localPath;
     const QString normalized = format.trimmed().toLower();
     if (normalized == "tdms") {
-        result.dataset =
-            qrest_data::tools::load_tdms_external_data(localPath.toStdString());
+        result.dataset = qrest_data::tools::load_tdms_external_data(
+            localPath.toStdString(), tdmsOptionsFromMap(options));
     } else if (normalized == "mseed") {
         result.dataset = qrest_data::tools::load_mseed_external_data(
-            localPath.toStdString());
+            localPath.toStdString(), mseedOptionsFromMap(options));
     } else if (normalized == "hdf5") {
         result.dataset =
             qrest_data::tools::load_hdf5_dataset(localPath.toStdString());
@@ -2428,13 +2558,14 @@ void QrestViewModel::exportHdf5Data(const QString &fileUrl) {
 }
 
 void QrestViewModel::loadExternalData(const QString &format,
-                                      const QString &fileUrl) {
+                                      const QString &fileUrl,
+                                      const QVariantMap &options) {
     if (!canModify()) {
         emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
         return;
     }
     if (m_externalImportWatcher->isRunning()) {
-        emit showMessage("已有外部数据正在读取，请稍后", true);
+        emit showMessage("已有外部数据读取任务仍在后台运行，请稍后", true);
         return;
     }
 
@@ -2446,6 +2577,7 @@ void QrestViewModel::loadExternalData(const QString &format,
 
     m_externalImportLoading = true;
     m_externalImportReady = false;
+    m_externalImportCanceled = false;
     m_externalImportFormat = format.trimmed().toUpper();
     m_externalImportPath = localPath;
     m_externalImportStatus =
@@ -2454,8 +2586,29 @@ void QrestViewModel::loadExternalData(const QString &format,
     emit externalImportUpdated();
     emit showMessage(m_externalImportStatus);
 
-    m_externalImportWatcher->setFuture(QtConcurrent::run(
-        loadExternalImportWorker, format.trimmed().toLower(), localPath));
+    m_externalImportWatcher->setFuture(
+        QtConcurrent::run(loadExternalImportWorker,
+                          format.trimmed().toLower(),
+                          localPath,
+                          options));
+}
+
+void QrestViewModel::cancelExternalImport() {
+    if (!m_externalImportWatcher->isRunning()) {
+        emit showMessage("当前没有正在读取的外部数据任务");
+        return;
+    }
+
+    m_externalImportCanceled = true;
+    m_externalImportLoading = false;
+    m_externalImportReady = false;
+    m_externalDataset = qrest_data::tools::ExternalDataset{};
+    m_externalImportStatus =
+        "Cancel requested. The background read will be ignored when it "
+        "finishes.";
+    m_externalImportWatcher->cancel();
+    emit externalImportUpdated();
+    emit showMessage("已请求取消外部数据读取");
 }
 
 void QrestViewModel::clearExternalImport() {
@@ -2537,6 +2690,15 @@ void QrestViewModel::applyExternalImport(const QVariantList &targetChannels) {
 
 void QrestViewModel::handleExternalImportFinished() {
     m_externalImportLoading = false;
+
+    if (m_externalImportCanceled) {
+        m_externalImportCanceled = false;
+        m_externalImportReady = false;
+        m_externalDataset = qrest_data::tools::ExternalDataset{};
+        m_externalImportStatus = "Canceled";
+        emit externalImportUpdated();
+        return;
+    }
 
     try {
         const ExternalImportResult result = m_externalImportWatcher->result();

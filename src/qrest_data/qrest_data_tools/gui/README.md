@@ -38,7 +38,8 @@ types instead of being reimplemented in QML.
   `FieldHelpRegistry` from `doc/Description.json`.
 - `SensorLayoutView.qml` renders the Channels page sensor layout with
   isometric, plan, X-Z, and Y-Z views. It uses real metadata coordinates for
-  orthographic views and adds a uniform transparent floor fill.
+  orthographic views and adds floor filtering, hover details, and a uniform
+  transparent floor fill.
 - `QrestTableView.qml` provides the shared corner/header/body/scrollbar table
   shell used by the binary, channel, data, and validation tables. It normalizes
   wheel input by preferring high-resolution `pixelDelta` and falling back to
@@ -115,14 +116,15 @@ the qREST channel-major packet layout.
   selected-channel panel includes a 2.5D wireframe sensor layout generated from
   footprint, elevation, channel positions, channel azimuths, axes, and North.
   The layout renderer centers the active footprint in the available canvas and
-  uses the same transform for hit-testing and drawing.
+  uses the same transform for hit-testing, hover, filtering, and drawing.
 - Data packet tab: exposes DataInfo fields, packet-body import/export, and
   packet-body table browsing/copying. Low-level packet header editing is kept
   in the Advanced Header / Packet Inspector. Text import checks channel count
   and asks before replacing an existing NPTS value with the imported row count.
   External import supports TDMS and modified MiniSEED files/directories plus
-  HDF5 files through an asynchronous Preview / Mapping / Apply dialog. HDF5
-  export is available from the Data menu.
+  HDF5 files through an asynchronous Options / Preview / Mapping / Apply
+  dialog. TDMS and MiniSEED options are translated to the existing Core import
+  option structures. HDF5 export is available from the Data menu.
 - Validation tab: shows the current validation report, separates errors and
   warnings/info, and is refreshed by the toolbar Validate action. Format/core
   validation is shared with `qrest_data_tools_core`; GUI-only engineering
@@ -130,8 +132,7 @@ the qREST channel-major packet layout.
 - Help menu:
   - User Guide opens bundled `doc/helper.md`.
   - qREST File Format Specification opens the bundled file-format document.
-  - Project Homepage is present but disabled until the canonical public URL is
-    configured.
+  - Project Homepage opens <https://www.qu-zhe.net/qrest.htm>.
   - About qREST Data Tools shows application and supported format information.
 - Advanced menu:
   - Raw Metadata JSON can view, format, and apply metadata JSON to the current
@@ -170,8 +171,9 @@ the qREST channel-major packet layout.
 - External import channel mapping is defined in `qrest_data_tools_core` using
   `ExternalChannelMapping`. The GUI reads external datasets asynchronously,
   previews detected channels, and lets users map external source order to
-  qREST ChannelNo/index targets. External data import does not require special
-  `ChannelID` values such as `X1/Y1/Z1`.
+  qREST ChannelNo/index targets. TDMS and MiniSEED import settings are passed
+  through to Core options rather than redefined in QML. External data import
+  does not require special `ChannelID` values such as `X1/Y1/Z1`.
 
 ## Build And Run
 

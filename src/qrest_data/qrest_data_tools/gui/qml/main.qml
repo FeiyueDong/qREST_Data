@@ -18,7 +18,7 @@ ApplicationWindow {
     property bool forceClose: false
     property string helpResourceUrl: "qrc:/qt/qml/qrest_data_tools_gui/doc/helper.md"
     property string formatSpecResourceUrl: "qrc:/qt/qml/qrest_data_tools_gui/doc/file_format.md"
-    property string projectHomepageUrl: ""
+    property string projectHomepageUrl: "https://www.qu-zhe.net/qrest.htm"
 
     function requestGuardedAction(action) {
         if (viewModel.isDirty) {
@@ -191,48 +191,33 @@ ApplicationWindow {
         id: importTdmsDialog
         title: "导入 TDMS 文件"
         nameFilters: ["TDMS Files (*.tdms)", "All Files (*.*)"]
-        onAccepted: {
-            externalImportDialog.openForImport();
-            viewModel.loadExternalData("tdms", selectedFile);
-        }
+        onAccepted: externalImportDialog.openForImport("tdms", selectedFile)
     }
 
     FolderDialog {
         id: importTdmsFolderDialog
         title: "导入 TDMS 目录"
-        onAccepted: {
-            externalImportDialog.openForImport();
-            viewModel.loadExternalData("tdms", selectedFolder);
-        }
+        onAccepted: externalImportDialog.openForImport("tdms", selectedFolder)
     }
 
     FileDialog {
         id: importMseedDialog
         title: "导入 Modified MiniSEED 文件"
         nameFilters: ["MiniSEED Files (*.mseed *.miniseed)", "All Files (*.*)"]
-        onAccepted: {
-            externalImportDialog.openForImport();
-            viewModel.loadExternalData("mseed", selectedFile);
-        }
+        onAccepted: externalImportDialog.openForImport("mseed", selectedFile)
     }
 
     FolderDialog {
         id: importMseedFolderDialog
         title: "导入 Modified MiniSEED 目录"
-        onAccepted: {
-            externalImportDialog.openForImport();
-            viewModel.loadExternalData("mseed", selectedFolder);
-        }
+        onAccepted: externalImportDialog.openForImport("mseed", selectedFolder)
     }
 
     FileDialog {
         id: importHdf5Dialog
         title: "导入 HDF5"
         nameFilters: ["HDF5 Files (*.h5 *.hdf5)", "All Files (*.*)"]
-        onAccepted: {
-            externalImportDialog.openForImport();
-            viewModel.loadExternalData("hdf5", selectedFile);
-        }
+        onAccepted: externalImportDialog.openForImport("hdf5", selectedFile)
     }
 
     DataImportMismatchDialog {

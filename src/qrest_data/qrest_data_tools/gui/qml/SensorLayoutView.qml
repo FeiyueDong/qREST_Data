@@ -7,8 +7,55 @@ ColumnLayout {
 
     required property var viewModel
     property string viewMode: "Isometric"
+    property var floorOptions: []
+    property int selectedFloorIndex: 0
+    property var hoveredSensor: null
 
     spacing: 6
+
+    Component.onCompleted: refreshFloorOptions()
+
+    function refreshFloorOptions() {
+        const options = [{ label: "All Floors", z: null }];
+        for (let floor of root.viewModel.geometryFloorOutlines) {
+            options.push({
+                label: "Z = " + Number(floor.z).toFixed(3).replace(/\.?0+$/, ""),
+                z: floor.z
+            });
+        }
+        floorOptions = options;
+        if (selectedFloorIndex >= floorOptions.length)
+            selectedFloorIndex = 0;
+    }
+
+    function selectedFloorZ() {
+        if (selectedFloorIndex <= 0 || selectedFloorIndex >= floorOptions.length)
+            return null;
+        return floorOptions[selectedFloorIndex].z;
+    }
+
+    function isOnSelectedFloor(z) {
+        const selectedZ = selectedFloorZ();
+        return selectedZ === null || Math.abs(z - selectedZ) < 1e-6;
+    }
+
+    function visibleFloors() {
+        const floors = [];
+        for (let floor of root.viewModel.geometryFloorOutlines) {
+            if (isOnSelectedFloor(floor.z))
+                floors.push(floor);
+        }
+        return floors;
+    }
+
+    function visibleSensors() {
+        const sensors = [];
+        for (let sensor of root.viewModel.sensorLayoutPoints) {
+            if (isOnSelectedFloor(sensor.z))
+                sensors.push(sensor);
+        }
+        return sensors;
+    }
 
     function projectPoint(x, y, z) {
         if (viewMode === "Plan")
@@ -61,13 +108,13 @@ ColumnLayout {
             minY: 0,
             maxY: 0
         };
-        const floors = root.viewModel.geometryFloorOutlines;
+        const floors = visibleFloors();
         for (let floor of floors) {
             for (let point of floor.points) {
                 includePoint(bounds, projectPoint(point.x, point.y, floor.z));
             }
         }
-        for (let sensor of root.viewModel.sensorLayoutPoints) {
+        for (let sensor of visibleSensors()) {
             const point = sensorPoint(sensor);
             includePoint(bounds, point);
             const direction = sensorDirection(sensor);
@@ -112,27 +159,47 @@ ColumnLayout {
         };
     }
 
-    function selectSensorAt(mouseX, mouseY, width, height) {
+    function sensorAt(mouseX, mouseY, width, height) {
         const bounds = projectedBounds();
         if (!bounds.valid)
-            return;
+            return null;
 
         const transform = viewTransform(width, height, bounds);
-        let bestRow = -1;
+        let bestSensor = null;
         let bestDistance = 144;
-        for (let sensor of root.viewModel.sensorLayoutPoints) {
+        for (let sensor of visibleSensors()) {
             const point = screenPoint(sensorPoint(sensor), transform);
             const dx = point.x - mouseX;
             const dy = point.y - mouseY;
             const distance = dx * dx + dy * dy;
             if (distance < bestDistance) {
                 bestDistance = distance;
-                bestRow = sensor.row;
+                bestSensor = sensor;
             }
         }
 
-        if (bestRow >= 0)
-            root.viewModel.selectChannel(bestRow);
+        return bestSensor;
+    }
+
+    function selectSensorAt(mouseX, mouseY, width, height) {
+        const sensor = sensorAt(mouseX, mouseY, width, height);
+        if (sensor !== null)
+            root.viewModel.selectChannel(sensor.row);
+    }
+
+    function hoverText(sensor) {
+        if (sensor === null)
+            return "";
+        const position = "(" + Number(sensor.x).toFixed(3).replace(/\.?0+$/, "") + ", "
+                         + Number(sensor.y).toFixed(3).replace(/\.?0+$/, "") + ", "
+                         + Number(sensor.z).toFixed(3).replace(/\.?0+$/, "") + ")";
+        const direction = "(" + Number(sensor.ux).toFixed(3).replace(/\.?0+$/, "") + ", "
+                          + Number(sensor.uy).toFixed(3).replace(/\.?0+$/, "") + ", "
+                          + Number(sensor.uz).toFixed(3).replace(/\.?0+$/, "") + ")";
+        return "Channel " + sensor.channelNo + " / " + sensor.channelId + "\n"
+               + sensor.measurand + " / " + sensor.direction + "\n"
+               + "Position " + position + "\n"
+               + "Vector " + direction;
     }
 
     RowLayout {
@@ -151,6 +218,19 @@ ColumnLayout {
             currentIndex: 0
             onCurrentTextChanged: {
                 root.viewMode = currentText;
+                root.hoveredSensor = null;
+                sensorCanvas.requestPaint();
+            }
+        }
+        ComboBox {
+            id: floorBox
+            model: root.floorOptions
+            textRole: "label"
+            currentIndex: root.selectedFloorIndex
+            Layout.preferredWidth: 150
+            onCurrentIndexChanged: {
+                root.selectedFloorIndex = currentIndex;
+                root.hoveredSensor = null;
                 sensorCanvas.requestPaint();
             }
         }
@@ -172,8 +252,8 @@ ColumnLayout {
                 ctx.clearRect(0, 0, width, height);
 
                 const bounds = root.projectedBounds();
-                const floors = root.viewModel.geometryFloorOutlines;
-                const sensors = root.viewModel.sensorLayoutPoints;
+                const floors = root.visibleFloors();
+                const sensors = root.visibleSensors();
 
                 if (!bounds.valid) {
                     ctx.fillStyle = "#777777";
@@ -281,12 +361,13 @@ ColumnLayout {
 
                 for (let sensor of sensors) {
                     const point = root.screenPoint(root.sensorPoint(sensor), transform);
-                    ctx.fillStyle = sensor.selected ? "#d92332" : "#0b7285";
-                    ctx.strokeStyle = sensor.selected ? "#8f101c" : "#0b7285";
+                    const hovered = root.hoveredSensor !== null && root.hoveredSensor.row === sensor.row;
+                    ctx.fillStyle = sensor.selected ? "#d92332" : (hovered ? "#1c7ed6" : "#0b7285");
+                    ctx.strokeStyle = sensor.selected ? "#8f101c" : (hovered ? "#0b4f8a" : "#0b7285");
                     ctx.beginPath();
-                    ctx.arc(point.x, point.y, sensor.selected ? 6 : 4, 0, Math.PI * 2);
+                    ctx.arc(point.x, point.y, sensor.selected ? 6 : (hovered ? 5 : 4), 0, Math.PI * 2);
                     ctx.fill();
-                    if (sensor.selected) {
+                    if (sensor.selected || hovered) {
                         ctx.lineWidth = 1.5;
                         ctx.stroke();
                         ctx.lineWidth = 1;
@@ -303,8 +384,37 @@ ColumnLayout {
 
         MouseArea {
             anchors.fill: sensorCanvas
+            hoverEnabled: true
+            onPositionChanged: function (mouse) {
+                root.hoveredSensor = root.sensorAt(mouse.x, mouse.y, sensorCanvas.width, sensorCanvas.height);
+                sensorCanvas.requestPaint();
+            }
+            onExited: {
+                root.hoveredSensor = null;
+                sensorCanvas.requestPaint();
+            }
             onClicked: function (mouse) {
                 root.selectSensorAt(mouse.x, mouse.y, sensorCanvas.width, sensorCanvas.height);
+            }
+        }
+
+        Rectangle {
+            visible: root.hoveredSensor !== null
+            anchors.left: parent.left
+            anchors.top: parent.top
+            anchors.margins: 16
+            width: hoverLabel.implicitWidth + 18
+            height: hoverLabel.implicitHeight + 14
+            radius: 4
+            color: "#ffffff"
+            border.color: "#99a7b5"
+
+            Label {
+                id: hoverLabel
+                anchors.centerIn: parent
+                text: root.hoverText(root.hoveredSensor)
+                font.pixelSize: 12
+                color: "#263238"
             }
         }
     }
@@ -312,6 +422,8 @@ ColumnLayout {
     Connections {
         target: root.viewModel
         function onGeometryUpdated() {
+            root.refreshFloorOptions();
+            root.hoveredSensor = null;
             sensorCanvas.requestPaint();
         }
     }

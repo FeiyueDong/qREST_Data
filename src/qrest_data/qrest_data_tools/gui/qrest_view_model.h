@@ -434,7 +434,9 @@ public:
     Q_INVOKABLE void exportDataBody(const QString &fileUrl);
     Q_INVOKABLE void exportHdf5Data(const QString &fileUrl);
     Q_INVOKABLE void loadExternalData(const QString &format,
-                                      const QString &fileUrl);
+                                      const QString &fileUrl,
+                                      const QVariantMap &options = {});
+    Q_INVOKABLE void cancelExternalImport();
     Q_INVOKABLE void clearExternalImport();
     Q_INVOKABLE void applyExternalImport(const QVariantList &targetChannels);
     Q_INVOKABLE void copySelectedCells();
@@ -494,6 +496,7 @@ private:
 #endif
     bool m_externalImportLoading{false};
     bool m_externalImportReady{false};
+    bool m_externalImportCanceled{false};
     QString m_externalImportFormat;
     QString m_externalImportPath;
     QString m_externalImportStatus;
