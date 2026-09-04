@@ -1,0 +1,282 @@
+{
+    "schemaVersion": 1,
+    "language": "zh-CN",
+    "fields": {
+        "Header": {
+            "label": "Header",
+            "tip": "qREST 元数据固定标识，由程序自动维护。",
+            "page": "Building",
+            "kind": "fixed"
+        },
+        "Version": {
+            "label": "Version",
+            "tip": "qREST 数据格式版本，由程序自动维护。",
+            "page": "Building",
+            "kind": "fixed"
+        },
+        "Units.Distance": {
+            "label": "Distance Unit",
+            "tip": "长度相关数据使用的单位，如 m、cm 或 mm。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "Units.Time": {
+            "label": "Time Unit",
+            "tip": "时间单位。目前固定使用 s。",
+            "page": "Building",
+            "kind": "fixed"
+        },
+        "BuildingInfo.ProjectName": {
+            "label": "Project Name",
+            "tip": "工程或监测项目名称。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.StructuralType": {
+            "label": "Structural Type",
+            "tip": "建筑结构体系类型，如框架、剪力墙等。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.GeoLocation.Longitude": {
+            "label": "Longitude",
+            "tip": "建筑所在地经度，范围为 -180°～180°。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.GeoLocation.Latitude": {
+            "label": "Latitude",
+            "tip": "建筑所在地纬度，范围为 -90°～90°。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.GeoLocation.NorthAngle": {
+            "label": "North Angle",
+            "tip": "建筑局部坐标系相对地理北向的方向角。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.StructuralFootprint.Shape": {
+            "label": "Shape",
+            "tip": "建筑平面轮廓类型，不同类型对应不同几何参数。",
+            "page": "Building",
+            "kind": "editable"
+        },
+        "BuildingInfo.StructuralFootprint.Parameters.Length": {
+            "label": "Length",
+            "tip": "矩形建筑沿局部 X 方向的长度。",
+            "page": "Building",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "BuildingInfo.StructuralFootprint.Parameters.Width": {
+            "label": "Width",
+            "tip": "矩形建筑沿局部 Y 方向的宽度。",
+            "page": "Building",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "BuildingInfo.StructuralFootprint.Parameters.Radius": {
+            "label": "Radius",
+            "tip": "圆形建筑平面轮廓的半径。",
+            "page": "Building",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "BuildingInfo.StructuralFootprint.Parameters.Corners": {
+            "label": "Corners",
+            "tip": "多边形建筑的平面顶点坐标，按 X,Y 成对输入。",
+            "page": "Building",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "BuildingInfo.StructuralFootprint.BoundingBox": {
+            "label": "Bounding Box",
+            "tip": "建筑平面轮廓的外包范围，由几何参数自动计算。",
+            "page": "Building",
+            "kind": "derived"
+        },
+        "BuildingInfo.Elevation": {
+            "label": "Elevation",
+            "tip": "建筑各层标高，按从低到高的顺序输入。",
+            "page": "Building",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "BuildingInfo.ElevationNum": {
+            "label": "ElevationNum",
+            "tip": "建筑标高数量，由 Elevation 自动计算。",
+            "page": "Building",
+            "kind": "derived"
+        },
+        "InstrumentInfo.Provider": {
+            "label": "Provider",
+            "tip": "监测设备或数据系统的提供方。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.ChannelNum": {
+            "label": "ChannelNum",
+            "tip": "当前通道总数，由 Channels 自动计算。",
+            "page": "Channels",
+            "kind": "derived"
+        },
+        "InstrumentInfo.Channels[].ChannelNo": {
+            "label": "ChannelNo",
+            "tip": "qREST 文件中的通道顺序编号，由程序自动维护。",
+            "page": "Channels",
+            "kind": "derived"
+        },
+        "InstrumentInfo.Channels[].ChannelID": {
+            "label": "ChannelID",
+            "tip": "通道标识，可按工程需要自定义；未知时可使用 UNKNOWN。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.Channels[].DeviceType": {
+            "label": "DeviceType",
+            "tip": "该通道对应的设备或传感器类型。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.Channels[].Measurand": {
+            "label": "Measurand",
+            "tip": "该通道测量的物理量，如加速度、速度或位移。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.Channels[].Scale": {
+            "label": "Scale",
+            "tip": "通道数据使用的缩放系数，应与数据来源保持一致。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.Channels[].Azimuth": {
+            "label": "Azimuth",
+            "tip": "测量方向方位角。0°为+Y，90°为+X；-1表示竖向。",
+            "page": "Channels",
+            "kind": "editable",
+            "unit": "deg"
+        },
+        "InstrumentInfo.Channels[].Direction": {
+            "label": "Direction",
+            "tip": "根据 Azimuth 自动判断的测量方向，不单独保存。",
+            "page": "Channels",
+            "kind": "derived"
+        },
+        "InstrumentInfo.Channels[].LocationXYZ": {
+            "label": "Location",
+            "tip": "传感器在建筑局部坐标系中的空间位置。",
+            "page": "Channels",
+            "kind": "editable"
+        },
+        "InstrumentInfo.Channels[].LocationXYZ.X": {
+            "label": "X",
+            "tip": "传感器沿建筑局部 X 轴的位置。",
+            "page": "Channels",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "InstrumentInfo.Channels[].LocationXYZ.Y": {
+            "label": "Y",
+            "tip": "传感器沿建筑局部 Y 轴的位置。",
+            "page": "Channels",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "InstrumentInfo.Channels[].LocationXYZ.Z": {
+            "label": "Z",
+            "tip": "传感器沿建筑局部 Z 轴的高度位置。",
+            "page": "Channels",
+            "kind": "editable",
+            "unit": "$distance"
+        },
+        "DataInfo.EventName": {
+            "label": "Event Name",
+            "tip": "本段数据对应的事件或记录名称。",
+            "page": "Data",
+            "kind": "editable"
+        },
+        "DataInfo.StartTime": {
+            "label": "StartTime",
+            "tip": "本段数据第一个采样点对应的起始时间。",
+            "page": "Data",
+            "kind": "editable"
+        },
+        "DataInfo.SamplingRate": {
+            "label": "Sampling Rate",
+            "tip": "数据每秒采样次数，单位为 Hz。",
+            "page": "Data",
+            "kind": "editable",
+            "unit": "Hz"
+        },
+        "DataInfo.DT": {
+            "label": "Sampling Interval",
+            "tip": "相邻采样点的时间间隔，由采样率自动计算。",
+            "page": "Data",
+            "kind": "derived",
+            "unit": "s"
+        },
+        "DataInfo.NPTS": {
+            "label": "NPTS",
+            "tip": "每个通道包含的采样点数；导入数据后由数据确定。",
+            "page": "Data",
+            "kind": "conditional"
+        },
+        "DataInfo.Corrected": {
+            "label": "Corrected",
+            "tip": "用于记录该数据是否已经完成修正或校正处理。",
+            "page": "Data",
+            "kind": "editable"
+        },
+        "Packet.SourceID": {
+            "label": "Source ID",
+            "tip": "数据包来源编号，用于区分不同数据源。",
+            "page": "Advanced",
+            "kind": "advanced"
+        },
+        "Packet.DataEncodings": {
+            "label": "Encoding",
+            "tip": "数据包体写入文件时采用的数值编码方式。",
+            "page": "Advanced",
+            "kind": "advanced"
+        },
+        "Packet.ChannelCount": {
+            "label": "Packet Channels",
+            "tip": "数据包中的通道数量，应与 Metadata 保持一致。",
+            "page": "Advanced",
+            "kind": "derived"
+        },
+        "Packet.DataPointCount": {
+            "label": "Packet NPTS",
+            "tip": "数据包中每个通道的采样点数。",
+            "page": "Advanced",
+            "kind": "derived"
+        },
+        "Packet.SamplingRate": {
+            "label": "Packet Sampling Rate",
+            "tip": "数据包头记录的采样率，应与 DataInfo 保持一致。",
+            "page": "Advanced",
+            "kind": "derived",
+            "unit": "Hz"
+        },
+        "Packet.Timestamp": {
+            "label": "Packet Timestamp",
+            "tip": "数据包起始时间的毫秒时间戳。",
+            "page": "Advanced",
+            "kind": "advanced"
+        },
+        "FileHeader.MetadataSize": {
+            "label": "Metadata Size",
+            "tip": "Metadata JSON 在文件中占用的字节数。",
+            "page": "Advanced",
+            "kind": "derived"
+        },
+        "FileHeader.DataSize": {
+            "label": "DataPacket Size",
+            "tip": "完整 Data Packet 在文件中占用的字节数。",
+            "page": "Advanced",
+            "kind": "derived"
+        }
+    }
+}
