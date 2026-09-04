@@ -1,0 +1,23 @@
+<RCC>
+    <qresource prefix="/qt/qml/qrest_data_tools_ui">
+        <file>qml/main.qml</file>
+        <file>qml/BinaryViewerDialog.qml</file>
+        <file>qml/ChannelsPage.qml</file>
+        <file>qml/DataImportMismatchDialog.qml</file>
+        <file>qml/DataPage.qml</file>
+        <file>qml/OverviewPage.qml</file>
+        <file>qml/PacketInspectorDialog.qml</file>
+        <file>qml/QrestTableView.qml</file>
+        <file>qml/RawMetadataDialog.qml</file>
+        <file>qml/SensorLayoutView.qml</file>
+        <file>qml/TimePickerDialog.qml</file>
+        <file>qml/ValidationPage.qml</file>
+        <file>icon/Binary.png</file>
+        <file>icon/Edit.png</file>
+        <file>icon/JSON.png</file>
+        <file>icon/New.png</file>
+        <file>icon/Open.png</file>
+        <file>icon/SaveAs.png</file>
+        <file>icon/Validate.png</file>
+    </qresource>
+</RCC>

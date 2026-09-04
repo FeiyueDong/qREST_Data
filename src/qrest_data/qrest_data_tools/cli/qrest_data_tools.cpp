@@ -1,7 +1,7 @@
-#include "external_import.hpp"
-#include "qrest_file.hpp"
-#include "text_matrix.hpp"
-#include "validation.hpp"
+#include "../core/external_import.hpp"
+#include "../core/qrest_file.hpp"
+#include "../core/text_matrix.hpp"
+#include "../core/validation.hpp"
 
 #include <CLI/CLI.hpp>
 

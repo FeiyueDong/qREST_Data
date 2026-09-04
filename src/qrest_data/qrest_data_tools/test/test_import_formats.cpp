@@ -1,8 +1,8 @@
-#include "external_import.hpp"
-#include "formats/mseed/modified_mseed_export.hpp"
-#include "formats/tdms/tdms_export.hpp"
-#include "qrest_file.hpp"
-#include "validation.hpp"
+#include "../core/external_import.hpp"
+#include "../core/qrest_file.hpp"
+#include "../core/validation.hpp"
+#include "../formats/mseed/modified_mseed_export.hpp"
+#include "../formats/tdms/tdms_export.hpp"
 
 #include <algorithm>
 #include <cmath>
