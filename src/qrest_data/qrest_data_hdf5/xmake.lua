@@ -11,3 +11,6 @@ target("test_qrest_data_hdf5")
     add_deps("qrest_data_hdf5")
     add_packages("hdf5")
     add_syslinks("hdf5_cpp","hdf5")
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN/../lib")
+    end

@@ -9,6 +9,7 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -150,6 +151,21 @@ void test_mseed_sample() {
     const auto &north = channel("EIN");
     const auto &east = channel("EIE");
     const auto &vertical = channel("EIZ");
+    require_equal(north.valid_sample_count,
+                  std::uint64_t{240000},
+                  "MiniSEED N valid samples");
+    require_equal(
+        north.missing_sample_count, std::uint64_t{0}, "MiniSEED N missing");
+    require_equal(east.valid_sample_count,
+                  std::uint64_t{240000},
+                  "MiniSEED E valid samples");
+    require_equal(
+        east.missing_sample_count, std::uint64_t{0}, "MiniSEED E missing");
+    require_equal(vertical.valid_sample_count,
+                  std::uint64_t{240000},
+                  "MiniSEED Z valid samples");
+    require_equal(
+        vertical.missing_sample_count, std::uint64_t{0}, "MiniSEED Z missing");
     require_near(north.values.front(), -6.0e-05, 1e-12, "MiniSEED N first");
     require_near(east.values.front(), -1.8e-04, 1e-12, "MiniSEED E first");
     require_near(vertical.values.front(), -6.0e-05, 1e-12, "MiniSEED Z first");
@@ -451,6 +467,25 @@ void test_external_channel_mapping_decouples_channel_id() {
     }
 }
 
+void test_external_mapping_rejects_non_finite_samples() {
+    qrest_data::tools::ExternalDataset dataset;
+    dataset.source_format = "nan-test";
+    dataset.channel_count = 1;
+    dataset.sample_count = 3;
+    dataset.sample_rate_hz = 100.0;
+    dataset.channel_labels = {"EIN"};
+    dataset.channel_sequential_data = {
+        1.0, std::numeric_limits<double>::quiet_NaN(), 3.0};
+
+    const auto metadata = make_metadata({"A101"}, 3, 0.01);
+    const auto report = qrest_data::tools::validate_external_channel_mapping(
+        dataset, metadata, {{0, 0}});
+    if (report.ok()) {
+        throw std::runtime_error(
+            "Non-finite external samples must be rejected");
+    }
+}
+
 void test_final_validation_reports_independent_packet_errors() {
     auto metadata = make_metadata({"A101"}, 4, 0.01);
     metadata.Header = "BAD_HEADER";
@@ -495,6 +530,7 @@ int main() {
         test_metadata_device_type_and_extension_round_trip();
         test_metadata_dt_zero_parses_without_invalid_frequency();
         test_external_channel_mapping_decouples_channel_id();
+        test_external_mapping_rejects_non_finite_samples();
         test_final_validation_reports_independent_packet_errors();
         std::cout << "qREST import format tests passed.\n";
         return 0;

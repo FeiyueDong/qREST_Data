@@ -43,6 +43,18 @@ to_tdms_selection(TdmsImportOptions::SensitivitySelection selection) {
     throw std::runtime_error("unsupported TDMS sensitivity selection");
 }
 
+mseed::GapPolicy to_mseed_gap_policy(MseedImportOptions::GapPolicy policy) {
+    switch (policy) {
+        case MseedImportOptions::GapPolicy::FillNaN:
+            return mseed::GapPolicy::FillNaN;
+        case MseedImportOptions::GapPolicy::Error:
+            return mseed::GapPolicy::Error;
+        case MseedImportOptions::GapPolicy::Ignore:
+            return mseed::GapPolicy::Ignore;
+    }
+    throw std::runtime_error("unsupported MiniSEED gap policy");
+}
+
 void add_error(ValidationReport &report, std::string message) {
     report.errors.push_back(std::move(message));
 }
@@ -239,6 +251,24 @@ std::size_t checked_value_count(std::size_t channel_count,
     return channel_count * sample_count;
 }
 
+void add_non_finite_data_errors(ValidationReport &report,
+                                const ExternalDataset &dataset) {
+    std::size_t count = 0;
+    for (double value : dataset.channel_sequential_data) {
+        if (!std::isfinite(value)) {
+            ++count;
+        }
+    }
+    if (count == 0) {
+        return;
+    }
+
+    std::ostringstream oss;
+    oss << dataset.source_format << " contains " << count
+        << " non-finite sample value(s); qREST import requires finite data";
+    add_error(report, oss.str());
+}
+
 } // namespace
 
 ExternalDataset load_tdms_dataset(const std::string &input_path,
@@ -324,7 +354,7 @@ ExternalDataset load_mseed_dataset(const std::string &input_path,
                                    const MseedImportOptions &options) {
     mseed::LoadOptions load_options;
     load_options.include_dimensionless = options.include_dimensionless;
-    load_options.verify_time_continuity = options.verify_time_continuity;
+    load_options.gap_policy = to_mseed_gap_policy(options.gap_policy);
 
     const auto groups = mseed::load_channel_groups(input_path, load_options);
     if (options.group_index >= groups.size()) {
@@ -467,6 +497,10 @@ ValidationReport validate_external_channel_mapping(
             << expected_values << ", got "
             << dataset.channel_sequential_data.size();
         add_error(report, oss.str());
+    }
+    if (expected_values != 0
+        && dataset.channel_sequential_data.size() == expected_values) {
+        add_non_finite_data_errors(report, dataset);
     }
 
     std::vector<bool> used_sources(dataset.channel_count, false);
@@ -637,6 +671,10 @@ validate_external_dataset_compatibility(const ExternalDataset &dataset,
             << expected_values << ", got "
             << dataset.channel_sequential_data.size();
         add_error(report, oss.str());
+    }
+    if (expected_values != 0
+        && dataset.channel_sequential_data.size() == expected_values) {
+        add_non_finite_data_errors(report, dataset);
     }
 
     const double expected_sample_rate = metadata_sample_rate_hz(metadata);

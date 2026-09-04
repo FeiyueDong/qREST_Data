@@ -25,6 +25,9 @@ target("qrest_data_tools_cli")
     add_packages("cli11", "hdf5")
     add_syslinks("hdf5_cpp")
     add_includedirs(".", "..")
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN/../lib")
+    end
 
 includes("gui")
 
@@ -37,3 +40,6 @@ target("test_qrest_data_import_formats")
     add_syslinks("hdf5_cpp")
     add_defines('QREST_DATA_PROJECT_DIR="$(projectdir)"')
     add_includedirs(".", "..")
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN/../lib")
+    end

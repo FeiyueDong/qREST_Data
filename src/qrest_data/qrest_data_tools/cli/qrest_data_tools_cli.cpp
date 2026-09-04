@@ -109,6 +109,7 @@ struct ImportMseedCommand {
     int source_id{1};
     int data_encoding{0};
     std::size_t group_index{};
+    std::string gap_policy{"fill-nan"};
     bool include_dimensionless{false};
     bool no_time_check{false};
 };
@@ -139,6 +140,7 @@ struct ValidateTdmsCommand {
 struct ValidateMseedCommand {
     std::string input_path;
     std::size_t group_index{};
+    std::string gap_policy{"fill-nan"};
     bool include_dimensionless{false};
     bool no_time_check{false};
 };
@@ -271,6 +273,7 @@ void configure_tdms_options(CLI::App *command,
 
 void configure_mseed_options(CLI::App *command,
                              std::size_t &group_index,
+                             std::string &gap_policy,
                              bool &include_dimensionless,
                              bool &no_time_check) {
     command
@@ -278,6 +281,13 @@ void configure_mseed_options(CLI::App *command,
                      group_index,
                      "Synchronized MiniSEED channel group to import")
         ->default_val(group_index);
+    command
+        ->add_option(
+            "--gap-policy",
+            gap_policy,
+            "MiniSEED missing-record policy: fill-nan, error or ignore")
+        ->default_val(gap_policy)
+        ->check(CLI::IsMember({"fill-nan", "error", "ignore"}));
     command
         ->add_flag("--include-dimensionless",
                    include_dimensionless,
@@ -334,6 +344,7 @@ void configure_import_mseed_command(CLI::App *command,
         command, values.source_id, values.data_encoding);
     configure_mseed_options(command,
                             values.group_index,
+                            values.gap_policy,
                             values.include_dimensionless,
                             values.no_time_check);
 }
@@ -384,6 +395,7 @@ void configure_validate_mseed_command(CLI::App *command,
         ->check(CLI::ExistingPath);
     configure_mseed_options(command,
                             values.group_index,
+                            values.gap_policy,
                             values.include_dimensionless,
                             values.no_time_check);
 }
@@ -432,12 +444,19 @@ TdmsImportOptions make_tdms_import_options(const std::string &unit,
 }
 
 MseedImportOptions make_mseed_import_options(std::size_t group_index,
+                                             const std::string &gap_policy,
                                              bool include_dimensionless,
                                              bool no_time_check) {
     MseedImportOptions options;
     options.group_index = group_index;
     options.include_dimensionless = include_dimensionless;
-    options.verify_time_continuity = !no_time_check;
+    if (no_time_check || gap_policy == "ignore") {
+        options.gap_policy = MseedImportOptions::GapPolicy::Ignore;
+    } else if (gap_policy == "error") {
+        options.gap_policy = MseedImportOptions::GapPolicy::Error;
+    } else {
+        options.gap_policy = MseedImportOptions::GapPolicy::FillNaN;
+    }
     return options;
 }
 
@@ -564,6 +583,7 @@ ExternalDataset
 load_mseed_validation_input(const ValidateMseedCommand &command) {
     const auto options =
         make_mseed_import_options(command.group_index,
+                                  command.gap_policy,
                                   command.include_dimensionless,
                                   command.no_time_check);
     const auto files = sorted_format_files(
@@ -745,6 +765,7 @@ int run_import_mseed_command(const ImportMseedCommand &command) {
         command.input_path,
         metadata,
         make_mseed_import_options(command.group_index,
+                                  command.gap_policy,
                                   command.include_dimensionless,
                                   command.no_time_check));
     require_or_print_compatibility(dataset, metadata);

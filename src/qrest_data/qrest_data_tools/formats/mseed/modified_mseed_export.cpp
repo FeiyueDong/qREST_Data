@@ -14,6 +14,8 @@
 namespace qrest_data::tools::mseed {
 namespace {
 
+constexpr long double kBTimeToleranceSeconds = 0.0001001L;
+
 bool is_leap_year(int year) {
     return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
@@ -58,6 +60,46 @@ std::string stream_name(const Header &h) {
     return h.network + "." + h.station + "." + h.location + "." + h.channel;
 }
 
+std::string stream_name(const ChannelSeries &s) {
+    return s.network + "." + s.station + "." + s.location + "." + s.channel;
+}
+
+std::int64_t time_offset_to_samples(long double seconds,
+                                    double sample_rate,
+                                    const std::string &context) {
+    if (!(sample_rate > 0.0) || !std::isfinite(sample_rate)) {
+        throw std::runtime_error("invalid sample rate while checking "
+                                 + context);
+    }
+
+    const long double exact_samples =
+        seconds * static_cast<long double>(sample_rate);
+    if (exact_samples
+            > static_cast<long double>(std::numeric_limits<std::int64_t>::max())
+        || exact_samples < static_cast<long double>(
+               std::numeric_limits<std::int64_t>::min())) {
+        throw std::runtime_error("time discontinuity is too large while "
+                                 "checking "
+                                 + context);
+    }
+
+    const auto rounded = static_cast<std::int64_t>(std::llround(exact_samples));
+    const long double snapped_seconds = static_cast<long double>(rounded)
+                                        / static_cast<long double>(sample_rate);
+    const long double residual = std::fabs(seconds - snapped_seconds);
+
+    if (residual > kBTimeToleranceSeconds) {
+        std::ostringstream oss;
+        oss << "time discontinuity in " << context
+            << " is not aligned to the sampling grid: delta="
+            << std::setprecision(12) << static_cast<double>(seconds)
+            << " s, nearest sample offset=" << rounded
+            << ", residual=" << static_cast<double>(residual) << " s";
+        throw std::runtime_error(oss.str());
+    }
+    return rounded;
+}
+
 struct ChannelKey {
     std::string network;
     std::string station;
@@ -82,8 +124,10 @@ struct GroupKey {
     std::string location;
     Dimension dimension{Dimension::Dimensionless};
     double sample_rate{};
-    std::string start_time;
-    std::size_t sample_count{};
+    // Used only by GapPolicy::Ignore to preserve the original grouping
+    // behavior when streams have different starts/lengths.
+    std::string unchecked_start_time;
+    std::size_t unchecked_sample_count{};
 
     bool operator<(const GroupKey &rhs) const {
         return std::tie(network,
@@ -91,17 +135,121 @@ struct GroupKey {
                         location,
                         dimension,
                         sample_rate,
-                        start_time,
-                        sample_count)
+                        unchecked_start_time,
+                        unchecked_sample_count)
                < std::tie(rhs.network,
                           rhs.station,
                           rhs.location,
                           rhs.dimension,
                           rhs.sample_rate,
-                          rhs.start_time,
-                          rhs.sample_count);
+                          rhs.unchecked_start_time,
+                          rhs.unchecked_sample_count);
     }
 };
+
+void prepend_missing(ChannelSeries &series, std::uint64_t count) {
+    if (count == 0) {
+        return;
+    }
+    if (count
+        > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::runtime_error("leading gap is too large in stream "
+                                 + stream_name(series));
+    }
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    series.values.insert(
+        series.values.begin(), static_cast<std::size_t>(count), nan);
+    series.leading_missing_sample_count += count;
+    series.missing_sample_count += count;
+}
+
+void append_missing(ChannelSeries &series, std::uint64_t count) {
+    if (count == 0) {
+        return;
+    }
+    if (count
+        > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+        throw std::runtime_error("gap is too large in stream "
+                                 + stream_name(series));
+    }
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    series.values.insert(
+        series.values.end(), static_cast<std::size_t>(count), nan);
+    series.missing_sample_count += count;
+}
+
+void align_group_channels(ChannelGroup &group) {
+    if (group.channels.empty()) {
+        return;
+    }
+
+    long double group_start_seconds =
+        std::numeric_limits<long double>::infinity();
+    long double group_end_seconds =
+        -std::numeric_limits<long double>::infinity();
+    BTime earliest_btime{};
+    bool have_earliest = false;
+
+    for (const auto &ch : group.channels) {
+        const long double start = btime_seconds(ch.start_time);
+        const long double end =
+            start
+            + static_cast<long double>(ch.values.size())
+                  / static_cast<long double>(ch.sample_rate_hz);
+        if (!have_earliest || start < group_start_seconds) {
+            group_start_seconds = start;
+            earliest_btime = ch.start_time;
+            have_earliest = true;
+        }
+        group_end_seconds = std::max(group_end_seconds, end);
+    }
+
+    group.start_time = earliest_btime;
+
+    for (auto &ch : group.channels) {
+        const long double original_start = btime_seconds(ch.start_time);
+        const long double original_end =
+            original_start
+            + static_cast<long double>(ch.values.size())
+                  / static_cast<long double>(ch.sample_rate_hz);
+
+        const long double lead_seconds = original_start - group_start_seconds;
+        const std::int64_t lead_samples = time_offset_to_samples(
+            lead_seconds,
+            ch.sample_rate_hz,
+            "leading alignment of stream " + stream_name(ch));
+        if (lead_samples < 0) {
+            throw std::runtime_error(
+                "internal error while aligning leading samples of "
+                + stream_name(ch));
+        }
+        prepend_missing(ch, static_cast<std::uint64_t>(lead_samples));
+
+        const long double trail_seconds = group_end_seconds - original_end;
+        const std::int64_t trail_samples = time_offset_to_samples(
+            trail_seconds,
+            ch.sample_rate_hz,
+            "trailing alignment of stream " + stream_name(ch));
+        if (trail_samples < 0) {
+            throw std::runtime_error(
+                "internal error while aligning trailing samples of "
+                + stream_name(ch));
+        }
+        append_missing(ch, static_cast<std::uint64_t>(trail_samples));
+        ch.trailing_missing_sample_count +=
+            static_cast<std::uint64_t>(trail_samples);
+        ch.start_time = group.start_time;
+    }
+
+    const std::size_t expected_rows = group.channels.front().values.size();
+    for (const auto &ch : group.channels) {
+        if (ch.values.size() != expected_rows) {
+            throw std::runtime_error("failed to align channel lengths in group "
+                                     + group.network + "." + group.station + "."
+                                     + group.location);
+        }
+    }
+}
 
 } // namespace
 
@@ -183,6 +331,7 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
         ChannelKey key{h.network, h.station, h.location, h.channel};
         auto &acc = channels[key];
         const long double record_start = btime_seconds(h.start_time);
+        long double effective_record_start = record_start;
 
         if (!acc.initialized) {
             acc.initialized = true;
@@ -196,7 +345,6 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
             acc.series.sample_rate_hz = fs;
             acc.series.dimension = h.dimension;
             acc.series.sensitivity = h.sensitivity;
-            acc.expected_next_seconds = record_start;
         } else {
             if (!almost_equal(acc.series.sample_rate_hz, fs)) {
                 throw std::runtime_error("sample rate changed within stream "
@@ -216,19 +364,58 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
                     "channel-order marker changed within stream "
                     + stream_name(h));
             }
-        }
 
-        if (options.verify_time_continuity) {
-            // BTime resolution is 0.1 ms. Allow one BTime tick plus a tiny
-            // floating-point margin when comparing adjacent record starts.
-            const long double tolerance = 0.0001001L;
-            if (std::fabs(record_start - acc.expected_next_seconds)
-                > tolerance) {
-                std::ostringstream oss;
-                oss << "time discontinuity in stream " << stream_name(h)
-                    << ": record starts at " << format_btime(h.start_time)
-                    << " but previous samples imply a different start time";
-                throw std::runtime_error(oss.str());
+            if (options.gap_policy != GapPolicy::Ignore) {
+                const long double delta =
+                    record_start - acc.expected_next_seconds;
+
+                if (std::fabs(delta) <= kBTimeToleranceSeconds) {
+                    effective_record_start = acc.expected_next_seconds;
+                } else {
+                    const std::string context = "stream " + stream_name(h);
+                    const std::int64_t offset_samples =
+                        time_offset_to_samples(delta, fs, context);
+
+                    if (offset_samples < 0) {
+                        std::ostringstream oss;
+                        oss << "time overlap in " << context
+                            << ": record starts at "
+                            << format_btime(h.start_time)
+                            << ", overlap=" << (-offset_samples) << " samples ("
+                            << std::setprecision(12)
+                            << static_cast<double>(-delta) << " s)";
+                        throw std::runtime_error(oss.str());
+                    }
+
+                    if (offset_samples > 0) {
+                        if (options.gap_policy == GapPolicy::Error) {
+                            std::ostringstream oss;
+                            oss << "time discontinuity in " << context
+                                << ": record starts at "
+                                << format_btime(h.start_time)
+                                << ", missing=" << offset_samples
+                                << " samples (" << std::setprecision(12)
+                                << (static_cast<double>(offset_samples) / fs)
+                                << " s)";
+                            throw std::runtime_error(oss.str());
+                        }
+
+                        append_missing(
+                            acc.series,
+                            static_cast<std::uint64_t>(offset_samples));
+                        acc.series.gaps.push_back(
+                            DataGap{h.start_time,
+                                    static_cast<std::uint64_t>(offset_samples),
+                                    static_cast<double>(
+                                        static_cast<long double>(offset_samples)
+                                        / static_cast<long double>(fs))});
+
+                        effective_record_start =
+                            acc.expected_next_seconds
+                            + static_cast<long double>(offset_samples)
+                                  / static_cast<long double>(fs);
+                    }
+                }
             }
         }
 
@@ -238,12 +425,20 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
             acc.series.values.push_back(
                 count_to_physical(count, h.sensitivity));
         }
+        acc.series.valid_sample_count += record.samples.size();
         ++acc.series.record_count;
         acc.series.last_record_time = h.start_time;
-        acc.expected_next_seconds =
-            record_start
-            + static_cast<long double>(record.samples.size())
-                  / static_cast<long double>(fs);
+        if (options.gap_policy == GapPolicy::Ignore) {
+            acc.expected_next_seconds =
+                record_start
+                + static_cast<long double>(record.samples.size())
+                      / static_cast<long double>(fs);
+        } else {
+            acc.expected_next_seconds =
+                effective_record_start
+                + static_cast<long double>(record.samples.size())
+                      / static_cast<long double>(fs);
+        }
     }
 
     if (channels.empty()) {
@@ -263,8 +458,12 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
                       series.location,
                       series.dimension,
                       series.sample_rate_hz,
-                      format_btime(series.start_time),
-                      series.values.size()};
+                      options.gap_policy == GapPolicy::Ignore
+                          ? format_btime(series.start_time)
+                          : std::string{},
+                      options.gap_policy == GapPolicy::Ignore
+                          ? series.values.size()
+                          : 0u};
 
         auto &group = grouped[gkey];
         if (group.channels.empty()) {
@@ -282,6 +481,9 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
     result.reserve(grouped.size());
     for (auto &[key, group] : grouped) {
         (void)key;
+        if (options.gap_policy != GapPolicy::Ignore) {
+            align_group_channels(group);
+        }
         result.push_back(std::move(group));
     }
     return result;
@@ -329,7 +531,12 @@ void export_group_text(const ChannelGroup &group,
         for (std::size_t col = 0; col < order.size(); ++col) {
             if (col != 0)
                 out << options.delimiter;
-            out << group.channels[order[col]].values[row];
+            const double value = group.channels[order[col]].values[row];
+            if (std::isnan(value)) {
+                out << "NaN";
+            } else {
+                out << value;
+            }
         }
         out << '\n';
     }
@@ -356,14 +563,36 @@ void export_group_text(const ChannelGroup &group,
         meta << "dimension=" << dimension_name(group.dimension) << '\n';
         meta << "unit=" << physical_unit_name(group.dimension) << '\n';
         meta << "conversion=physical_value=count*100/sensitivity_raw\n";
+        meta << "missing_value=NaN\n";
         meta << "column_count=" << order.size() << '\n';
+        std::uint64_t total_missing = 0;
+        for (const auto &ch : group.channels) {
+            total_missing += ch.missing_sample_count;
+        }
+        meta << "missing_sample_count_across_columns=" << total_missing << '\n';
         for (std::size_t col = 0; col < order.size(); ++col) {
             const auto &ch = group.channels[order[col]];
-            meta << "column_" << (col + 1) << '=' << ch.network << '.'
+            const auto column_number = col + 1;
+            meta << "column_" << column_number << '=' << ch.network << '.'
                  << ch.station << '.' << ch.location << '.' << ch.channel
                  << ",sensitivity_raw=" << ch.sensitivity << ",sensitivity_si="
                  << (static_cast<double>(ch.sensitivity) / 100.0)
-                 << ",records=" << ch.record_count << '\n';
+                 << ",records=" << ch.record_count
+                 << ",valid_samples=" << ch.valid_sample_count
+                 << ",missing_samples=" << ch.missing_sample_count
+                 << ",internal_gap_count=" << ch.gaps.size()
+                 << ",leading_missing=" << ch.leading_missing_sample_count
+                 << ",trailing_missing=" << ch.trailing_missing_sample_count
+                 << '\n';
+            for (std::size_t gap_index = 0; gap_index < ch.gaps.size();
+                 ++gap_index) {
+                const auto &gap = ch.gaps[gap_index];
+                meta << "column_" << column_number << "_gap_" << (gap_index + 1)
+                     << "=before_record_start:"
+                     << format_btime(gap.next_record_start)
+                     << ",missing_samples:" << gap.missing_samples
+                     << ",duration_seconds:" << gap.duration_seconds << '\n';
+            }
         }
     }
 }

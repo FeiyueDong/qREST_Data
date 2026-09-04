@@ -6,3 +6,6 @@ target("qrest_data_tools_gui")
     add_files("./qml.qrc")
     add_deps("qrest_data_lib")
     add_deps("qrest_data_tools_core")
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN/../lib")
+    end

@@ -49,9 +49,15 @@ struct TdmsImportOptions {
 };
 
 struct MseedImportOptions {
+    enum class GapPolicy {
+        FillNaN,
+        Error,
+        Ignore,
+    };
+
     std::size_t group_index{};
     bool include_dimensionless{false};
-    bool verify_time_continuity{true};
+    GapPolicy gap_policy{GapPolicy::FillNaN};
 };
 
 ExternalDataset load_tdms_dataset(const std::string &input_path,
