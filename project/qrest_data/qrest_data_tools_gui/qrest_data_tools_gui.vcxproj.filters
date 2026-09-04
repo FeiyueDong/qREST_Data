@@ -32,6 +32,9 @@
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\field_help_registry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml.qrc">
@@ -45,6 +48,9 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\field_help_registry.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

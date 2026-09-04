@@ -11,6 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\field_help_registry.cpp" />
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\main.cpp" />
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.cpp" />
     <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.cpp" />
@@ -19,6 +20,7 @@
     <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml.qrc" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\field_help_registry.h" />
     <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.h" />
     <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.h" />
   </ItemGroup>
@@ -39,6 +41,12 @@
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\README.md" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\qrest_data_hdf5\qrest_data_hdf5.vcxproj">
+      <Project>{83958196-388a-4646-b0d7-2db385637140}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\qrest_data_import_formats\qrest_data_import_formats.vcxproj">
+      <Project>{f504f4fd-4ceb-49b2-b42e-4cb549dbfd16}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\qrest_data_lib\qrest_data_lib.vcxproj">
       <Project>{0c479a5f-7fdb-4494-9cc3-e23b9cfc1442}</Project>
     </ProjectReference>
