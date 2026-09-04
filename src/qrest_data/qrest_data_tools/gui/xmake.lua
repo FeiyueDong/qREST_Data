@@ -1,5 +1,6 @@
 target("qrest_data_tools_gui")
     add_rules("qt.quickapp")
+    add_frameworks("QtConcurrent")
     add_files("./*.cpp")
     add_files("./*.h")
     add_files("./qml.qrc")

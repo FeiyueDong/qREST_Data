@@ -7,6 +7,7 @@
         <file>qml/DataImportMismatchDialog.qml</file>
         <file>qml/DataPage.qml</file>
         <file>qml/DocumentViewerDialog.qml</file>
+        <file>qml/ExternalImportDialog.qml</file>
         <file>qml/FieldLabel.qml</file>
         <file>qml/OverviewPage.qml</file>
         <file>qml/PacketInspectorDialog.qml</file>

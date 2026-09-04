@@ -26,6 +26,8 @@ Important local contracts:
   `DataPage.qml`, and `ValidationPage.qml`.
 - Advanced or workflow dialogs belong in focused `*Dialog.qml` files. Keep
   dialog-local fields and temporary search/selection state inside those files.
+- External data import UI belongs in `ExternalImportDialog.qml` and
+  `QrestViewModel`; parsing must stay in `qrest_data_tools_core`.
 - Help documents are shown through `DocumentViewerDialog.qml`; keep user-facing
   guide content in `doc/helper.md` or bundled project documentation instead of
   mixing it into the developer README.
@@ -84,7 +86,9 @@ an existing `DataInfo.NPTS` value with an imported row count. Binary viewing
 supports offset jump plus ASCII/hex search and should remain read-only.
 External import mapping should stay decoupled from `ChannelID`; use
 `ExternalChannelMapping` and qREST ChannelNo/index targets instead of reviving
-the old `X1/Y1/Z1` hard requirement.
+the old `X1/Y1/Z1` hard requirement. GUI imports should read external datasets
+asynchronously, preview source channels, validate one-to-one mappings, and only
+write to the Draft after explicit Apply.
 
 Build the target with:
 

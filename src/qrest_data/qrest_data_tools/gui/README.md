@@ -31,9 +31,9 @@ types instead of being reimplemented in QML.
   `DataPage.qml`, and `ValidationPage.qml` contain the frequently edited page
   bodies.
 - `RawMetadataDialog.qml`, `BinaryViewerDialog.qml`,
-  `PacketInspectorDialog.qml`, `DocumentViewerDialog.qml`,
-  `DataImportMismatchDialog.qml`, and `TimePickerDialog.qml` contain the
-  advanced, help, and workflow dialogs.
+  `PacketInspectorDialog.qml`, `ExternalImportDialog.qml`,
+  `DocumentViewerDialog.qml`, `DataImportMismatchDialog.qml`, and
+  `TimePickerDialog.qml` contain the advanced, help, and workflow dialogs.
 - `FieldLabel.qml` renders field labels with hover help loaded by
   `FieldHelpRegistry` from `doc/Description.json`.
 - `SensorLayoutView.qml` renders the Channels page sensor layout with
@@ -120,6 +120,9 @@ the qREST channel-major packet layout.
   packet-body table browsing/copying. Low-level packet header editing is kept
   in the Advanced Header / Packet Inspector. Text import checks channel count
   and asks before replacing an existing NPTS value with the imported row count.
+  External import supports TDMS and modified MiniSEED files/directories plus
+  HDF5 files through an asynchronous Preview / Mapping / Apply dialog. HDF5
+  export is available from the Data menu.
 - Validation tab: shows the current validation report, separates errors and
   warnings/info, and is refreshed by the toolbar Validate action. Format/core
   validation is shared with `qrest_data_tools_core`; GUI-only engineering
@@ -165,8 +168,9 @@ the qREST channel-major packet layout.
 - Metadata header/version defaults come from `qrest_data::format` constants in
   `metadata.hpp`; avoid reintroducing local string/version literals in the GUI.
 - External import channel mapping is defined in `qrest_data_tools_core` using
-  `ExternalChannelMapping`. The default mapping is external source order to
-  qREST ChannelNo order, so external data import does not require special
+  `ExternalChannelMapping`. The GUI reads external datasets asynchronously,
+  previews detected channels, and lets users map external source order to
+  qREST ChannelNo/index targets. External data import does not require special
   `ChannelID` values such as `X1/Y1/Z1`.
 
 ## Build And Run

@@ -57,12 +57,19 @@ struct MseedImportOptions {
 ExternalDataset load_tdms_dataset(const std::string &input_path,
                                   const TdmsImportOptions &options = {});
 
+ExternalDataset load_tdms_external_data(const std::string &input_path,
+                                        const TdmsImportOptions &options = {});
+
 ExternalDataset load_tdms_collection(const std::string &input_path,
                                      const Metadata &metadata,
                                      const TdmsImportOptions &options = {});
 
 ExternalDataset load_mseed_dataset(const std::string &input_path,
                                    const MseedImportOptions &options = {});
+
+ExternalDataset
+load_mseed_external_data(const std::string &input_path,
+                         const MseedImportOptions &options = {});
 
 ExternalDataset load_mseed_collection(const std::string &input_path,
                                       const Metadata &metadata,

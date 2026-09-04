@@ -8,12 +8,14 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QStringList>
+#include <QtConcurrent/QtConcurrentRun>
 #include <QUrl>
 #include <QVariantMap>
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <sstream>
 
 #include "../core/validation.hpp"
 
@@ -45,6 +47,47 @@ struct ProjectedBounds {
 };
 
 QString formatDouble(double value) { return QString::number(value, 'g', 12); }
+
+QString toLocalPath(const QString &fileUrl) {
+    QString localPath = QUrl(fileUrl).toLocalFile();
+    if (localPath.isEmpty()) {
+        localPath = fileUrl;
+    }
+    return localPath;
+}
+
+ExternalImportResult loadExternalImportWorker(QString format,
+                                              QString localPath) {
+    ExternalImportResult result;
+    result.format = format;
+    result.path = localPath;
+    const QString normalized = format.trimmed().toLower();
+    if (normalized == "tdms") {
+        result.dataset =
+            qrest_data::tools::load_tdms_external_data(localPath.toStdString());
+    } else if (normalized == "mseed") {
+        result.dataset = qrest_data::tools::load_mseed_external_data(
+            localPath.toStdString());
+    } else if (normalized == "hdf5") {
+        result.dataset =
+            qrest_data::tools::load_hdf5_dataset(localPath.toStdString());
+    } else {
+        throw std::runtime_error("unsupported external import format: "
+                                 + format.toStdString());
+    }
+    return result;
+}
+
+QString validationSummary(const qrest_data::tools::ValidationReport &report) {
+    QStringList lines;
+    for (const auto &error : report.errors) {
+        lines.append(QString::fromStdString("Error: " + error));
+    }
+    for (const auto &warning : report.warnings) {
+        lines.append(QString::fromStdString("Warning: " + warning));
+    }
+    return lines.isEmpty() ? "Ready" : lines.join("\n");
+}
 
 QString formatDoubleList(const std::vector<double> &values) {
     QStringList parts;
@@ -740,6 +783,11 @@ QrestViewModel::QrestViewModel(QObject *parent) : QObject(parent) {
     m_channelSelectionModel = new QItemSelectionModel(m_channelModel, this);
     m_validationModel = new ValidationTableModel(this);
     m_binaryModel = new BinaryTableModel(this);
+    m_externalImportWatcher = new QFutureWatcher<ExternalImportResult>(this);
+    connect(m_externalImportWatcher,
+            &QFutureWatcher<ExternalImportResult>::finished,
+            this,
+            &QrestViewModel::handleExternalImportFinished);
     m_tableModel->loadData(&m_document.dataPacket());
     refreshChannelModel();
     m_binaryModel->loadBytes(m_document.rawFileBytes());
@@ -1343,6 +1391,70 @@ QString QrestViewModel::binarySummary() const {
         .arg(binaryByteCount())
         .arg(metadataSize())
         .arg(dataSize());
+}
+
+bool QrestViewModel::externalImportLoading() const {
+    return m_externalImportLoading;
+}
+
+bool QrestViewModel::externalImportReady() const {
+    return m_externalImportReady;
+}
+
+QString QrestViewModel::externalImportFormat() const {
+    return m_externalImportFormat;
+}
+
+QString QrestViewModel::externalImportPath() const {
+    return m_externalImportPath;
+}
+
+int QrestViewModel::externalImportChannelCount() const {
+    return static_cast<int>(m_externalDataset.channel_count);
+}
+
+int QrestViewModel::externalImportSampleCount() const {
+    return static_cast<int>(m_externalDataset.sample_count);
+}
+
+double QrestViewModel::externalImportSampleRate() const {
+    return m_externalDataset.sample_rate_hz;
+}
+
+QString QrestViewModel::externalImportStatus() const {
+    return m_externalImportStatus;
+}
+
+QVariantList QrestViewModel::externalImportSourceChannels() const {
+    QVariantList rows;
+    rows.reserve(static_cast<qsizetype>(m_externalDataset.channel_count));
+    for (std::size_t i = 0; i < m_externalDataset.channel_count; ++i) {
+        const QString label =
+            i < m_externalDataset.channel_labels.size()
+                ? QString::fromStdString(m_externalDataset.channel_labels[i])
+                : QString("Channel %1").arg(i + 1);
+        rows.append(QVariantMap{{"index", static_cast<int>(i)},
+                                {"label", label},
+                                {"defaultTarget", static_cast<int>(i)}});
+    }
+    return rows;
+}
+
+QVariantList QrestViewModel::externalImportTargetChannels() const {
+    QVariantList rows;
+    const auto &channels = m_document.metadata().InstrumentInfo.Channels;
+    rows.reserve(static_cast<qsizetype>(channels.size()));
+    for (std::size_t i = 0; i < channels.size(); ++i) {
+        const auto &channel = channels[i];
+        const QString id = QString::fromStdString(channel.ChannelID);
+        rows.append(
+            QVariantMap{{"index", static_cast<int>(i)},
+                        {"label",
+                         QString("Channel %1 / %2")
+                             .arg(channel.ChannelNo)
+                             .arg(id.isEmpty() ? QString("UNNAMED") : id)}});
+    }
+    return rows;
 }
 
 int QrestViewModel::binaryRowForOffset(int offset) const {
@@ -2295,6 +2407,181 @@ void QrestViewModel::exportDataBody(const QString &fileUrl) {
 
     file.close();
     emit showMessage("数据包体已成功导出为文本 (矩阵格式)");
+}
+
+void QrestViewModel::exportHdf5Data(const QString &fileUrl) {
+    const QString localPath = toLocalPath(fileUrl);
+    if (localPath.isEmpty()) {
+        emit showMessage("HDF5 导出路径为空", true);
+        return;
+    }
+
+    try {
+        qrest_data::tools::write_hdf5_dataset(
+            localPath.toStdString(),
+            m_document.metadata(),
+            m_document.dataPacket().get_data());
+        emit showMessage("HDF5 导出成功");
+    } catch (const std::exception &e) {
+        emit showMessage(QString("HDF5 导出失败: %1").arg(e.what()), true);
+    }
+}
+
+void QrestViewModel::loadExternalData(const QString &format,
+                                      const QString &fileUrl) {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+    if (m_externalImportWatcher->isRunning()) {
+        emit showMessage("已有外部数据正在读取，请稍后", true);
+        return;
+    }
+
+    const QString localPath = toLocalPath(fileUrl);
+    if (localPath.isEmpty()) {
+        emit showMessage("外部数据路径为空", true);
+        return;
+    }
+
+    m_externalImportLoading = true;
+    m_externalImportReady = false;
+    m_externalImportFormat = format.trimmed().toUpper();
+    m_externalImportPath = localPath;
+    m_externalImportStatus =
+        QString("Loading %1...").arg(m_externalImportFormat);
+    m_externalDataset = qrest_data::tools::ExternalDataset{};
+    emit externalImportUpdated();
+    emit showMessage(m_externalImportStatus);
+
+    m_externalImportWatcher->setFuture(QtConcurrent::run(
+        loadExternalImportWorker, format.trimmed().toLower(), localPath));
+}
+
+void QrestViewModel::clearExternalImport() {
+    if (m_externalImportWatcher->isRunning()) {
+        emit showMessage("外部数据仍在读取，暂不能清空", true);
+        return;
+    }
+    m_externalImportLoading = false;
+    m_externalImportReady = false;
+    m_externalImportFormat.clear();
+    m_externalImportPath.clear();
+    m_externalImportStatus.clear();
+    m_externalDataset = qrest_data::tools::ExternalDataset{};
+    emit externalImportUpdated();
+}
+
+void QrestViewModel::applyExternalImport(const QVariantList &targetChannels) {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+    if (!m_externalImportReady) {
+        emit showMessage("没有可应用的外部数据", true);
+        return;
+    }
+
+    std::vector<qrest_data::tools::ExternalChannelMapping> mapping;
+    mapping.reserve(static_cast<std::size_t>(targetChannels.size()));
+    for (qsizetype i = 0; i < targetChannels.size(); ++i) {
+        bool ok = false;
+        const int target = targetChannels[i].toInt(&ok);
+        if (!ok) {
+            emit showMessage(QString("第 %1 个通道映射无效").arg(i + 1), true);
+            return;
+        }
+        mapping.push_back(
+            {static_cast<std::size_t>(i), static_cast<std::size_t>(target)});
+    }
+
+    try {
+        qrest_data::Metadata metadata = metadataForExternalImport();
+        const auto mapped = qrest_data::tools::apply_external_channel_mapping(
+            m_externalDataset, metadata, mapping);
+
+        int sampleRate = static_cast<int>(std::llround(mapped.sample_rate_hz));
+        if (sampleRate <= 0) {
+            sampleRate = samplingRate();
+        }
+        if (sampleRate <= 0 || sampleRate > 65535) {
+            emit showMessage("外部数据采样率必须在 1 到 65535 Hz 之间", true);
+            return;
+        }
+
+        qrest_data::DataPacket packet(
+            m_document.dataPacket().get_source_id(),
+            static_cast<uint16_t>(mapped.channel_count),
+            m_document.dataPacket().get_data_encodings(),
+            static_cast<uint16_t>(sampleRate),
+            static_cast<uint32_t>(mapped.sample_count),
+            m_document.dataPacket().get_timestamp(),
+            mapped.channel_sequential_data);
+
+        metadata.DataInfo.NPTS = static_cast<int>(mapped.sample_count);
+        metadata.DataInfo.DT = 1.0 / static_cast<double>(sampleRate);
+        metadata.DataInfo.Frequency = sampleRate;
+        renumberChannels(metadata);
+
+        m_document.replaceContent(metadata, packet);
+        m_tableModel->loadData(&m_document.dataPacket());
+        emitAllDocumentSignals();
+        emit externalImportUpdated();
+        emit showMessage(QString("外部数据导入成功: %1 通道, %2 采样点")
+                             .arg(mapped.channel_count)
+                             .arg(mapped.sample_count));
+    } catch (const std::exception &e) {
+        emit showMessage(QString("外部数据导入失败: %1").arg(e.what()), true);
+    }
+}
+
+void QrestViewModel::handleExternalImportFinished() {
+    m_externalImportLoading = false;
+
+    try {
+        const ExternalImportResult result = m_externalImportWatcher->result();
+        m_externalImportFormat = result.format.toUpper();
+        m_externalImportPath = result.path;
+        m_externalDataset = result.dataset;
+        m_externalImportReady = true;
+
+        const auto metadata = metadataForExternalImport();
+        const auto mapping = qrest_data::tools::make_sequential_channel_mapping(
+            m_externalDataset, metadata);
+        const auto report =
+            qrest_data::tools::validate_external_channel_mapping(
+                m_externalDataset, metadata, mapping);
+        m_externalImportStatus = validationSummary(report);
+
+        emit showMessage(QString("外部数据读取完成: %1 通道, %2 采样点")
+                             .arg(m_externalDataset.channel_count)
+                             .arg(m_externalDataset.sample_count),
+                         !report.ok());
+    } catch (const std::exception &e) {
+        m_externalImportReady = false;
+        m_externalDataset = qrest_data::tools::ExternalDataset{};
+        m_externalImportStatus =
+            QString("Failed to load external data: %1").arg(e.what());
+        emit showMessage(m_externalImportStatus, true);
+    }
+
+    emit externalImportUpdated();
+}
+
+qrest_data::Metadata QrestViewModel::metadataForExternalImport() const {
+    qrest_data::Metadata metadata = m_document.metadata();
+    if (m_externalDataset.sample_count > 0) {
+        metadata.DataInfo.NPTS =
+            static_cast<int>(m_externalDataset.sample_count);
+    }
+    if (m_externalDataset.sample_rate_hz > 0.0
+        && std::isfinite(m_externalDataset.sample_rate_hz)) {
+        metadata.DataInfo.DT = 1.0 / m_externalDataset.sample_rate_hz;
+        metadata.DataInfo.Frequency = m_externalDataset.sample_rate_hz;
+    }
+    metadata.InstrumentInfo.ChannelNum =
+        static_cast<int>(metadata.InstrumentInfo.Channels.size());
+    return metadata;
 }
 
 void QrestViewModel::emitAllDocumentSignals() {

@@ -3,6 +3,7 @@
 
 #include <QAbstractTableModel> // 新增：用于高性能表格显示
 #include <QByteArray>
+#include <QFutureWatcher>
 #include <QItemSelectionModel>
 #include <QJsonObject>
 #include <QList>
@@ -15,9 +16,18 @@
 #include "qrest_document.h"
 
 #ifndef Q_MOC_RUN
+#include "../core/external_import.hpp"
 #include "data_packet.hpp"
 #include "file_header.hpp"
 #include "metadata.hpp"
+#endif
+
+#ifndef Q_MOC_RUN
+struct ExternalImportResult {
+    QString format;
+    QString path;
+    qrest_data::tools::ExternalDataset dataset;
+};
 #endif
 
 // =========================================================
@@ -258,6 +268,26 @@ class QrestViewModel : public QObject {
     Q_PROPERTY(QAbstractTableModel *binaryModel READ binaryModel CONSTANT)
     Q_PROPERTY(int binaryByteCount READ binaryByteCount NOTIFY fileLoaded)
     Q_PROPERTY(QString binarySummary READ binarySummary NOTIFY fileLoaded)
+    Q_PROPERTY(bool externalImportLoading READ externalImportLoading NOTIFY
+                   externalImportUpdated)
+    Q_PROPERTY(bool externalImportReady READ externalImportReady NOTIFY
+                   externalImportUpdated)
+    Q_PROPERTY(QString externalImportFormat READ externalImportFormat NOTIFY
+                   externalImportUpdated)
+    Q_PROPERTY(QString externalImportPath READ externalImportPath NOTIFY
+                   externalImportUpdated)
+    Q_PROPERTY(int externalImportChannelCount READ externalImportChannelCount
+                   NOTIFY externalImportUpdated)
+    Q_PROPERTY(int externalImportSampleCount READ externalImportSampleCount
+                   NOTIFY externalImportUpdated)
+    Q_PROPERTY(double externalImportSampleRate READ externalImportSampleRate
+                   NOTIFY externalImportUpdated)
+    Q_PROPERTY(QString externalImportStatus READ externalImportStatus NOTIFY
+                   externalImportUpdated)
+    Q_PROPERTY(QVariantList externalImportSourceChannels READ
+                   externalImportSourceChannels NOTIFY externalImportUpdated)
+    Q_PROPERTY(QVariantList externalImportTargetChannels READ
+                   externalImportTargetChannels NOTIFY externalImportUpdated)
     // 供 QML 表格使用的选择模型
     Q_PROPERTY(QItemSelectionModel *selectionModel READ selectionModel CONSTANT)
     Q_PROPERTY(
@@ -346,6 +376,16 @@ public:
     QAbstractTableModel *binaryModel() const;
     int binaryByteCount() const;
     QString binarySummary() const;
+    bool externalImportLoading() const;
+    bool externalImportReady() const;
+    QString externalImportFormat() const;
+    QString externalImportPath() const;
+    int externalImportChannelCount() const;
+    int externalImportSampleCount() const;
+    double externalImportSampleRate() const;
+    QString externalImportStatus() const;
+    QVariantList externalImportSourceChannels() const;
+    QVariantList externalImportTargetChannels() const;
     Q_INVOKABLE int binaryRowForOffset(int offset) const;
     Q_INVOKABLE int findBinaryAscii(const QString &text, int startRow) const;
     Q_INVOKABLE int findBinaryHex(const QString &hex, int startRow) const;
@@ -392,6 +432,11 @@ public:
     Q_INVOKABLE void importDataBody(const QString &fileUrl);
     Q_INVOKABLE void confirmImportDataBody(const QString &fileUrl);
     Q_INVOKABLE void exportDataBody(const QString &fileUrl);
+    Q_INVOKABLE void exportHdf5Data(const QString &fileUrl);
+    Q_INVOKABLE void loadExternalData(const QString &format,
+                                      const QString &fileUrl);
+    Q_INVOKABLE void clearExternalImport();
+    Q_INVOKABLE void applyExternalImport(const QVariantList &targetChannels);
     Q_INVOKABLE void copySelectedCells();
     Q_INVOKABLE void selectAllData();
     Q_INVOKABLE void selectColumn(int col);
@@ -417,6 +462,7 @@ signals:
                                        int expectedNpts,
                                        int importedNpts,
                                        int importedChannels);
+    void externalImportUpdated();
     void showMessage(const QString &message, bool isError = false);
 
 private:
@@ -427,6 +473,10 @@ private:
     [[nodiscard]] QList<ValidationTableModel::Issue>
     collectValidationIssues(bool finalValidation = false) const;
     void importDataBodyInternal(const QString &fileUrl, bool acceptNptsChange);
+#ifndef Q_MOC_RUN
+    void handleExternalImportFinished();
+    [[nodiscard]] qrest_data::Metadata metadataForExternalImport() const;
+#endif
 
     DataTableModel *m_tableModel;          // 表格模型实例
     QItemSelectionModel *m_selectionModel; // 新增：选择模型实例
@@ -437,6 +487,16 @@ private:
     int m_selectedChannelRow{-1};
 
     QrestDocument m_document;
+
+#ifndef Q_MOC_RUN
+    QFutureWatcher<ExternalImportResult> *m_externalImportWatcher{nullptr};
+    qrest_data::tools::ExternalDataset m_externalDataset;
+#endif
+    bool m_externalImportLoading{false};
+    bool m_externalImportReady{false};
+    QString m_externalImportFormat;
+    QString m_externalImportPath;
+    QString m_externalImportStatus;
 };
 
 #endif // QREST_VIEW_MODEL_H

@@ -178,8 +178,70 @@ ApplicationWindow {
         onAccepted: viewModel.exportDataBody(selectedFile)
     }
 
+    FileDialog {
+        id: exportHdf5Dialog
+        title: "导出 HDF5"
+        fileMode: FileDialog.SaveFile
+        nameFilters: ["HDF5 Files (*.h5 *.hdf5)", "All Files (*.*)"]
+        defaultSuffix: "h5"
+        onAccepted: viewModel.exportHdf5Data(selectedFile)
+    }
+
+    FileDialog {
+        id: importTdmsDialog
+        title: "导入 TDMS 文件"
+        nameFilters: ["TDMS Files (*.tdms)", "All Files (*.*)"]
+        onAccepted: {
+            externalImportDialog.openForImport();
+            viewModel.loadExternalData("tdms", selectedFile);
+        }
+    }
+
+    FolderDialog {
+        id: importTdmsFolderDialog
+        title: "导入 TDMS 目录"
+        onAccepted: {
+            externalImportDialog.openForImport();
+            viewModel.loadExternalData("tdms", selectedFolder);
+        }
+    }
+
+    FileDialog {
+        id: importMseedDialog
+        title: "导入 Modified MiniSEED 文件"
+        nameFilters: ["MiniSEED Files (*.mseed *.miniseed)", "All Files (*.*)"]
+        onAccepted: {
+            externalImportDialog.openForImport();
+            viewModel.loadExternalData("mseed", selectedFile);
+        }
+    }
+
+    FolderDialog {
+        id: importMseedFolderDialog
+        title: "导入 Modified MiniSEED 目录"
+        onAccepted: {
+            externalImportDialog.openForImport();
+            viewModel.loadExternalData("mseed", selectedFolder);
+        }
+    }
+
+    FileDialog {
+        id: importHdf5Dialog
+        title: "导入 HDF5"
+        nameFilters: ["HDF5 Files (*.h5 *.hdf5)", "All Files (*.*)"]
+        onAccepted: {
+            externalImportDialog.openForImport();
+            viewModel.loadExternalData("hdf5", selectedFile);
+        }
+    }
+
     DataImportMismatchDialog {
         id: dataImportMismatchDialog
+        viewModel: viewModel
+    }
+
+    ExternalImportDialog {
+        id: externalImportDialog
         viewModel: viewModel
     }
 
@@ -286,16 +348,29 @@ ApplicationWindow {
             Menu {
                 title: qsTr("Import External Data")
                 MenuItem {
-                    text: qsTr("TDMS...")
-                    enabled: false
+                    text: qsTr("TDMS File...")
+                    enabled: viewModel.canModify
+                    onTriggered: importTdmsDialog.open()
                 }
                 MenuItem {
-                    text: qsTr("Modified MiniSEED...")
-                    enabled: false
+                    text: qsTr("TDMS Directory...")
+                    enabled: viewModel.canModify
+                    onTriggered: importTdmsFolderDialog.open()
                 }
                 MenuItem {
-                    text: qsTr("HDF5...")
-                    enabled: false
+                    text: qsTr("Modified MiniSEED File...")
+                    enabled: viewModel.canModify
+                    onTriggered: importMseedDialog.open()
+                }
+                MenuItem {
+                    text: qsTr("Modified MiniSEED Directory...")
+                    enabled: viewModel.canModify
+                    onTriggered: importMseedFolderDialog.open()
+                }
+                MenuItem {
+                    text: qsTr("HDF5 File...")
+                    enabled: viewModel.canModify
+                    onTriggered: importHdf5Dialog.open()
                 }
             }
             Menu {
@@ -306,7 +381,7 @@ ApplicationWindow {
                 }
                 MenuItem {
                     text: qsTr("HDF5...")
-                    enabled: false
+                    onTriggered: exportHdf5Dialog.open()
                 }
             }
             MenuSeparator {}

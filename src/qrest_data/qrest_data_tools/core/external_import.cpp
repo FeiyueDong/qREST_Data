@@ -294,9 +294,8 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
     return result;
 }
 
-ExternalDataset load_tdms_collection(const std::string &input_path,
-                                     const Metadata &metadata,
-                                     const TdmsImportOptions &options) {
+ExternalDataset load_tdms_external_data(const std::string &input_path,
+                                        const TdmsImportOptions &options) {
     const auto files = collect_input_files(input_path, {".tdms"}, "TDMS");
     std::vector<ExternalDataset> datasets;
     datasets.reserve(files.size());
@@ -309,8 +308,14 @@ ExternalDataset load_tdms_collection(const std::string &input_path,
                                      + e.what());
         }
     }
-    const auto merged = merge_filename_order_dataset(
+    return merge_filename_order_dataset(
         datasets, files, files.size() == 1 ? "tdms" : "tdms-collection");
+}
+
+ExternalDataset load_tdms_collection(const std::string &input_path,
+                                     const Metadata &metadata,
+                                     const TdmsImportOptions &options) {
+    const auto merged = load_tdms_external_data(input_path, options);
     return apply_external_channel_mapping(
         merged, metadata, make_sequential_channel_mapping(merged, metadata));
 }
@@ -351,9 +356,8 @@ ExternalDataset load_mseed_dataset(const std::string &input_path,
     return result;
 }
 
-ExternalDataset load_mseed_collection(const std::string &input_path,
-                                      const Metadata &metadata,
-                                      const MseedImportOptions &options) {
+ExternalDataset load_mseed_external_data(const std::string &input_path,
+                                         const MseedImportOptions &options) {
     const auto files =
         collect_input_files(input_path, {".mseed", ".miniseed"}, "MiniSEED");
     std::vector<ExternalDataset> datasets;
@@ -367,11 +371,17 @@ ExternalDataset load_mseed_collection(const std::string &input_path,
                                      + e.what());
         }
     }
-    const auto merged = merge_filename_order_dataset(
-        datasets,
-        files,
-        files.size() == 1 ? "modified-miniseed"
-                          : "modified-miniseed-collection");
+    return merge_filename_order_dataset(datasets,
+                                        files,
+                                        files.size() == 1
+                                            ? "modified-miniseed"
+                                            : "modified-miniseed-collection");
+}
+
+ExternalDataset load_mseed_collection(const std::string &input_path,
+                                      const Metadata &metadata,
+                                      const MseedImportOptions &options) {
+    const auto merged = load_mseed_external_data(input_path, options);
     return apply_external_channel_mapping(
         merged, metadata, make_sequential_channel_mapping(merged, metadata));
 }
