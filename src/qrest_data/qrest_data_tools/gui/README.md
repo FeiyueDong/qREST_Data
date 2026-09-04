@@ -17,12 +17,13 @@ types instead of being reimplemented in QML.
 
 ## Current Structure
 
-- `main.cpp` starts `QGuiApplication`, registers `QrestViewModel`, and loads
-  `main.qml` from the Qt resource path.
+- `main.cpp` starts `QGuiApplication`, sets desktop application metadata,
+  registers `QrestViewModel` and `FieldHelpRegistry`, and loads `main.qml` from
+  the Qt resource path.
 - `main.qml` defines the single-window shell:
   - file menu actions for new/open/save qREST files,
-  - data menu actions for importing/exporting metadata JSON and packet body
-    text,
+  - data menu actions grouped around packet-body import, external import,
+    export, and metadata JSON import/export,
   - toolbar actions and workspace tabs for overview, building metadata,
     channels, data, and validation,
   - window-level dirty-document guards and file dialogs.
@@ -30,16 +31,22 @@ types instead of being reimplemented in QML.
   `DataPage.qml`, and `ValidationPage.qml` contain the frequently edited page
   bodies.
 - `RawMetadataDialog.qml`, `BinaryViewerDialog.qml`,
-  `PacketInspectorDialog.qml`, `DataImportMismatchDialog.qml`, and
-  `TimePickerDialog.qml` contain the advanced and workflow dialogs.
-- `SensorLayoutView.qml` renders the Channels page sensor layout from C++
-  projected geometry data.
+  `PacketInspectorDialog.qml`, `DocumentViewerDialog.qml`,
+  `DataImportMismatchDialog.qml`, and `TimePickerDialog.qml` contain the
+  advanced, help, and workflow dialogs.
+- `FieldLabel.qml` renders field labels with hover help loaded by
+  `FieldHelpRegistry` from `doc/Description.json`.
+- `SensorLayoutView.qml` renders the Channels page sensor layout with
+  isometric, plan, X-Z, and Y-Z views. It uses real metadata coordinates for
+  orthographic views and adds a uniform transparent floor fill.
 - `QrestTableView.qml` provides the shared corner/header/body/scrollbar table
   shell used by the binary, channel, data, and validation tables. It normalizes
   wheel input by preferring high-resolution `pixelDelta` and falling back to
   ordinary mouse-wheel `angleDelta`.
 - `icon/logo.png` is bundled into `qml.qrc` and is used as the application
   window icon from `main.cpp`.
+- `doc/helper.md`, `doc/Description.json`, and the qREST file-format
+  specification are bundled into `qml.qrc` for offline Help and field help.
 - `qrest_document.h/.cpp` owns the current document state:
   - `View` for opened read-only files,
   - `EditDraft` for editable copies of opened files,
@@ -68,8 +75,9 @@ Opening a qREST file reads the full file into memory, then parses it in order:
 
 Opened files enter read-only `View` mode. Editing requires `Edit`, which creates
 an in-memory draft. Draft changes are never written back to the original file;
-the UI only exposes Save As. After Save As succeeds, the saved file becomes the
-current read-only `View` document.
+Save As rejects the original source path in `EditDraft` mode. After Save As
+succeeds to a different path, the saved file becomes the current read-only
+`View` document.
 
 Saving serializes the same three parts in order:
 
@@ -116,6 +124,12 @@ the qREST channel-major packet layout.
   warnings/info, and is refreshed by the toolbar Validate action. Format/core
   validation is shared with `qrest_data_tools_core`; GUI-only engineering
   warnings are appended in the view model.
+- Help menu:
+  - User Guide opens bundled `doc/helper.md`.
+  - qREST File Format Specification opens the bundled file-format document.
+  - Project Homepage is present but disabled until the canonical public URL is
+    configured.
+  - About qREST Data Tools shows application and supported format information.
 - Advanced menu:
   - Raw Metadata JSON can view, format, and apply metadata JSON to the current
     draft. Apply restores fixed fields and normalizes derived metadata. The
@@ -150,6 +164,10 @@ the qREST channel-major packet layout.
   present library behavior.
 - Metadata header/version defaults come from `qrest_data::format` constants in
   `metadata.hpp`; avoid reintroducing local string/version literals in the GUI.
+- External import channel mapping is defined in `qrest_data_tools_core` using
+  `ExternalChannelMapping`. The default mapping is external source order to
+  qREST ChannelNo order, so external data import does not require special
+  `ChannelID` values such as `X1/Y1/Z1`.
 
 ## Build And Run
 

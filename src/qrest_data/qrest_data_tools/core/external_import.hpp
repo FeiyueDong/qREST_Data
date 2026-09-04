@@ -20,6 +20,11 @@ struct ExternalDataset {
     std::vector<double> channel_sequential_data;
 };
 
+struct ExternalChannelMapping {
+    std::size_t source_channel{};
+    std::size_t target_channel{};
+};
+
 struct TdmsImportOptions {
     enum class Unit {
         MeterPerSecondSquared,
@@ -65,6 +70,20 @@ ExternalDataset load_mseed_collection(const std::string &input_path,
 
 ExternalDataset load_hdf5_dataset(const std::string &input_path,
                                   Metadata *metadata = nullptr);
+
+std::vector<ExternalChannelMapping>
+make_sequential_channel_mapping(const ExternalDataset &dataset,
+                                const Metadata &metadata);
+
+ValidationReport validate_external_channel_mapping(
+    const ExternalDataset &dataset,
+    const Metadata &metadata,
+    const std::vector<ExternalChannelMapping> &mapping);
+
+ExternalDataset apply_external_channel_mapping(
+    const ExternalDataset &dataset,
+    const Metadata &metadata,
+    const std::vector<ExternalChannelMapping> &mapping);
 
 void write_hdf5_dataset(const std::string &output_path,
                         const Metadata &metadata,

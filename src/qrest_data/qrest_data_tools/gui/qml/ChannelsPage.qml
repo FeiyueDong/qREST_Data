@@ -6,6 +6,7 @@ Item {
     id: root
 
     required property var viewModel
+    required property var helpRegistry
 
     function indexOfValue(values, value) {
         const index = values.indexOf(value);
@@ -76,9 +77,7 @@ Item {
             Layout.fillWidth: true
             spacing: 8
 
-            Label {
-                text: "Provider"
-            }
+            FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Provider"; fallbackText: "Provider" }
             TextField {
                 id: providerField
                 readOnly: !root.viewModel.canModify
@@ -89,8 +88,14 @@ Item {
                 enabled: root.viewModel.canModify
                 onClicked: root.viewModel.updateProvider(providerField.text)
             }
+            FieldLabel {
+                helpRegistry: root.helpRegistry
+                fieldKey: "InstrumentInfo.ChannelNum"
+                fallbackText: "ChannelNum"
+                color: "#666666"
+            }
             Label {
-                text: "ChannelNum: " + root.viewModel.channelNum
+                text: root.viewModel.channelNum
                 color: "#666666"
             }
             Item {
@@ -148,18 +153,14 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "ChannelNo"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].ChannelNo"; fallbackText: "ChannelNo" }
                         Label {
                             id: channelNoLabel
                             text: "-"
                             font.bold: true
                         }
 
-                        Label {
-                            text: "ChannelID"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].ChannelID"; fallbackText: "ChannelID" }
                         RowLayout {
                             Layout.fillWidth: true
                             TextField {
@@ -174,9 +175,7 @@ Item {
                             }
                         }
 
-                        Label {
-                            text: "DeviceType"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].DeviceType"; fallbackText: "DeviceType" }
                         ComboBox {
                             id: channelDeviceTypeBox
                             model: ["Accelerometer", "Velocity Sensor", "Displacement Sensor", "Strain Gauge", "Temperature Sensor", "Unknown", "Other"]
@@ -185,9 +184,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Measurand"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].Measurand"; fallbackText: "Measurand" }
                         ComboBox {
                             id: channelMeasurandBox
                             model: ["Acceleration", "Velocity", "Displacement", "Strain", "Temperature", "Other"]
@@ -196,9 +193,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Scale"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].Scale"; fallbackText: "Scale" }
                         TextField {
                             id: channelScaleField
                             readOnly: !root.viewModel.canModify || !root.viewModel.hasSelectedChannel
@@ -206,9 +201,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Azimuth"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].Azimuth"; fallbackText: "Azimuth" }
                         TextField {
                             id: channelAzimuthField
                             readOnly: !root.viewModel.canModify || !root.viewModel.hasSelectedChannel
@@ -219,18 +212,14 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Direction"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].Direction"; fallbackText: "Direction" }
                         Label {
                             id: channelDirectionLabel
                             text: "-"
                             font.bold: true
                         }
 
-                        Label {
-                            text: "X (" + root.viewModel.distanceUnit + ")"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].LocationXYZ.X"; fallbackText: "X (" + root.viewModel.distanceUnit + ")" }
                         TextField {
                             id: channelXField
                             readOnly: !root.viewModel.canModify || !root.viewModel.hasSelectedChannel
@@ -238,9 +227,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Y (" + root.viewModel.distanceUnit + ")"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].LocationXYZ.Y"; fallbackText: "Y (" + root.viewModel.distanceUnit + ")" }
                         TextField {
                             id: channelYField
                             readOnly: !root.viewModel.canModify || !root.viewModel.hasSelectedChannel
@@ -248,9 +235,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Z (" + root.viewModel.distanceUnit + ")"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "InstrumentInfo.Channels[].LocationXYZ.Z"; fallbackText: "Z (" + root.viewModel.distanceUnit + ")" }
                         TextField {
                             id: channelZField
                             readOnly: !root.viewModel.canModify || !root.viewModel.hasSelectedChannel

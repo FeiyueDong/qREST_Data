@@ -188,13 +188,13 @@ void test_mseed_sample() {
     require_equal(
         mapped.channel_labels[2], std::string{"Z1"}, "Mapped MiniSEED Z label");
     require_near(mapped.channel_sequential_data[0],
-                 -1.8e-04,
-                 1e-12,
-                 "Mapped MiniSEED EIE -> X1");
-    require_near(mapped.channel_sequential_data[240000],
                  -6.0e-05,
                  1e-12,
-                 "Mapped MiniSEED EIN -> Y1");
+                 "Mapped MiniSEED first source channel -> X1");
+    require_near(mapped.channel_sequential_data[240000],
+                 -1.8e-04,
+                 1e-12,
+                 "Mapped MiniSEED second source channel -> Y1");
     require_near(mapped.channel_sequential_data[480000],
                  -6.0e-05,
                  1e-12,
@@ -217,9 +217,9 @@ void test_mseed_sample() {
                   std::string{"X2"},
                   "Mapped MiniSEED directory filename order");
     require_near(mapped_dir.channel_sequential_data[3 * 240000],
-                 -1.8e-04,
+                 -6.0e-05,
                  1e-12,
-                 "Mapped MiniSEED directory EIE -> X2");
+                 "Mapped MiniSEED directory first channel of second file");
     std::filesystem::remove_all(temp_dir);
 }
 
@@ -307,17 +307,15 @@ void test_tdms_directory_mapping() {
                   std::string{"Z9"},
                   "TDMS directory last label");
     require_near(imported.channel_sequential_data[0],
-                 2.0,
-                 1e-12,
-                 "TDMS directory maps E to X1");
-    require_near(imported.channel_sequential_data[9 * 720000],
                  -1.0,
                  1e-12,
-                 "TDMS directory maps N to Y1");
-    require_near(imported.channel_sequential_data[18 * 720000],
-                 -1.0,
-                 1e-12,
-                 "TDMS directory maps Z to Z1");
+                 "TDMS directory maps first source channel to X1");
+    require_equal(imported.channel_labels[9],
+                  std::string{"Y1"},
+                  "TDMS directory sequential mapping reaches Y1");
+    require_equal(imported.channel_labels[18],
+                  std::string{"Z1"},
+                  "TDMS directory sequential mapping reaches Z1");
     qrest_data::tools::require_external_dataset_compatibility(
         imported, make_metadata(labels, 720000, 0.005));
 }
@@ -401,25 +399,70 @@ void test_metadata_dt_zero_parses_without_invalid_frequency() {
                   "Invalid DT should produce zero Frequency");
 }
 
+void test_external_channel_mapping_decouples_channel_id() {
+    qrest_data::tools::ExternalDataset dataset;
+    dataset.source_format = "mapping-test";
+    dataset.channel_count = 3;
+    dataset.sample_count = 2;
+    dataset.sample_rate_hz = 100.0;
+    dataset.channel_labels = {"N", "E", "Z"};
+    dataset.channel_sequential_data = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
+
+    auto metadata = make_metadata({"ABC001", "UNKNOWN", "SENSOR03"}, 2, 0.01);
+    const auto mapping =
+        qrest_data::tools::make_sequential_channel_mapping(dataset, metadata);
+    const auto report = qrest_data::tools::validate_external_channel_mapping(
+        dataset, metadata, mapping);
+    if (!report.ok()) {
+        throw std::runtime_error(
+            "External channel mapping should accept arbitrary ChannelID");
+    }
+
+    const auto mapped = qrest_data::tools::apply_external_channel_mapping(
+        dataset, metadata, mapping);
+    require_equal(mapped.channel_labels[0],
+                  std::string{"ABC001"},
+                  "Mapped arbitrary ChannelID");
+    require_equal(mapped.channel_labels[1],
+                  std::string{"UNKNOWN"},
+                  "Mapped UNKNOWN ChannelID");
+    require_near(mapped.channel_sequential_data[0],
+                 1.0,
+                 1e-12,
+                 "Mapped first channel first sample");
+    require_near(mapped.channel_sequential_data[4],
+                 5.0,
+                 1e-12,
+                 "Mapped third channel first sample");
+
+    const auto duplicate_report =
+        qrest_data::tools::validate_external_channel_mapping(
+            dataset, metadata, {{0, 0}, {1, 0}, {2, 2}});
+    if (duplicate_report.ok()) {
+        throw std::runtime_error("Duplicate target mapping must be rejected");
+    }
+
+    const auto missing_report =
+        qrest_data::tools::validate_external_channel_mapping(
+            dataset, metadata, {{0, 0}, {1, 1}});
+    if (missing_report.ok()) {
+        throw std::runtime_error(
+            "Missing source/target mapping must be rejected");
+    }
+}
+
 void test_final_validation_reports_independent_packet_errors() {
     auto metadata = make_metadata({"A101"}, 4, 0.01);
     metadata.Header = "BAD_HEADER";
 
     const auto report = qrest_data::tools::validate_qrest_content(
-        metadata,
-        2,
-        50,
-        3,
-        1,
-        5,
-        {qrest_data::tools::ValidationMode::Final});
+        metadata, 2, 50, 3, 1, 5, {qrest_data::tools::ValidationMode::Final});
 
     auto has_error = [&report](const std::string &needle) {
         return std::any_of(report.errors.cbegin(),
                            report.errors.cend(),
                            [&needle](const std::string &message) {
-                               return message.find(needle)
-                                      != std::string::npos;
+                               return message.find(needle) != std::string::npos;
                            });
     };
 
@@ -451,6 +494,7 @@ int main() {
         test_unknown_channel_id_validation();
         test_metadata_device_type_and_extension_round_trip();
         test_metadata_dt_zero_parses_without_invalid_frequency();
+        test_external_channel_mapping_decouples_channel_id();
         test_final_validation_reports_independent_packet_errors();
         std::cout << "qREST import format tests passed.\n";
         return 0;

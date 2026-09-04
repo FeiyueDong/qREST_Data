@@ -6,6 +6,7 @@ Item {
     id: root
 
     required property var viewModel
+    required property var helpRegistry
     property bool active: false
 
     signal importDataRequested()
@@ -55,17 +56,13 @@ Item {
                 rowSpacing: 10
                 columnSpacing: 10
 
-                Label {
-                    text: "Event Name"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.EventName"; fallbackText: "Event Name" }
                 TextField {
                     id: eventNameField
                     readOnly: !root.viewModel.canModify
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "StartTime"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.StartTime"; fallbackText: "StartTime" }
                 RowLayout {
                     Layout.fillWidth: true
                     Label {
@@ -80,9 +77,7 @@ Item {
                     }
                 }
 
-                Label {
-                    text: "Sampling Rate (Hz)"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.SamplingRate"; fallbackText: "Sampling Rate (Hz)" }
                 TextField {
                     id: samplingRateField
                     readOnly: !root.viewModel.canModify
@@ -92,17 +87,13 @@ Item {
                     }
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "Sampling Interval"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.DT"; fallbackText: "Sampling Interval" }
                 Label {
                     text: root.viewModel.samplingIntervalText
                     font.bold: true
                 }
 
-                Label {
-                    text: "NPTS"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.NPTS"; fallbackText: "NPTS" }
                 TextField {
                     id: nptsField
                     readOnly: !root.viewModel.canModify || root.viewModel.packetDataPointCount > 0
@@ -111,9 +102,7 @@ Item {
                     }
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "Corrected"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "DataInfo.Corrected"; fallbackText: "Corrected" }
                 ComboBox {
                     id: correctedBox
                     model: ["NULL", "Corrected", "Unknown"]

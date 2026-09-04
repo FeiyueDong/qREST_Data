@@ -16,6 +16,9 @@ ApplicationWindow {
     color: "#f5f5f5"
     property string pendingGuardedAction: ""
     property bool forceClose: false
+    property string helpResourceUrl: "qrc:/qt/qml/qrest_data_tools_gui/doc/helper.md"
+    property string formatSpecResourceUrl: "qrc:/qt/qml/qrest_data_tools_gui/doc/file_format.md"
+    property string projectHomepageUrl: ""
 
     function requestGuardedAction(action) {
         if (viewModel.isDirty) {
@@ -80,6 +83,10 @@ ApplicationWindow {
         onConfirmDataImportNptsMismatch: function (fileUrl, expectedNpts, importedNpts, importedChannels) {
             dataImportMismatchDialog.prompt(fileUrl, expectedNpts, importedNpts, importedChannels);
         }
+    }
+
+    FieldHelpRegistry {
+        id: fieldHelp
     }
 
     Component.onCompleted: {
@@ -189,6 +196,62 @@ ApplicationWindow {
     PacketInspectorDialog {
         id: inspectorDialog
         viewModel: viewModel
+        helpRegistry: fieldHelp
+    }
+
+    DocumentViewerDialog {
+        id: documentViewerDialog
+    }
+
+    Dialog {
+        id: aboutDialog
+        title: "About qREST Data Tools"
+        modal: true
+        width: 440
+        x: (window.width - width) / 2
+        y: (window.height - height) / 2
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 10
+
+            Label {
+                text: "qREST Data Tools"
+                font.pixelSize: 22
+                font.bold: true
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "Application Version: " + Qt.application.version
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "Supported qREST Format Version: " + viewModel.metadataVersionText
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "Project Homepage: " + (window.projectHomepageUrl === "" ? "Not configured" : window.projectHomepageUrl)
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "License: See project repository"
+                Layout.fillWidth: true
+            }
+            Label {
+                text: "Copyright: qREST"
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignRight
+
+                Button {
+                    text: "Close"
+                    onClicked: aboutDialog.close()
+                }
+            }
+        }
     }
 
     // ================= 顶部菜单栏 =================
@@ -212,24 +275,49 @@ ApplicationWindow {
         }
         Menu {
             title: qsTr("数据 (Data)")
+            Menu {
+                title: qsTr("Import Data Body")
+                MenuItem {
+                    text: qsTr("Text / CSV...")
+                    enabled: viewModel.canModify
+                    onTriggered: importDataDialog.open()
+                }
+            }
+            Menu {
+                title: qsTr("Import External Data")
+                MenuItem {
+                    text: qsTr("TDMS...")
+                    enabled: false
+                }
+                MenuItem {
+                    text: qsTr("Modified MiniSEED...")
+                    enabled: false
+                }
+                MenuItem {
+                    text: qsTr("HDF5...")
+                    enabled: false
+                }
+            }
+            Menu {
+                title: qsTr("Export")
+                MenuItem {
+                    text: qsTr("Text...")
+                    onTriggered: exportDataDialog.open()
+                }
+                MenuItem {
+                    text: qsTr("HDF5...")
+                    enabled: false
+                }
+            }
+            MenuSeparator {}
             MenuItem {
-                text: qsTr("导入元数据 (Import Meta)...")
+                text: qsTr("Import Metadata JSON...")
                 enabled: viewModel.canModify
                 onTriggered: importMetaDialog.open()
             }
             MenuItem {
-                text: qsTr("导出元数据 (Export Meta)...")
+                text: qsTr("Export Metadata JSON...")
                 onTriggered: exportMetaDialog.open()
-            }
-            MenuSeparator {}
-            MenuItem {
-                text: qsTr("导入数据包体 (Import Data)...")
-                enabled: viewModel.canModify
-                onTriggered: importDataDialog.open()
-            }
-            MenuItem {
-                text: qsTr("导出数据包体 (Export Data)...")
-                onTriggered: exportDataDialog.open()
             }
         }
         Menu {
@@ -245,6 +333,27 @@ ApplicationWindow {
             MenuItem {
                 text: qsTr("Header / Packet Inspector...")
                 onTriggered: inspectorDialog.openWithCurrentPacket()
+            }
+        }
+        Menu {
+            title: qsTr("帮助 (Help)")
+            MenuItem {
+                text: qsTr("User Guide")
+                onTriggered: documentViewerDialog.openDocument("User Guide", window.helpResourceUrl)
+            }
+            MenuItem {
+                text: qsTr("qREST File Format Specification")
+                onTriggered: documentViewerDialog.openDocument("qREST File Format Specification", window.formatSpecResourceUrl)
+            }
+            MenuItem {
+                text: qsTr("Project Homepage")
+                enabled: window.projectHomepageUrl !== ""
+                onTriggered: Qt.openUrlExternally(window.projectHomepageUrl)
+            }
+            MenuSeparator {}
+            MenuItem {
+                text: qsTr("About qREST Data Tools")
+                onTriggered: aboutDialog.open()
             }
         }
     }
@@ -370,16 +479,19 @@ ApplicationWindow {
         BuildingPage {
             id: buildingPage
             viewModel: viewModel
+            helpRegistry: fieldHelp
         }
 
         ChannelsPage {
             id: channelsPage
             viewModel: viewModel
+            helpRegistry: fieldHelp
         }
 
         DataPage {
             id: dataPage
             viewModel: viewModel
+            helpRegistry: fieldHelp
             active: tabBar.currentIndex === 3
             onImportDataRequested: importDataDialog.open()
             onExportDataRequested: exportDataDialog.open()

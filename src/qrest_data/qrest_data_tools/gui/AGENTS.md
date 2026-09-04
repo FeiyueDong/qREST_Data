@@ -18,13 +18,17 @@ Important local contracts:
 - `QrestDocument` owns document mode, draft state, dirty tracking, source path,
   validation, and Save As behavior.
 - `QrestViewModel` is the C++ facade exposed to QML as
-  `DataTools.Backend 1.0`.
+  `DataTools.Backend 1.0`. `FieldHelpRegistry` is also registered in the same
+  QML module and loads bundled field help from `doc/Description.json`.
 - `main.qml` should stay as the application shell: window state, menus,
   toolbar, file dialogs, and page wiring. Frequently edited page bodies belong
   in `OverviewPage.qml`, `BuildingPage.qml`, `ChannelsPage.qml`,
   `DataPage.qml`, and `ValidationPage.qml`.
 - Advanced or workflow dialogs belong in focused `*Dialog.qml` files. Keep
   dialog-local fields and temporary search/selection state inside those files.
+- Help documents are shown through `DocumentViewerDialog.qml`; keep user-facing
+  guide content in `doc/helper.md` or bundled project documentation instead of
+  mixing it into the developer README.
 - `ChannelTableModel` exposes schema-backed channel metadata. Do not add
   GUI-only persisted fields; display-only derived values such as Direction
   should be computed from existing schema fields.
@@ -52,7 +56,8 @@ Important local contracts:
   save.
 - Existing qREST files must open read-only; modifications require an editable
   draft and must be saved through Save As. After Save As succeeds, the saved
-  file becomes the current read-only View document.
+  file becomes the current read-only View document. `EditDraft` Save As must
+  continue to reject the original source file path.
 - `icon/logo.png` is the bundled application logo. Keep icon resources in
   `qml.qrc` and prefer resource URLs/paths that work from both Xmake and Visual
   Studio builds.
@@ -66,13 +71,20 @@ The current structured metadata pages split responsibilities as Building
 and packet table). Packet header editing belongs in the Advanced Header /
 Packet Inspector. Raw JSON remains an advanced fallback and should normalize
 fixed and derived fields before applying.
+Use `FieldLabel.qml` with stable metadata field keys when adding structured
+fields. Do not duplicate long tooltip text in individual pages; update
+`doc/Description.json` instead.
 Geometry data is derived in C++ as 2.5D projected structure edges, sensors,
 directions, axes, and North; `SensorLayoutView.qml` renders and hit-tests that
-projected model. Keep future geometry calculations out of ad hoc QML logic when
-they affect interpretation or validation.
+model and also supports plan/X-Z/Y-Z inspection from real metadata coordinates.
+Keep future geometry calculations out of ad hoc QML logic when they affect
+interpretation or validation.
 Text data import should reject channel-count mismatches and ask before replacing
 an existing `DataInfo.NPTS` value with an imported row count. Binary viewing
 supports offset jump plus ASCII/hex search and should remain read-only.
+External import mapping should stay decoupled from `ChannelID`; use
+`ExternalChannelMapping` and qREST ChannelNo/index targets instead of reviving
+the old `X1/Y1/Z1` hard requirement.
 
 Build the target with:
 

@@ -6,6 +6,7 @@ Dialog {
     id: root
 
     required property var viewModel
+    required property var helpRegistry
 
     function encodingIndex(value) {
         const encodings = [0, 1, 10, 11];
@@ -66,16 +67,12 @@ Dialog {
                     font.family: "Consolas"
                     font.bold: true
                 }
-                Label {
-                    text: "Metadata Size"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "FileHeader.MetadataSize"; fallbackText: "Metadata Size" }
                 Label {
                     text: root.viewModel.metadataSize + " bytes"
                     font.family: "Consolas"
                 }
-                Label {
-                    text: "DataPacket Size"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "FileHeader.DataSize"; fallbackText: "DataPacket Size" }
                 Label {
                     text: root.viewModel.dataSize + " bytes"
                     font.family: "Consolas"
@@ -93,9 +90,7 @@ Dialog {
                 rowSpacing: 10
                 columnSpacing: 12
 
-                Label {
-                    text: "Source ID"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.SourceID"; fallbackText: "Source ID" }
                 TextField {
                     id: sourceIdField
                     readOnly: !root.viewModel.canModify
@@ -104,9 +99,7 @@ Dialog {
                     }
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "Encoding"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.DataEncodings"; fallbackText: "Encoding" }
                 ComboBox {
                     id: encodingBox
                     enabled: root.viewModel.canModify
@@ -132,9 +125,7 @@ Dialog {
                     Layout.fillWidth: true
                 }
 
-                Label {
-                    text: "Sampling Rate"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.SamplingRate"; fallbackText: "Sampling Rate" }
                 TextField {
                     id: samplingRateField
                     readOnly: !root.viewModel.canModify
@@ -143,9 +134,7 @@ Dialog {
                     }
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "Channel Count"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.ChannelCount"; fallbackText: "Channel Count" }
                 TextField {
                     id: channelCountField
                     readOnly: !root.viewModel.canModify
@@ -155,9 +144,7 @@ Dialog {
                     Layout.fillWidth: true
                 }
 
-                Label {
-                    text: "NPTS"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.DataPointCount"; fallbackText: "NPTS" }
                 TextField {
                     id: dataPointCountField
                     readOnly: !root.viewModel.canModify
@@ -166,9 +153,7 @@ Dialog {
                     }
                     Layout.fillWidth: true
                 }
-                Label {
-                    text: "Timestamp"
-                }
+                FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Packet.Timestamp"; fallbackText: "Timestamp" }
                 RowLayout {
                     Layout.fillWidth: true
 

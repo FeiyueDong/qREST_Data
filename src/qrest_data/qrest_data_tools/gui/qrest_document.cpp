@@ -1,5 +1,6 @@
 #include "qrest_document.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QUrl>
@@ -16,6 +17,18 @@ QString toLocalPath(const QString &fileUrl) {
         localPath = fileUrl;
     }
     return localPath;
+}
+
+QString normalizedPathForCompare(const QString &path) {
+    QFileInfo info(path);
+    QString normalized = info.canonicalFilePath();
+    if (normalized.isEmpty()) {
+        normalized = QDir::cleanPath(info.absoluteFilePath());
+    }
+#ifdef Q_OS_WIN
+    normalized = normalized.toCaseFolded();
+#endif
+    return normalized;
 }
 
 constexpr size_t fileHeaderSize = 16;
@@ -138,6 +151,14 @@ void QrestDocument::saveAs(const QString &fileUrl) {
     }
 
     const QString localPath = toLocalPath(fileUrl);
+    if (m_mode == Mode::EditDraft
+        && normalizedPathForCompare(localPath)
+               == normalizedPathForCompare(m_sourcePath)) {
+        throw std::runtime_error(
+            "The original source file cannot be overwritten. Please choose a "
+            "different output path.");
+    }
+
     const QByteArray bytes = serialize();
 
     QFile file(localPath);

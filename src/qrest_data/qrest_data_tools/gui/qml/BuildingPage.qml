@@ -6,6 +6,7 @@ Item {
     id: root
 
     required property var viewModel
+    required property var helpRegistry
     property int maxContentWidth: 1020
 
     function indexOfValue(values, value) {
@@ -56,33 +57,25 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "Header"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Header"; fallbackText: "Header" }
                         Label {
                             text: root.viewModel.metadataHeader
                             font.bold: true
                         }
-                        Label {
-                            text: "Version"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Version"; fallbackText: "Version" }
                         Label {
                             text: root.viewModel.metadataVersionText
                             font.bold: true
                         }
 
-                        Label {
-                            text: "Distance Unit"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Units.Distance"; fallbackText: "Distance Unit" }
                         ComboBox {
                             id: distanceUnitBox
                             model: ["m", "mm", "cm"]
                             enabled: root.viewModel.canModify
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "Time Unit"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "Units.Time"; fallbackText: "Time Unit" }
                         ComboBox {
                             id: timeUnitBox
                             model: ["s"]
@@ -110,17 +103,13 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "Project Name"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.ProjectName"; fallbackText: "Project Name" }
                         TextField {
                             id: projectNameField
                             readOnly: !root.viewModel.canModify
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "Structural Type"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralType"; fallbackText: "Structural Type" }
                         ComboBox {
                             id: structuralTypeBox
                             model: ["RC Frame", "Shear Wall", "Steel Frame", "Masonry", "Mixed Structure", "Other"]
@@ -149,9 +138,7 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "Longitude"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.GeoLocation.Longitude"; fallbackText: "Longitude" }
                         TextField {
                             id: longitudeField
                             readOnly: !root.viewModel.canModify
@@ -161,9 +148,7 @@ Item {
                             }
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "Latitude"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.GeoLocation.Latitude"; fallbackText: "Latitude" }
                         TextField {
                             id: latitudeField
                             readOnly: !root.viewModel.canModify
@@ -173,9 +158,7 @@ Item {
                             }
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "NorthAngle"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.GeoLocation.NorthAngle"; fallbackText: "NorthAngle" }
                         TextField {
                             id: northAngleField
                             readOnly: !root.viewModel.canModify
@@ -206,9 +189,7 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "Elevation (" + root.viewModel.distanceUnit + ")"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.Elevation"; fallbackText: "Elevation (" + root.viewModel.distanceUnit + ")" }
                         ScrollView {
                             Layout.columnSpan: 3
                             Layout.fillWidth: true
@@ -221,9 +202,7 @@ Item {
                                 wrapMode: TextArea.Wrap
                             }
                         }
-                        Label {
-                            text: "ElevationNum"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.ElevationNum"; fallbackText: "ElevationNum" }
                         Label {
                             text: root.viewModel.elevationNum
                             font.bold: true
@@ -258,28 +237,21 @@ Item {
                         rowSpacing: 10
                         columnSpacing: 10
 
-                        Label {
-                            text: "Shape"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.Shape"; fallbackText: "Shape" }
                         ComboBox {
                             id: footprintShapeBox
                             model: ["Rectangular", "Circular", "Polygon"]
                             enabled: root.viewModel.canModify
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "Bounding Box"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.BoundingBox"; fallbackText: "Bounding Box" }
                         Label {
                             text: root.viewModel.boundingBoxText
                             font.family: "Consolas"
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Length (" + root.viewModel.distanceUnit + ")"
-                            visible: footprintShapeBox.currentText === "Rectangular"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.Parameters.Length"; fallbackText: "Length (" + root.viewModel.distanceUnit + ")"; visible: footprintShapeBox.currentText === "Rectangular" }
                         TextField {
                             id: footprintLengthField
                             visible: footprintShapeBox.currentText === "Rectangular"
@@ -289,10 +261,7 @@ Item {
                             }
                             Layout.fillWidth: true
                         }
-                        Label {
-                            text: "Width (" + root.viewModel.distanceUnit + ")"
-                            visible: footprintShapeBox.currentText === "Rectangular"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.Parameters.Width"; fallbackText: "Width (" + root.viewModel.distanceUnit + ")"; visible: footprintShapeBox.currentText === "Rectangular" }
                         TextField {
                             id: footprintWidthField
                             visible: footprintShapeBox.currentText === "Rectangular"
@@ -303,10 +272,7 @@ Item {
                             Layout.fillWidth: true
                         }
 
-                        Label {
-                            text: "Radius (" + root.viewModel.distanceUnit + ")"
-                            visible: footprintShapeBox.currentText === "Circular"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.Parameters.Radius"; fallbackText: "Radius (" + root.viewModel.distanceUnit + ")"; visible: footprintShapeBox.currentText === "Circular" }
                         TextField {
                             id: footprintRadiusField
                             visible: footprintShapeBox.currentText === "Circular"
@@ -323,10 +289,7 @@ Item {
                             visible: footprintShapeBox.currentText === "Circular"
                         }
 
-                        Label {
-                            text: "Corners (" + root.viewModel.distanceUnit + ")"
-                            visible: footprintShapeBox.currentText === "Polygon"
-                        }
+                        FieldLabel { helpRegistry: root.helpRegistry; fieldKey: "BuildingInfo.StructuralFootprint.Parameters.Corners"; fallbackText: "Corners (" + root.viewModel.distanceUnit + ")"; visible: footprintShapeBox.currentText === "Polygon" }
                         TextArea {
                             id: polygonCornersField
                             visible: footprintShapeBox.currentText === "Polygon"
