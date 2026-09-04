@@ -26,6 +26,6 @@
         <file>icon/logo.png</file>
         <file>doc/Description.json</file>
         <file>doc/helper.md</file>
-        <file alias="doc/file_format.md">../../../../doc/qREST文件存储格式规范.md</file>
+        <file alias="doc/file_format.md">doc/qrest_data_storage.md</file>
     </qresource>
 </RCC>
