@@ -42,7 +42,9 @@ Important local contracts:
 - `DataTableModel` exposes packet-body samples to `QrestTableView`.
 - `QrestTableView.qml` owns the shared corner/header/body/scrollbar shell for
   binary, channel, data, and validation tables. Prefer extending this component
-  over copying another header/table block into a page.
+  over copying another header/table block into a page. Wheel handling should
+  prefer high-resolution `pixelDelta` and fall back to mouse-wheel
+  `angleDelta`.
 - Packet data is channel-major: `channel * data_point_count + row`.
 - Text imports are interpreted as row-major matrices and converted before
   constructing `qrest_data::DataPacket`.
@@ -61,7 +63,8 @@ sample counts, timestamp/sample-rate derived fields, and data matrix shape.
 The current structured metadata pages split responsibilities as Building
 (format/units/project/geolocation/footprint/elevation), Channels
 (provider/channel table/editor/sensor layout), and Data (DataInfo/import/export
-and packet table). Raw JSON remains an advanced fallback and should normalize
+and packet table). Packet header editing belongs in the Advanced Header /
+Packet Inspector. Raw JSON remains an advanced fallback and should normalize
 fixed and derived fields before applying.
 Geometry data is derived in C++ as 2.5D projected structure edges, sensors,
 directions, axes, and North; `SensorLayoutView.qml` renders and hit-tests that

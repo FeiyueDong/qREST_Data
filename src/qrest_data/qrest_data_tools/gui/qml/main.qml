@@ -48,7 +48,7 @@ ApplicationWindow {
     function refreshChannelFields() { channelsPage.refreshFields(); }
 
     function refreshPacketFields() {
-        dataPage.refreshPacketFields();
+        inspectorDialog.refreshPacketFields();
     }
 
     onClosing: function (close) {
@@ -244,7 +244,7 @@ ApplicationWindow {
             }
             MenuItem {
                 text: qsTr("Header / Packet Inspector...")
-                onTriggered: inspectorDialog.open()
+                onTriggered: inspectorDialog.openWithCurrentPacket()
             }
         }
     }
@@ -383,6 +383,7 @@ ApplicationWindow {
             active: tabBar.currentIndex === 3
             onImportDataRequested: importDataDialog.open()
             onExportDataRequested: exportDataDialog.open()
+            onAdvancedPacketRequested: inspectorDialog.openWithCurrentPacket()
         }
 
         ValidationPage {

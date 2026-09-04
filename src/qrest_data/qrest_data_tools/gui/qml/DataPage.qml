@@ -10,6 +10,7 @@ Item {
 
     signal importDataRequested()
     signal exportDataRequested()
+    signal advancedPacketRequested()
 
     function indexOfValue(values, value) {
         const index = values.indexOf(value);
@@ -21,15 +22,6 @@ Item {
         samplingRateField.text = root.viewModel.samplingRate;
         nptsField.text = root.viewModel.dataNpts;
         correctedBox.currentIndex = indexOfValue(["NULL", "Corrected", "Unknown"], root.viewModel.corrected);
-    }
-
-    function refreshPacketFields() {
-        tfSourceId.text = root.viewModel.packetSourceId;
-        tfSampleRate.text = root.viewModel.packetSamplingRate;
-        tfChannelCount.text = root.viewModel.packetChannelCount;
-        tfDataPointCount.text = root.viewModel.packetDataPointCount;
-        tfTimestamp.text = root.viewModel.packetTimestamp;
-        cbEncoding.currentIndex = [0, 1, 10, 11].indexOf(root.viewModel.packetDataEncodings);
     }
 
     Shortcut {
@@ -46,9 +38,6 @@ Item {
     TimePickerDialog {
         id: timePicker
         viewModel: root.viewModel
-        onPacketTimestampSelected: function (timestampText) {
-            tfTimestamp.text = timestampText;
-        }
     }
 
     ColumnLayout {
@@ -147,124 +136,13 @@ Item {
                         onClicked: root.exportDataRequested()
                     }
                     Button {
+                        text: "Packet Header..."
+                        onClicked: root.advancedPacketRequested()
+                    }
+                    Button {
                         text: "Apply Data Info"
                         enabled: root.viewModel.canModify
                         onClicked: root.viewModel.updateDataInfo(eventNameField.text, parseInt(samplingRateField.text), parseInt(nptsField.text), correctedBox.currentText)
-                    }
-                }
-            }
-        }
-
-        GroupBox {
-            title: "包头信息 (Packet Header)"
-            font.bold: true
-
-            GridLayout {
-                columns: 6
-                rowSpacing: 10
-                columnSpacing: 10
-                anchors.fill: parent
-
-                Label {
-                    text: "数据源 ID:"
-                }
-                TextField {
-                    id: tfSourceId
-                    readOnly: !root.viewModel.canModify
-                    validator: IntValidator {
-                        bottom: 0
-                    }
-                    Layout.fillWidth: true
-                }
-
-                Label {
-                    text: "编码方式:"
-                }
-                ComboBox {
-                    id: cbEncoding
-                    enabled: root.viewModel.canModify
-                    model: ListModel {
-                        ListElement {
-                            text: "Float32 (0)"
-                            value: 0
-                        }
-                        ListElement {
-                            text: "Float64 (1)"
-                            value: 1
-                        }
-                        ListElement {
-                            text: "Int16 (10)"
-                            value: 10
-                        }
-                        ListElement {
-                            text: "Int32 (11)"
-                            value: 11
-                        }
-                    }
-                    textRole: "text"
-                    currentIndex: [0, 1, 10, 11].indexOf(root.viewModel.packetDataEncodings)
-                }
-                Label {
-                    text: "时间戳 (ms):"
-                }
-                RowLayout {
-                    TextField {
-                        id: tfTimestamp
-                        text: root.viewModel.packetTimestamp
-                        readOnly: !root.viewModel.canModify
-                        Layout.fillWidth: true
-                    }
-                    Button {
-                        text: "Set"
-                        enabled: root.viewModel.canModify
-                        onClicked: timePicker.openForPacketHeader(tfTimestamp.text)
-                    }
-                }
-
-                Label {
-                    text: "采样率 (Hz):"
-                }
-                TextField {
-                    id: tfSampleRate
-                    readOnly: !root.viewModel.canModify
-                    validator: IntValidator {
-                        bottom: 1
-                    }
-                    Layout.fillWidth: true
-                }
-
-                Label {
-                    text: "通道数量:"
-                }
-                TextField {
-                    id: tfChannelCount
-                    readOnly: !root.viewModel.canModify
-                    validator: IntValidator {
-                        bottom: 1
-                    }
-                    Layout.fillWidth: true
-                }
-
-                Label {
-                    text: "单通道采样点数:"
-                }
-                TextField {
-                    id: tfDataPointCount
-                    readOnly: !root.viewModel.canModify
-                    validator: IntValidator {
-                        bottom: 1
-                    }
-                    Layout.fillWidth: true
-                }
-
-                Button {
-                    text: "同步应用到全文件"
-                    enabled: root.viewModel.canModify
-                    Layout.columnSpan: 6
-                    Layout.fillWidth: true
-                    highlighted: true
-                    onClicked: {
-                        root.viewModel.updatePacketHeader(parseInt(tfSourceId.text), parseInt(tfSampleRate.text), parseInt(tfChannelCount.text), parseInt(tfDataPointCount.text), cbEncoding.model.get(cbEncoding.currentIndex).value, parseInt(tfTimestamp.text));
                     }
                 }
             }
@@ -302,6 +180,5 @@ Item {
 
     Component.onCompleted: {
         refreshDataFields();
-        refreshPacketFields();
     }
 }

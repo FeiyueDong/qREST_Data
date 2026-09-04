@@ -32,6 +32,17 @@ GridLayout {
         table.positionViewAtRow(row, mode);
     }
 
+    function wheelDelta(wheel, axis) {
+        const pixel = axis === Qt.Horizontal ? wheel.pixelDelta.x : wheel.pixelDelta.y;
+        if (pixel !== 0)
+            return pixel;
+        return axis === Qt.Horizontal ? wheel.angleDelta.x : wheel.angleDelta.y;
+    }
+
+    function clampContent(value, contentSize, viewSize) {
+        return Math.max(0, Math.min(value, Math.max(0, contentSize - viewSize)));
+    }
+
     columns: 2
     rows: 2
 
@@ -203,14 +214,14 @@ GridLayout {
             acceptedButtons: Qt.NoButton
             enabled: root.handleWheel
             onWheel: function (wheel) {
+                const horizontalDelta = root.wheelDelta(wheel, Qt.Horizontal);
+                const verticalDelta = root.wheelDelta(wheel, Qt.Vertical);
                 if (wheel.modifiers & Qt.ShiftModifier) {
-                    const newX = table.contentX - wheel.angleDelta.y;
-                    const maxX = Math.max(0, table.contentWidth - table.width);
-                    table.contentX = Math.max(0, Math.min(newX, maxX));
+                    table.contentX = root.clampContent(table.contentX - verticalDelta, table.contentWidth, table.width);
+                } else if (Math.abs(horizontalDelta) > Math.abs(verticalDelta)) {
+                    table.contentX = root.clampContent(table.contentX - horizontalDelta, table.contentWidth, table.width);
                 } else {
-                    const newY = table.contentY - wheel.angleDelta.y;
-                    const maxY = Math.max(0, table.contentHeight - table.height);
-                    table.contentY = Math.max(0, Math.min(newY, maxY));
+                    table.contentY = root.clampContent(table.contentY - verticalDelta, table.contentHeight, table.height);
                 }
             }
         }

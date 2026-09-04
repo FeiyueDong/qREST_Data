@@ -35,7 +35,9 @@ types instead of being reimplemented in QML.
 - `SensorLayoutView.qml` renders the Channels page sensor layout from C++
   projected geometry data.
 - `QrestTableView.qml` provides the shared corner/header/body/scrollbar table
-  shell used by the binary, channel, data, and validation tables.
+  shell used by the binary, channel, data, and validation tables. It normalizes
+  wheel input by preferring high-resolution `pixelDelta` and falling back to
+  ordinary mouse-wheel `angleDelta`.
 - `icon/logo.png` is bundled into `qml.qrc` and is used as the application
   window icon from `main.cpp`.
 - `qrest_document.h/.cpp` owns the current document state:
@@ -106,10 +108,10 @@ the qREST channel-major packet layout.
   footprint, elevation, channel positions, channel azimuths, axes, and North.
   The layout renderer centers the active footprint in the available canvas and
   uses the same transform for hit-testing and drawing.
-- Data packet tab: exposes DataInfo fields, packet-body import/export, packet
-  header fields, timestamp selection, encoding selection, and packet-body table
-  browsing/copying. Text import checks channel count and asks before replacing
-  an existing NPTS value with the imported row count.
+- Data packet tab: exposes DataInfo fields, packet-body import/export, and
+  packet-body table browsing/copying. Low-level packet header editing is kept
+  in the Advanced Header / Packet Inspector. Text import checks channel count
+  and asks before replacing an existing NPTS value with the imported row count.
 - Validation tab: shows the current validation report, separates errors and
   warnings/info, and is refreshed by the toolbar Validate action. Format/core
   validation is shared with `qrest_data_tools_core`; GUI-only engineering
@@ -121,7 +123,8 @@ the qREST channel-major packet layout.
     scroll area.
   - Binary Viewer shows all current qREST bytes through a row-based table model,
     with offset jump and ASCII/hex search.
-  - Header / Packet Inspector shows low-level file and packet fields.
+  - Header / Packet Inspector shows low-level file fields and edits packet
+    header fields when the document is in a modifiable draft.
 - Packet header updates also synchronize selected metadata fields:
   - `InstrumentInfo.ChannelNum`
   - `DataInfo.NPTS`
