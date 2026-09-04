@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>qml;cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>qrc;rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+    </Filter>
+    <Filter Include="Translation Files">
+      <UniqueIdentifier>{639EADAA-A684-42e4-A9AD-28FC9BCB8F7C}</UniqueIdentifier>
+      <Extensions>ts</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml.qrc">
+      <Filter>Resource Files</Filter>
+    </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\README.md" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BinaryViewerDialog.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ChannelsPage.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataImportMismatchDialog.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataPage.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\main.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\OverviewPage.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\PacketInspectorDialog.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\QrestTableView.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\RawMetadataDialog.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\SensorLayoutView.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\TimePickerDialog.qml">
+      <Filter>Form Files</Filter>
+    </None>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ValidationPage.qml">
+      <Filter>Form Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>

@@ -129,9 +129,9 @@ qrest_data_tools validate mseed <input.mseed>
 qrest_data_tools validate hdf5 <input.h5>
 ```
 
-### 2.2 qREST 可视化工具 (`qrest_data_tools_ui`)
+### 2.2 qREST 可视化工具 (`qrest_data_tools_gui`)
 
-`qrest_data_tools_ui` 提供可视化界面的 qREST 文件解析、元数据查看和数据包体导入导出能力。
+`qrest_data_tools_gui` 提供可视化界面的 qREST 文件解析、元数据查看和数据包体导入导出能力。
 
 ### 2.3 qrest数据接口 (qrest_data)
 

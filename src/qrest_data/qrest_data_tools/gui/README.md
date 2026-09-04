@@ -8,7 +8,7 @@ types instead of being reimplemented in QML.
 
 ## Target
 
-- Xmake target: `qrest_data_tools_ui`
+- Xmake target: `qrest_data_tools_gui`
 - Build file: `xmake.lua`
 - Main dependencies: `qrest_data_lib`, `qrest_data_tools_core`
 - QML resource bundle: `qml.qrc`
@@ -143,13 +143,13 @@ Use the repository's normal Xmake workflow. On Linux, the known global-dir
 workaround is:
 
 ```sh
-env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake build qrest_data_tools_ui
+env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake build qrest_data_tools_gui
 ```
 
 Run with:
 
 ```sh
-env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake run qrest_data_tools_ui
+env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake run qrest_data_tools_gui
 ```
 
 Qt development libraries must be available in the active build environment.

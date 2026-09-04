@@ -7,7 +7,7 @@
 - **添加**:
   1. 增加了若干qREST_Data工具，并撰写了相关使用文档：
      - `qrest_data_tools`：用于生成、读取、验证和转换符合数据存储协议的qrest数据文件，并支持受限 HDF5 转换及 TDMS、modified MiniSEED 导入。
-     - `qrest_data_tools_ui`：用于通过可视化界面读取和解析qrest数据文件，并导出数据内容和元信息，便于验证和使用。
+     - `qrest_data_tools_gui`：用于通过可视化界面读取和解析qrest数据文件，并导出数据内容和元信息，便于验证和使用。
      - `qrest_data`接口：提供了一个C语言接口的动态库，允许其他编程语言调用以解析和生成符合qREST数据协议的字节流.
 - **优化**:
   1. 优化了项目的文件组织结构。

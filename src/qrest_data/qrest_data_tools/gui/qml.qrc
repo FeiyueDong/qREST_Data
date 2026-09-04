@@ -1,5 +1,5 @@
 <RCC>
-    <qresource prefix="/qt/qml/qrest_data_tools_ui">
+    <qresource prefix="/qt/qml/qrest_data_tools_gui">
         <file>qml/main.qml</file>
         <file>qml/BinaryViewerDialog.qml</file>
         <file>qml/ChannelsPage.qml</file>

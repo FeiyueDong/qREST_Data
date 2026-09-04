@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains the qREST data management library and tools. Core C++ sources live in `src/`: `qrest_data_lib` provides the shared C API library, `qrest_data_hdf5` adds HDF5 support, `qrest_data_tools` is the command-line data conversion utility, and `qrest_data_tools_ui` is a Qt Quick app for visual qREST file inspection. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Test targets are kept beside their modules as `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `test_qrest_data_import_formats`. Sample metadata, text data, and `.qrest` files are under `resource/`; external-format parser fixtures are under `resource/dev/data`. Protocol and interface documentation is under `doc/`. The `project/` directory contains generated Visual Studio project files; prefer updating Xmake targets first.
+This repository contains the qREST data management library and tools. Core C++ sources live in `src/`: `qrest_data_lib` provides the shared C API library, `qrest_data_hdf5` adds HDF5 support, `qrest_data_tools` is the command-line data conversion utility, and `qrest_data_tools_gui` is a Qt Quick app for visual qREST file inspection. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Test targets are kept beside their modules as `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `test_qrest_data_import_formats`. Sample metadata, text data, and `.qrest` files are under `resource/`; external-format parser fixtures are under `resource/dev/data`. Protocol and interface documentation is under `doc/`. The `project/` directory contains generated Visual Studio project files; prefer updating Xmake targets first.
 
 ## Build, Test, and Development Commands
 
@@ -24,7 +24,7 @@ Add or update tests when changing serialization, metadata handling, byte layout,
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, link related issues, and include screenshots only for `qrest_data_tools_ui` UI changes.
+Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, link related issues, and include screenshots only for `qrest_data_tools_gui` UI changes.
 
 ## Security & Configuration Tips
 

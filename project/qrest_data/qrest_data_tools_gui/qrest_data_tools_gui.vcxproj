@@ -11,24 +11,42 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.cpp" />
-    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_document.cpp" />
-    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\main.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.cpp" />
+    <ClCompile Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\..\src\qrest_data\qrest_data_tools_ui\main.qml" />
+    <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml.qrc" />
   </ItemGroup>
   <ItemGroup>
-    <QtRcc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qml.qrc" />
+    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_document.h" />
+    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_view_model.h" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BinaryViewerDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ChannelsPage.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataImportMismatchDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataPage.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\main.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\OverviewPage.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\PacketInspectorDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\QrestTableView.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\RawMetadataDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\SensorLayoutView.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\TimePickerDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ValidationPage.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\src\qrest_data\qrest_data_tools_ui\qrest_document.h" />
+    <ProjectReference Include="..\qrest_data_lib\qrest_data_lib.vcxproj">
+      <Project>{0c479a5f-7fdb-4494-9cc3-e23b9cfc1442}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\qrest_data_tools_core\qrest_data_tools_core.vcxproj">
+      <Project>{c8f95597-998d-43e3-b9b7-875e7d1ac75d}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{837E05E8-FB5C-44C1-AC20-42E636B1746E}</ProjectGuid>
+    <ProjectGuid>{90A803FA-ED51-44BE-96A2-E2709B6B55CD}</ProjectGuid>
     <Keyword>QtVS_v304</Keyword>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
@@ -62,7 +80,6 @@
     <QtInstall>6.11.0_msvc2022_64</QtInstall>
     <QtModules>quick</QtModules>
     <QtBuildConfig>release</QtBuildConfig>
-    <QtDeploy>false</QtDeploy>
   </PropertyGroup>
   <Target Name="QtMsBuildNotFound" BeforeTargets="CustomBuild;ClCompile" Condition="!Exists('$(QtMsBuild)\qt.targets') or !Exists('$(QtMsBuild)\qt.props')">
     <Message Importance="High" Text="QtMsBuild: could not locate qt.targets, qt.props; project may not build correctly." />
@@ -84,16 +101,18 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>QT_QML_DEBUG;QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\..\src\qrest_data;</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <PreprocessorDefinitions>QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_UNICODE;UNICODE;QT_NO_DEPRECATED_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
   <PropertyGroup Label="Vcpkg">

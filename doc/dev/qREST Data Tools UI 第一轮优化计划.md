@@ -2,7 +2,7 @@
 
 ## 1. 项目目标
 
-本次修改针对 `qrest_data_tools_ui` 进行较大范围重构。
+本次修改针对 `qrest_data_tools_gui` 进行较大范围重构。
 
 当前程序主要以 qREST 文件内部二进制结构为中心，按照 File Header、Metadata、Data Packet 等部分直接展示文件内容，更接近“qREST 文件格式查看器/调试器”。
 

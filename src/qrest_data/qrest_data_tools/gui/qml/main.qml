@@ -282,7 +282,7 @@ ApplicationWindow {
 
                 ToolButton {
                     text: "New"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/New.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/New.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Create new qREST file"
@@ -290,7 +290,7 @@ ApplicationWindow {
                 }
                 ToolButton {
                     text: "Open"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Open.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/Open.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Open qREST file"
@@ -299,7 +299,7 @@ ApplicationWindow {
                 ToolSeparator {}
                 ToolButton {
                     text: "Edit"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Edit.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/Edit.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Create editable copy"
@@ -308,7 +308,7 @@ ApplicationWindow {
                 }
                 ToolButton {
                     text: "Validate"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Validate.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/Validate.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Validate current document"
@@ -319,7 +319,7 @@ ApplicationWindow {
                 }
                 ToolButton {
                     text: "Save As"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/SaveAs.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/SaveAs.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Save draft as a new file"
@@ -330,7 +330,7 @@ ApplicationWindow {
                 ToolSeparator {}
                 ToolButton {
                     text: "JSON"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/JSON.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/JSON.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Open raw metadata JSON"
@@ -338,7 +338,7 @@ ApplicationWindow {
                 }
                 ToolButton {
                     text: "Binary"
-                    icon.source: "qrc:/qt/qml/qrest_data_tools_ui/icon/Binary.png"
+                    icon.source: "qrc:/qt/qml/qrest_data_tools_gui/icon/Binary.png"
                     display: AbstractButton.TextBesideIcon
                     ToolTip.visible: hovered
                     ToolTip.text: "Open read-only binary viewer"

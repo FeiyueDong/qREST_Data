@@ -11,8 +11,8 @@ int main(int argc, char *argv[]) {
 
     QQmlApplicationEngine engine;
     const QUrl url(QStringLiteral(
-        "qrc:/qt/qml/qrest_data_tools_ui/main.qml")); // 从 Qt 资源文件中加载
-                                                      // QML
+        "qrc:/qt/qml/qrest_data_tools_gui/main.qml")); // 从 Qt 资源文件中加载
+                                                       // QML
 
     QObject::connect(
         &engine,

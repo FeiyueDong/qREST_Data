@@ -3,12 +3,16 @@
         <Platform Name="x64" />
         <Platform Name="x86" />
     </Configurations>
-    <Project Path="project/qrest_data/qrest_data_tools/qrest_data_tools.vcxproj" Id="05f8642c-57a1-47f3-b231-e6b1eed86b53" />
+    <Folder Name="/qrest_data_tools/">
+        <Project Path="project/qrest_data/qrest_data_import_formats/qrest_data_import_formats.vcxproj" Id="f504f4fd-4ceb-49b2-b42e-4cb549dbfd16" />
+        <Project Path="project/qrest_data/qrest_data_tools_cli/qrest_data_tools_cli.vcxproj" Id="0b6467c5-cf15-49ed-b196-17727ba52f48" />
+        <Project Path="project/qrest_data/qrest_data_tools_core/qrest_data_tools_core.vcxproj" Id="c8f95597-998d-43e3-b9b7-875e7d1ac75d" />
+        <Project Path="project/qrest_data/qrest_data_tools_gui/qrest_data_tools_gui.vcxproj" Id="90a803fa-ed51-44be-96a2-e2709b6b55cd">
+            <Platform Project="x64" />
+        </Project>
+    </Folder>
     <Project Path="project/qrest_data/data_struct/data_struct.vcxproj" Id="4928d398-5acf-420e-baea-ce27c7689552">
         <Build Project="false" />
-    </Project>
-    <Project Path="project/qrest_data/qrest_data_tools_ui/qrest_data_tools_ui.vcxproj" Id="837e05e8-fb5c-44c1-ac20-42e636b1746e">
-        <Platform Project="x64" />
     </Project>
     <Project Path="project/qrest_data/qrest_data_lib/qrest_data_lib.vcxproj" Id="0c479a5f-7fdb-4494-9cc3-e23b9cfc1442" />
     <Project Path="project/qrest_data/qrest_data_hdf5/qrest_data_hdf5.vcxproj" Id="83958196-388a-4646-b0d7-2db385637140" />

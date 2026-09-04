@@ -1,4 +1,4 @@
-# qrest_data_tools_ui Agent Notes
+# qrest_data_tools_gui Agent Notes
 
 Scope UI changes for this subproject to this directory whenever possible.
 Prefer updating `main.qml`, `qrest_view_model.h/.cpp`, `qml.qrc`, this
@@ -71,5 +71,5 @@ supports offset jump plus ASCII/hex search and should remain read-only.
 Build the target with:
 
 ```sh
-env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake build qrest_data_tools_ui
+env XMAKE_GLOBALDIR=/tmp/msl_xmake_global xmake build qrest_data_tools_gui
 ```
