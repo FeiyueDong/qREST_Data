@@ -25,11 +25,15 @@
     <QtMoc Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qrest_view_model.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\AddChannelsDialog.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BinaryViewerDialog.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\BuildingPage.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ChannelsPage.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataImportMismatchDialog.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DataPage.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\DocumentViewerDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\ExternalImportDialog.qml" />
+    <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\FieldLabel.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\main.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\OverviewPage.qml" />
     <None Include="..\..\..\src\qrest_data\qrest_data_tools\gui\qml\PacketInspectorDialog.qml" />
