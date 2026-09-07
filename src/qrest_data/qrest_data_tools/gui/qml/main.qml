@@ -54,6 +54,15 @@ ApplicationWindow {
         inspectorDialog.refreshPacketFields();
     }
 
+    function openHelpDocument(title, sourceUrl) {
+        const text = viewModel.readTextResource(sourceUrl);
+        if (text === "") {
+            viewModel.showMessage("无法读取帮助文档: " + sourceUrl, true);
+            return;
+        }
+        documentViewerDialog.openDocument(title, text, sourceUrl);
+    }
+
     onClosing: function (close) {
         if (!window.forceClose && viewModel.isDirty) {
             close.accepted = false;
@@ -170,6 +179,13 @@ ApplicationWindow {
     }
 
     FileDialog {
+        id: addChannelsDialog
+        title: "追加数据通道 (TXT/CSV)"
+        nameFilters: ["Text Files (*.txt *.csv)", "All Files (*.*)"]
+        onAccepted: addChannelsPreviewDialog.openForFile(selectedFile)
+    }
+
+    FileDialog {
         id: exportDataDialog
         title: "导出数据包体 (TXT)"
         fileMode: FileDialog.SaveFile
@@ -222,6 +238,11 @@ ApplicationWindow {
 
     DataImportMismatchDialog {
         id: dataImportMismatchDialog
+        viewModel: viewModel
+    }
+
+    AddChannelsDialog {
+        id: addChannelsPreviewDialog
         viewModel: viewModel
     }
 
@@ -325,9 +346,14 @@ ApplicationWindow {
             Menu {
                 title: qsTr("Import Data Body")
                 MenuItem {
-                    text: qsTr("Text / CSV...")
+                    text: qsTr("Text / CSV Replace...")
                     enabled: viewModel.canModify
                     onTriggered: importDataDialog.open()
+                }
+                MenuItem {
+                    text: qsTr("Text / CSV Add Channels...")
+                    enabled: viewModel.canModify && viewModel.packetDataPointCount > 0
+                    onTriggered: addChannelsDialog.open()
                 }
             }
             Menu {
@@ -399,11 +425,11 @@ ApplicationWindow {
             title: qsTr("帮助 (Help)")
             MenuItem {
                 text: qsTr("User Guide")
-                onTriggered: documentViewerDialog.openDocument("User Guide", window.helpResourceUrl)
+                onTriggered: window.openHelpDocument("User Guide", window.helpResourceUrl)
             }
             MenuItem {
                 text: qsTr("qREST File Format Specification")
-                onTriggered: documentViewerDialog.openDocument("qREST File Format Specification", window.formatSpecResourceUrl)
+                onTriggered: window.openHelpDocument("qREST File Format Specification", window.formatSpecResourceUrl)
             }
             MenuItem {
                 text: qsTr("Project Homepage")
@@ -554,6 +580,7 @@ ApplicationWindow {
             helpRegistry: fieldHelp
             active: tabBar.currentIndex === 3
             onImportDataRequested: importDataDialog.open()
+            onAddChannelsRequested: addChannelsDialog.open()
             onExportDataRequested: exportDataDialog.open()
             onAdvancedPacketRequested: inspectorDialog.openWithCurrentPacket()
         }

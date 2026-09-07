@@ -35,6 +35,43 @@ Item {
         }
     }
 
+    Dialog {
+        id: deleteChannelDataDialog
+        title: "Delete Channel " + root.viewModel.selectedChannelNo + "?"
+        modal: true
+        x: parent ? (parent.width - width) / 2 : 0
+        y: parent ? (parent.height - height) / 2 : 0
+
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 12
+
+            Label {
+                text: "This will also remove all data belonging to this channel (" + root.viewModel.packetDataPointCount + " samples)."
+                wrapMode: Text.Wrap
+                Layout.preferredWidth: 360
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: 8
+
+                Button {
+                    text: "Cancel"
+                    onClicked: deleteChannelDataDialog.close()
+                }
+                Button {
+                    text: "Delete Channel + Data"
+                    highlighted: true
+                    onClicked: {
+                        root.viewModel.deleteSelectedChannelWithData();
+                        deleteChannelDataDialog.close();
+                    }
+                }
+            }
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 15
@@ -68,8 +105,14 @@ Item {
             }
             Button {
                 text: "Delete"
-                enabled: root.viewModel.canEditChannelOrder && root.viewModel.hasSelectedChannel
-                onClicked: root.viewModel.deleteSelectedChannel()
+                enabled: root.viewModel.canModify && root.viewModel.hasSelectedChannel
+                onClicked: {
+                    if (root.viewModel.canEditChannelOrder) {
+                        root.viewModel.deleteSelectedChannel();
+                    } else {
+                        deleteChannelDataDialog.open();
+                    }
+                }
             }
         }
 

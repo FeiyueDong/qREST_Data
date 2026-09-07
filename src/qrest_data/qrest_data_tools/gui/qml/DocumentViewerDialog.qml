@@ -8,19 +8,10 @@ Dialog {
     property string documentTitle: ""
     property string sourceUrl: ""
 
-    function readResource(url) {
-        const request = new XMLHttpRequest();
-        request.open("GET", url, false);
-        request.send();
-        if (request.status === 0 || request.status === 200)
-            return request.responseText;
-        return "Failed to load document: " + url;
-    }
-
-    function openDocument(title, url) {
+    function openDocument(title, text, source) {
         documentTitle = title;
-        sourceUrl = url;
-        viewer.text = readResource(url);
+        sourceUrl = source;
+        viewer.text = text;
         viewer.cursorPosition = 0;
         open();
     }

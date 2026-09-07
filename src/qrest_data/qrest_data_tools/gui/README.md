@@ -32,8 +32,9 @@ types instead of being reimplemented in QML.
   bodies.
 - `RawMetadataDialog.qml`, `BinaryViewerDialog.qml`,
   `PacketInspectorDialog.qml`, `ExternalImportDialog.qml`,
-  `DocumentViewerDialog.qml`, `DataImportMismatchDialog.qml`, and
-  `TimePickerDialog.qml` contain the advanced, help, and workflow dialogs.
+  `AddChannelsDialog.qml`, `DocumentViewerDialog.qml`,
+  `DataImportMismatchDialog.qml`, and `TimePickerDialog.qml` contain the
+  advanced, help, and workflow dialogs.
 - `FieldLabel.qml` renders field labels with hover help loaded by
   `FieldHelpRegistry` from `doc/Description.json`.
 - `SensorLayoutView.qml` renders the Channels page sensor layout with
@@ -121,10 +122,13 @@ the qREST channel-major packet layout.
   packet-body table browsing/copying. Low-level packet header editing is kept
   in the Advanced Header / Packet Inspector. Text import checks channel count
   and asks before replacing an existing NPTS value with the imported row count.
+  Text Add Channels previews compatibility and appends channel-major blocks
+  atomically with default channel metadata.
   External import supports TDMS and modified MiniSEED files/directories plus
   HDF5 files through an asynchronous Options / Preview / Mapping / Apply
   dialog. TDMS and MiniSEED options are translated to the existing Core import
-  option structures. HDF5 export is available from the Data menu.
+  option structures. External imports can replace the dataset or append
+  incoming channels. HDF5 export is available from the Data menu.
 - Validation tab: shows the current validation report, separates errors and
   warnings/info, and is refreshed by the toolbar Validate action. Format/core
   validation is shared with `qrest_data_tools_core`; GUI-only engineering
@@ -147,7 +151,9 @@ the qREST channel-major packet layout.
   - `InstrumentInfo.ChannelNum`
   - `DataInfo.NPTS`
   - `DataInfo.DT`
+  - `DataInfo.Frequency`
   - `DataInfo.StartTime`
+  StartTime writes use an explicit local UTC offset.
 
 ## Near-Term Improvement Points
 

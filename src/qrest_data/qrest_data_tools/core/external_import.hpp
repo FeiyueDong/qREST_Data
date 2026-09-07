@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@ struct ExternalDataset {
     std::size_t channel_count{};
     std::size_t sample_count{};
     double sample_rate_hz{};
+    std::optional<std::uint64_t> start_time_ms;
     std::vector<std::string> channel_labels;
     std::vector<double> channel_sequential_data;
 };

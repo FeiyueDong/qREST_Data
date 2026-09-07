@@ -119,9 +119,16 @@ Dialog {
             Layout.preferredWidth: 100
         }
 
+        Label {
+            text: root.viewModel.localTimeZoneText
+            color: "#667085"
+            Layout.columnSpan: 6
+            Layout.fillWidth: true
+        }
+
         Button {
             text: "设为当前系统时间"
-            Layout.columnSpan: 2
+            Layout.columnSpan: 6
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignCenter
             onClicked: {

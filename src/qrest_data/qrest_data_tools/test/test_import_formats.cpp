@@ -370,6 +370,11 @@ void test_hdf5_bridge() {
     require_equal(metadata.BuildingInfo.ProjectName,
                   qrest.metadata.BuildingInfo.ProjectName,
                   "Imported HDF5 metadata");
+    require_equal(imported.start_time_ms.has_value(), true, "HDF5 start time");
+    require_equal(*imported.start_time_ms,
+                  qrest_data::tools::parse_iso8601_timestamp_ms(
+                      qrest.metadata.DataInfo.StartTime),
+                  "HDF5 start time value");
     std::filesystem::remove(hdf5_path);
 }
 
@@ -421,6 +426,7 @@ void test_external_channel_mapping_decouples_channel_id() {
     dataset.channel_count = 3;
     dataset.sample_count = 2;
     dataset.sample_rate_hz = 100.0;
+    dataset.start_time_ms = 123456789ULL;
     dataset.channel_labels = {"N", "E", "Z"};
     dataset.channel_sequential_data = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0};
 
@@ -450,6 +456,12 @@ void test_external_channel_mapping_decouples_channel_id() {
                  5.0,
                  1e-12,
                  "Mapped third channel first sample");
+    require_equal(mapped.start_time_ms.has_value(),
+                  true,
+                  "Mapped dataset preserves start time presence");
+    require_equal(*mapped.start_time_ms,
+                  123456789ULL,
+                  "Mapped dataset preserves start time");
 
     const auto duplicate_report =
         qrest_data::tools::validate_external_channel_mapping(

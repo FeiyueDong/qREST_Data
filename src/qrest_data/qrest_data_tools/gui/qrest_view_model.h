@@ -205,6 +205,7 @@ class QrestViewModel : public QObject {
     Q_PROPERTY(QString startTime READ startTime NOTIFY metadataUpdated)
     Q_PROPERTY(
         qlonglong startTimestamp READ startTimestamp NOTIFY metadataUpdated)
+    Q_PROPERTY(QString localTimeZoneText READ localTimeZoneText CONSTANT)
     Q_PROPERTY(int samplingRate READ samplingRate NOTIFY metadataUpdated)
     Q_PROPERTY(QString samplingIntervalText READ samplingIntervalText NOTIFY
                    metadataUpdated)
@@ -344,6 +345,7 @@ public:
     QString eventName() const;
     QString startTime() const;
     qlonglong startTimestamp() const;
+    QString localTimeZoneText() const;
     int samplingRate() const;
     QString samplingIntervalText() const;
     int dataNpts() const;
@@ -415,9 +417,11 @@ public:
                                     const QString &corrected);
     Q_INVOKABLE void updateStartTimestamp(qlonglong timestamp);
     Q_INVOKABLE void selectChannel(int row);
+    Q_INVOKABLE QString readTextResource(const QString &url) const;
     Q_INVOKABLE void addChannel();
     Q_INVOKABLE void duplicateSelectedChannel();
     Q_INVOKABLE void deleteSelectedChannel();
+    Q_INVOKABLE void deleteSelectedChannelWithData();
     Q_INVOKABLE void updateSelectedChannel(const QString &channelId,
                                            const QString &deviceType,
                                            const QString &measurand,
@@ -431,6 +435,8 @@ public:
     Q_INVOKABLE void exportMetadata(const QString &fileUrl);
     Q_INVOKABLE void importDataBody(const QString &fileUrl);
     Q_INVOKABLE void confirmImportDataBody(const QString &fileUrl);
+    Q_INVOKABLE QString previewAppendDataBody(const QString &fileUrl);
+    Q_INVOKABLE void appendDataBody(const QString &fileUrl);
     Q_INVOKABLE void exportDataBody(const QString &fileUrl);
     Q_INVOKABLE void exportHdf5Data(const QString &fileUrl);
     Q_INVOKABLE void loadExternalData(const QString &format,
@@ -439,6 +445,8 @@ public:
     Q_INVOKABLE void cancelExternalImport();
     Q_INVOKABLE void clearExternalImport();
     Q_INVOKABLE void applyExternalImport(const QVariantList &targetChannels);
+    Q_INVOKABLE QString externalImportAppendPreview() const;
+    Q_INVOKABLE void appendExternalImport();
     Q_INVOKABLE void copySelectedCells();
     Q_INVOKABLE void selectAllData();
     Q_INVOKABLE void selectColumn(int col);
@@ -478,6 +486,11 @@ private:
 #ifndef Q_MOC_RUN
     void handleExternalImportFinished();
     [[nodiscard]] qrest_data::Metadata metadataForExternalImport() const;
+    [[nodiscard]] QString
+    appendDatasetPreview(const qrest_data::tools::ExternalDataset &dataset)
+        const;
+    void appendDatasetChannels(const qrest_data::tools::ExternalDataset &dataset,
+                               const QString &sourceLabel);
 #endif
 
     DataTableModel *m_tableModel;          // 表格模型实例

@@ -10,6 +10,7 @@ Item {
     property bool active: false
 
     signal importDataRequested()
+    signal addChannelsRequested()
     signal exportDataRequested()
     signal advancedPacketRequested()
 
@@ -116,9 +117,14 @@ Item {
                     spacing: 8
 
                     Button {
-                        text: "Import Data"
+                        text: "Import / Replace Data"
                         enabled: root.viewModel.canModify
                         onClicked: root.importDataRequested()
+                    }
+                    Button {
+                        text: "Add Channels..."
+                        enabled: root.viewModel.canModify && root.viewModel.packetDataPointCount > 0
+                        onClicked: root.addChannelsRequested()
                     }
                     Button {
                         text: "Export Data"

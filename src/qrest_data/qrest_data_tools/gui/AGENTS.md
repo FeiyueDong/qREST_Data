@@ -84,14 +84,18 @@ metadata coordinates.
 Keep future geometry calculations out of ad hoc QML logic when they affect
 interpretation or validation.
 Text data import should reject channel-count mismatches and ask before replacing
-an existing `DataInfo.NPTS` value with an imported row count. Binary viewing
-supports offset jump plus ASCII/hex search and should remain read-only.
+an existing `DataInfo.NPTS` value with an imported row count. Text Add Channels
+must append complete channel-major blocks and create default Channel metadata in
+one `replaceContent` operation. Binary viewing supports offset jump plus
+ASCII/hex search and should remain read-only.
 External import mapping should stay decoupled from `ChannelID`; use
 `ExternalChannelMapping` and qREST ChannelNo/index targets instead of reviving
 the old `X1/Y1/Z1` hard requirement. GUI imports should read external datasets
 asynchronously, pass TDMS/MiniSEED option values through to Core option
-structures, preview source channels, validate one-to-one mappings, and only
-write to the Draft after explicit Apply.
+structures, preview source channels, validate one-to-one mappings for Replace,
+or append incoming channels through the shared Add Channels path. Only write to
+the Draft after explicit Apply. StartTime formatting from the GUI must include
+`Z` or an explicit UTC offset; keep Core validation strict.
 
 Build the target with:
 

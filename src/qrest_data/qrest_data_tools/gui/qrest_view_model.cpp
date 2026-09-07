@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QStringList>
+#include <QTextStream>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QUrl>
 #include <QVariantMap>
@@ -15,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <sstream>
 
@@ -47,6 +49,12 @@ struct ProjectedBounds {
     double maxY{};
 };
 
+struct TextMatrixDataset {
+    int rows{};
+    int cols{};
+    std::vector<double> channelMajorData;
+};
+
 QString formatDouble(double value) { return QString::number(value, 'g', 12); }
 
 QString toLocalPath(const QString &fileUrl) {
@@ -55,6 +63,132 @@ QString toLocalPath(const QString &fileUrl) {
         localPath = fileUrl;
     }
     return localPath;
+}
+
+QString qrcPathFromUrl(const QString &url) {
+    const QUrl parsed(url);
+    if (parsed.scheme() == "qrc") {
+        return ":" + parsed.path();
+    }
+    return url;
+}
+
+QString formatTimestampWithLocalOffset(qint64 timestampMs) {
+    const QDateTime local =
+        QDateTime::fromMSecsSinceEpoch(timestampMs).toLocalTime();
+    const int offsetSeconds = local.offsetFromUtc();
+    const int absSeconds = std::abs(offsetSeconds);
+    const QChar sign = offsetSeconds >= 0 ? QChar('+') : QChar('-');
+    const QString offset =
+        QString("%1%2:%3")
+            .arg(sign)
+            .arg(absSeconds / 3600, 2, 10, QChar('0'))
+            .arg((absSeconds % 3600) / 60, 2, 10, QChar('0'));
+    return local.toString("yyyy-MM-ddTHH:mm:ss.zzz") + offset;
+}
+
+QString localTimeZoneTextForNow() {
+    const QDateTime local = QDateTime::currentDateTime();
+    const int offsetSeconds = local.offsetFromUtc();
+    const int absSeconds = std::abs(offsetSeconds);
+    const QChar sign = offsetSeconds >= 0 ? QChar('+') : QChar('-');
+    return QString("Time Zone: Local System Time (UTC%1%2:%3)")
+        .arg(sign)
+        .arg(absSeconds / 3600, 2, 10, QChar('0'))
+        .arg((absSeconds % 3600) / 60, 2, 10, QChar('0'));
+}
+
+bool sampleRatesMatch(double a, double b) {
+    const double scale = std::max({1.0, std::abs(a), std::abs(b)});
+    return std::abs(a - b) <= 1e-8 * scale;
+}
+
+TextMatrixDataset readTextMatrixDataset(const QString &fileUrl) {
+    const QString localPath = toLocalPath(fileUrl);
+    if (localPath.isEmpty()) {
+        throw std::runtime_error("文本数据路径为空");
+    }
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        throw std::runtime_error(
+            QString("无法打开文本文件: %1")
+                .arg(file.errorString())
+                .toStdString());
+    }
+
+    QTextStream in(&file);
+    QList<QList<double>> matrix;
+    int maxCols = 0;
+    int lineNo = 0;
+
+    while (!in.atEnd()) {
+        ++lineNo;
+        const QString line = in.readLine().trimmed();
+        if (line.isEmpty()) {
+            continue;
+        }
+
+        const QStringList parts =
+            line.split(QRegularExpression("[\\s,\t]+"), Qt::SkipEmptyParts);
+        QList<double> row;
+        row.reserve(parts.size());
+        for (const QString &value : parts) {
+            bool ok = false;
+            const double parsed = value.toDouble(&ok);
+            if (!ok || !std::isfinite(parsed)) {
+                throw std::runtime_error(
+                    QString("第 %1 行包含无法解析的数据: %2")
+                        .arg(lineNo)
+                        .arg(value)
+                        .toStdString());
+            }
+            row.append(parsed);
+        }
+
+        if (maxCols == 0) {
+            maxCols = row.size();
+        }
+        if (row.size() != maxCols) {
+            throw std::runtime_error(
+                QString("第 %1 行列数为 %2，与首个数据行列数 %3 不一致")
+                    .arg(lineNo)
+                    .arg(row.size())
+                    .arg(maxCols)
+                    .toStdString());
+        }
+        matrix.append(row);
+    }
+
+    if (matrix.isEmpty()) {
+        throw std::runtime_error("文件内容为空");
+    }
+
+    TextMatrixDataset dataset;
+    dataset.rows = matrix.size();
+    dataset.cols = maxCols;
+    dataset.channelMajorData.reserve(
+        static_cast<std::size_t>(dataset.rows) * dataset.cols);
+    for (int c = 0; c < dataset.cols; ++c) {
+        for (int r = 0; r < dataset.rows; ++r) {
+            dataset.channelMajorData.push_back(matrix[r][c]);
+        }
+    }
+    return dataset;
+}
+
+qrest_data::tools::ExternalDataset
+externalDatasetFromTextMatrix(const TextMatrixDataset &matrix) {
+    qrest_data::tools::ExternalDataset dataset;
+    dataset.source_format = "text";
+    dataset.channel_count = static_cast<std::size_t>(matrix.cols);
+    dataset.sample_count = static_cast<std::size_t>(matrix.rows);
+    dataset.channel_sequential_data = matrix.channelMajorData;
+    dataset.channel_labels.reserve(static_cast<std::size_t>(matrix.cols));
+    for (int i = 0; i < matrix.cols; ++i) {
+        dataset.channel_labels.push_back("Column " + std::to_string(i + 1));
+    }
+    return dataset;
 }
 
 QString optionString(const QVariantMap &options,
@@ -354,6 +488,77 @@ int samplingRateFromMetadata(const qrest_data::Metadata &metadata) {
         return static_cast<int>(1.0 / metadata.DataInfo.DT + 0.5);
     }
     return 0;
+}
+
+int packetOrMetadataSamplingRate(const qrest_data::Metadata &metadata,
+                                 const qrest_data::DataPacket &packet) {
+    const int packetRate = packet.get_sampling_rate();
+    return packetRate > 0 ? packetRate : samplingRateFromMetadata(metadata);
+}
+
+QStringList appendCompatibilityErrors(
+    const qrest_data::Metadata &metadata,
+    const qrest_data::DataPacket &packet,
+    const qrest_data::tools::ExternalDataset &dataset) {
+    QStringList errors;
+    const auto existingChannels =
+        static_cast<std::size_t>(packet.get_channel_count());
+    const auto existingSamples =
+        static_cast<std::size_t>(packet.get_data_point_count());
+    const auto expectedExisting = existingChannels * existingSamples;
+    const auto incomingExpected = dataset.channel_count * dataset.sample_count;
+
+    if (existingChannels == 0 || existingSamples == 0
+        || packet.get_data().empty()) {
+        errors.append("当前文档没有可追加的已有数据，请使用 Import Data 替换导入");
+    }
+    if (packet.get_data().size() != expectedExisting) {
+        errors.append("当前 Packet 数据长度与通道数/NPTS 不一致");
+    }
+    if (metadata.InstrumentInfo.Channels.size() != existingChannels) {
+        errors.append("当前 Metadata Channels 与 Packet 通道数不一致");
+    }
+    if (dataset.channel_count == 0 || dataset.sample_count == 0) {
+        errors.append("待追加数据没有有效通道或采样点");
+    }
+    if (dataset.channel_sequential_data.size() != incomingExpected) {
+        errors.append("待追加数据长度与通道数/NPTS 不一致");
+    }
+    if (dataset.sample_count != existingSamples) {
+        errors.append(QString("NPTS 不一致: incoming %1, existing %2")
+                          .arg(dataset.sample_count)
+                          .arg(existingSamples));
+    }
+
+    const int existingRate = packetOrMetadataSamplingRate(metadata, packet);
+    if (dataset.sample_rate_hz > 0.0 && existingRate > 0
+        && !sampleRatesMatch(dataset.sample_rate_hz,
+                             static_cast<double>(existingRate))) {
+        errors.append(QString("采样率不一致: incoming %1 Hz, existing %2 Hz")
+                          .arg(formatDouble(dataset.sample_rate_hz))
+                          .arg(existingRate));
+    }
+
+    const std::uint64_t packetTimestamp = packet.get_timestamp();
+    if (dataset.start_time_ms.has_value() && packetTimestamp > 0) {
+        const std::uint64_t incoming = *dataset.start_time_ms;
+        const std::uint64_t delta =
+            incoming > packetTimestamp ? incoming - packetTimestamp
+                                       : packetTimestamp - incoming;
+        if (delta > 1) {
+            errors.append(QString("StartTime 不一致: incoming %1 ms, existing "
+                                  "%2 ms")
+                              .arg(incoming)
+                              .arg(packetTimestamp));
+        }
+    }
+
+    const std::size_t resultChannels = existingChannels + dataset.channel_count;
+    if (resultChannels
+        > std::numeric_limits<std::uint16_t>::max()) {
+        errors.append("追加后通道数超过 Packet Header 可表示范围");
+    }
+    return errors;
 }
 
 double normalizedAzimuth(double azimuth) {
@@ -1141,6 +1346,10 @@ qlonglong QrestViewModel::startTimestamp() const {
         return parsed.toMSecsSinceEpoch();
     }
     return static_cast<qlonglong>(m_document.dataPacket().get_timestamp());
+}
+
+QString QrestViewModel::localTimeZoneText() const {
+    return localTimeZoneTextForNow();
 }
 
 int QrestViewModel::samplingRate() const {
@@ -1995,9 +2204,8 @@ void QrestViewModel::updateStartTimestamp(qlonglong timestamp) {
     try {
         qrest_data::Metadata metadata = m_document.metadata();
         qrest_data::DataPacket packet = m_document.dataPacket();
-        metadata.DataInfo.StartTime = QDateTime::fromMSecsSinceEpoch(timestamp)
-                                          .toString(Qt::ISODateWithMs)
-                                          .toStdString();
+        metadata.DataInfo.StartTime =
+            formatTimestampWithLocalOffset(timestamp).toStdString();
         packet = qrest_data::DataPacket(packet.get_source_id(),
                                         packet.get_channel_count(),
                                         packet.get_data_encodings(),
@@ -2016,6 +2224,19 @@ void QrestViewModel::updateStartTimestamp(qlonglong timestamp) {
 }
 
 void QrestViewModel::selectChannel(int row) { setSelectedChannelRow(row); }
+
+QString QrestViewModel::readTextResource(const QString &url) const {
+    const QString resourcePath = qrcPathFromUrl(url);
+    QFile file(resourcePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QString();
+    }
+    QString text = QString::fromUtf8(file.readAll());
+    if (text.isEmpty()) {
+        text = "\n";
+    }
+    return text;
+}
 
 void QrestViewModel::addChannel() {
     if (!canModify()) {
@@ -2114,6 +2335,95 @@ void QrestViewModel::deleteSelectedChannel() {
         emit showMessage("已删除通道");
     } catch (const std::exception &e) {
         emit showMessage(QString("删除通道失败: %1").arg(e.what()), true);
+    }
+}
+
+void QrestViewModel::deleteSelectedChannelWithData() {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+    if (!hasSelectedChannel()) {
+        emit showMessage("请先选择一个通道", true);
+        return;
+    }
+    if (m_document.dataPacket().get_data().empty()) {
+        deleteSelectedChannel();
+        return;
+    }
+
+    try {
+        const int deletedRow = m_selectedChannelRow;
+        qrest_data::Metadata metadata = m_document.metadata();
+        qrest_data::DataPacket packet = m_document.dataPacket();
+
+        const auto channelCount =
+            static_cast<std::size_t>(packet.get_channel_count());
+        const auto sampleCount =
+            static_cast<std::size_t>(packet.get_data_point_count());
+        if (metadata.InstrumentInfo.Channels.size() != channelCount) {
+            emit showMessage("无法删除：Metadata Channels 与 Packet 通道数不一致",
+                             true);
+            return;
+        }
+        if (static_cast<std::size_t>(deletedRow) >= channelCount) {
+            emit showMessage("无法删除：选中通道超出 Packet 范围", true);
+            return;
+        }
+        if (packet.get_data().size() != channelCount * sampleCount) {
+            emit showMessage("无法删除：Packet 数据长度与通道数/NPTS 不一致",
+                             true);
+            return;
+        }
+
+        std::vector<double> newData;
+        newData.reserve((channelCount - 1) * sampleCount);
+        for (std::size_t channel = 0; channel < channelCount; ++channel) {
+            if (channel == static_cast<std::size_t>(deletedRow)) {
+                continue;
+            }
+            const auto offset = channel * sampleCount;
+            newData.insert(newData.end(),
+                           packet.get_data().begin()
+                               + static_cast<std::ptrdiff_t>(offset),
+                           packet.get_data().begin()
+                               + static_cast<std::ptrdiff_t>(offset
+                                                             + sampleCount));
+        }
+
+        auto &channels = metadata.InstrumentInfo.Channels;
+        channels.erase(channels.begin() + deletedRow);
+        renumberChannels(metadata);
+        const auto newChannelCount =
+            static_cast<std::uint16_t>(channels.size());
+        const auto newSampleCount = newChannelCount == 0
+                                        ? std::uint32_t{0}
+                                        : packet.get_data_point_count();
+        metadata.DataInfo.NPTS = static_cast<int>(newSampleCount);
+        metadata.InstrumentInfo.ChannelNum = newChannelCount;
+
+        qrest_data::DataPacket newPacket(packet.get_source_id(),
+                                         newChannelCount,
+                                         packet.get_data_encodings(),
+                                         packet.get_sampling_rate(),
+                                         newSampleCount,
+                                         packet.get_timestamp(),
+                                         newData);
+
+        m_document.replaceContent(metadata, newPacket);
+        m_tableModel->loadData(&m_document.dataPacket());
+        emitAllDocumentSignals();
+        if (channels.empty()) {
+            setSelectedChannelRow(-1);
+        } else {
+            setSelectedChannelRow(std::min(
+                deletedRow, static_cast<int>(channels.size()) - 1));
+        }
+        emit showMessage(QString("已删除通道 %1 及其 %2 个数据点")
+                             .arg(deletedRow + 1)
+                             .arg(sampleCount));
+    } catch (const std::exception &e) {
+        emit showMessage(QString("删除通道数据失败: %1").arg(e.what()), true);
     }
 }
 
@@ -2308,11 +2618,12 @@ void QrestViewModel::updatePacketHeader(int sourceId,
         qrest_data::Metadata metadata = m_document.metadata();
         metadata.InstrumentInfo.ChannelNum = channelCount;
         metadata.DataInfo.NPTS = dataPointCount;
-        if (sampleRate > 0)
+        if (sampleRate > 0) {
             metadata.DataInfo.DT = 1.0 / sampleRate;
-        metadata.DataInfo.StartTime = QDateTime::fromMSecsSinceEpoch(timestamp)
-                                          .toString(Qt::ISODateWithMs)
-                                          .toStdString();
+            metadata.DataInfo.Frequency = sampleRate;
+        }
+        metadata.DataInfo.StartTime =
+            formatTimestampWithLocalOffset(timestamp).toStdString();
 
         m_document.replaceContent(metadata, dataPacket);
         m_tableModel->loadData(&m_document.dataPacket());
@@ -2389,81 +2700,20 @@ void QrestViewModel::importDataBodyInternal(const QString &fileUrl,
         return;
     }
 
-    QString localPath = QUrl(fileUrl).toLocalFile();
-    if (localPath.isEmpty())
-        localPath = fileUrl;
-
-    QFile file(localPath);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        emit showMessage("无法打开文本文件", true);
+    TextMatrixDataset matrix;
+    try {
+        matrix = readTextMatrixDataset(fileUrl);
+    } catch (const std::exception &e) {
+        emit showMessage(QString("导入失败: %1").arg(e.what()), true);
         return;
     }
 
-    QTextStream in(&file);
-    QList<QList<double>> matrix; // 临时存储：[行][列]
-    int maxCols = 0;
-    int lineNo = 0;
-
-    // 1. 读取文本数据 (假设空格、制表符或逗号分隔)
-    while (!in.atEnd()) {
-        ++lineNo;
-        QString line = in.readLine().trimmed();
-        if (line.isEmpty())
-            continue;
-
-        // 分割字符串并转为 double
-        QStringList parts =
-            line.split(QRegularExpression("[\\s,\t]+"), Qt::SkipEmptyParts);
-        QList<double> row;
-        for (const QString &val : parts) {
-            bool ok = false;
-            const double parsed = val.toDouble(&ok);
-            if (!ok || !std::isfinite(parsed)) {
-                emit showMessage(QString("第 %1 行包含无法解析的数据: %2")
-                                     .arg(lineNo)
-                                     .arg(val),
-                                 true);
-                return;
-            }
-            row.append(parsed);
-        }
-
-        if (maxCols == 0)
-            maxCols = row.size();
-        if (row.size() != maxCols) {
-            emit showMessage(
-                QString("第 %1 行列数为 %2，与首个数据行列数 %3 不一致")
-                    .arg(lineNo)
-                    .arg(row.size())
-                    .arg(maxCols),
-                true);
-            return;
-        }
-        matrix.append(row);
-    }
-    file.close();
-
-    if (matrix.isEmpty()) {
-        emit showMessage("文件内容为空", true);
-        return;
-    }
-
-    // 2. 转换数据排布 (从 [行][列] 转为 qREST 要求的 [列][行])
-    int rows = matrix.size();
-    int cols = maxCols;
+    const int rows = matrix.rows;
+    const int cols = matrix.cols;
     const int configuredNpts = m_document.metadata().DataInfo.NPTS;
     if (!acceptNptsChange && configuredNpts > 0 && configuredNpts != rows) {
         emit confirmDataImportNptsMismatch(fileUrl, configuredNpts, rows, cols);
         return;
-    }
-
-    std::vector<double> flattenedData;
-    flattenedData.reserve(rows * cols);
-
-    for (int c = 0; c < cols; ++c) {
-        for (int r = 0; r < rows; ++r) {
-            flattenedData.push_back(matrix[r][c]);
-        }
     }
 
     // 3. 更新 DataPacket 对象
@@ -2476,7 +2726,7 @@ void QrestViewModel::importDataBodyInternal(const QString &fileUrl,
                                    m_document.dataPacket().get_sampling_rate(),
                                    static_cast<uint32_t>(rows),
                                    m_document.dataPacket().get_timestamp(),
-                                   flattenedData);
+                                   matrix.channelMajorData);
 
         // 刷新模型和文件头
         qrest_data::Metadata metadata = m_document.metadata();
@@ -2505,6 +2755,141 @@ void QrestViewModel::importDataBodyInternal(const QString &fileUrl,
             QString("数据包体导入成功: %1 行, %2 通道").arg(rows).arg(cols));
     } catch (const std::exception &e) {
         emit showMessage(QString("导入失败: %1").arg(e.what()), true);
+    }
+}
+
+QString QrestViewModel::appendDatasetPreview(
+    const qrest_data::tools::ExternalDataset &dataset) const {
+    const qrest_data::Metadata &metadata = m_document.metadata();
+    const qrest_data::DataPacket &packet = m_document.dataPacket();
+    const auto errors = appendCompatibilityErrors(metadata, packet, dataset);
+    const auto existingChannels = packet.get_channel_count();
+    const auto existingSamples = packet.get_data_point_count();
+    const int existingRate = packetOrMetadataSamplingRate(metadata, packet);
+
+    QStringList lines;
+    lines << "Current Dataset";
+    lines << QString("Channels:      %1").arg(existingChannels);
+    lines << QString("Samples:       %1").arg(existingSamples);
+    lines << QString("Sampling Rate: %1 Hz")
+                 .arg(existingRate > 0 ? QString::number(existingRate) : "-");
+    lines << "";
+    lines << "Incoming Data";
+    lines << QString("Channels:      %1").arg(dataset.channel_count);
+    lines << QString("Samples:       %1").arg(dataset.sample_count);
+    lines << QString("Sampling Rate: %1")
+                 .arg(dataset.sample_rate_hz > 0.0
+                          ? formatDouble(dataset.sample_rate_hz) + " Hz"
+                          : "-");
+    lines << QString("StartTime:     %1")
+                 .arg(dataset.start_time_ms.has_value()
+                          ? QString::number(*dataset.start_time_ms) + " ms"
+                          : "-");
+    lines << "";
+    lines << "Result";
+    lines << QString("Channels:      %1")
+                 .arg(static_cast<std::size_t>(existingChannels)
+                      + dataset.channel_count);
+    lines << "";
+    if (errors.isEmpty()) {
+        lines << "Compatibility: OK";
+    } else {
+        lines << "Compatibility: Error";
+        for (const QString &error : errors) {
+            lines << "  - " + error;
+        }
+    }
+    return lines.join('\n');
+}
+
+void QrestViewModel::appendDatasetChannels(
+    const qrest_data::tools::ExternalDataset &dataset,
+    const QString &sourceLabel) {
+    const auto errors =
+        appendCompatibilityErrors(m_document.metadata(),
+                                  m_document.dataPacket(),
+                                  dataset);
+    if (!errors.isEmpty()) {
+        emit showMessage("追加数据不兼容: " + errors.join("; "), true);
+        return;
+    }
+
+    qrest_data::Metadata metadata = m_document.metadata();
+    const qrest_data::DataPacket packet = m_document.dataPacket();
+    const auto oldChannelCount =
+        static_cast<std::size_t>(packet.get_channel_count());
+    const auto sampleCount =
+        static_cast<std::size_t>(packet.get_data_point_count());
+    const auto newChannelCount = oldChannelCount + dataset.channel_count;
+
+    std::vector<double> newData = packet.get_data();
+    newData.insert(newData.end(),
+                   dataset.channel_sequential_data.begin(),
+                   dataset.channel_sequential_data.end());
+
+    auto &channels = metadata.InstrumentInfo.Channels;
+    const ChannelDefaults defaults = channelDefaultsFromMetadata(metadata);
+    channels.reserve(newChannelCount);
+    for (std::size_t i = 0; i < dataset.channel_count; ++i) {
+        channels.push_back(makeDefaultChannel(
+            static_cast<int>(oldChannelCount + i + 1), defaults));
+    }
+    renumberChannels(metadata);
+    metadata.InstrumentInfo.ChannelNum = static_cast<int>(newChannelCount);
+    metadata.DataInfo.NPTS = static_cast<int>(sampleCount);
+    if (packet.get_sampling_rate() > 0) {
+        metadata.DataInfo.DT =
+            1.0 / static_cast<double>(packet.get_sampling_rate());
+        metadata.DataInfo.Frequency = packet.get_sampling_rate();
+    }
+    if (metadata.DataInfo.StartTime.empty() && packet.get_timestamp() > 0) {
+        metadata.DataInfo.StartTime =
+            formatTimestampWithLocalOffset(
+                static_cast<qint64>(packet.get_timestamp()))
+                .toStdString();
+    }
+
+    qrest_data::DataPacket newPacket(
+        packet.get_source_id(),
+        static_cast<std::uint16_t>(newChannelCount),
+        packet.get_data_encodings(),
+        packet.get_sampling_rate(),
+        packet.get_data_point_count(),
+        packet.get_timestamp(),
+        newData);
+
+    m_document.replaceContent(metadata, newPacket);
+    m_tableModel->loadData(&m_document.dataPacket());
+    emitAllDocumentSignals();
+    setSelectedChannelRow(static_cast<int>(oldChannelCount));
+    emit showMessage(QString("已从 %1 添加 %2 个数据通道并创建默认 Channel 信息。"
+                             "请前往 Channels 页面检查 ChannelID、Azimuth 和 "
+                             "LocationXYZ。")
+                         .arg(sourceLabel)
+                         .arg(dataset.channel_count));
+}
+
+QString QrestViewModel::previewAppendDataBody(const QString &fileUrl) {
+    try {
+        const TextMatrixDataset matrix = readTextMatrixDataset(fileUrl);
+        return appendDatasetPreview(externalDatasetFromTextMatrix(matrix));
+    } catch (const std::exception &e) {
+        emit showMessage(QString("追加预览失败: %1").arg(e.what()), true);
+        return QString("Failed to preview append data: %1").arg(e.what());
+    }
+}
+
+void QrestViewModel::appendDataBody(const QString &fileUrl) {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+
+    try {
+        const TextMatrixDataset matrix = readTextMatrixDataset(fileUrl);
+        appendDatasetChannels(externalDatasetFromTextMatrix(matrix), "Text/CSV");
+    } catch (const std::exception &e) {
+        emit showMessage(QString("追加数据失败: %1").arg(e.what()), true);
     }
 }
 
@@ -2685,6 +3070,32 @@ void QrestViewModel::applyExternalImport(const QVariantList &targetChannels) {
                              .arg(mapped.sample_count));
     } catch (const std::exception &e) {
         emit showMessage(QString("外部数据导入失败: %1").arg(e.what()), true);
+    }
+}
+
+QString QrestViewModel::externalImportAppendPreview() const {
+    if (!m_externalImportReady) {
+        return m_externalImportStatus;
+    }
+    return appendDatasetPreview(m_externalDataset);
+}
+
+void QrestViewModel::appendExternalImport() {
+    if (!canModify()) {
+        emit showMessage("当前文件为只读，请先点击 Edit 创建编辑副本", true);
+        return;
+    }
+    if (!m_externalImportReady) {
+        emit showMessage("没有可追加的外部数据", true);
+        return;
+    }
+
+    try {
+        appendDatasetChannels(m_externalDataset,
+                              QString::fromStdString(
+                                  m_externalDataset.source_format));
+    } catch (const std::exception &e) {
+        emit showMessage(QString("追加外部数据失败: %1").arg(e.what()), true);
     }
 }
 

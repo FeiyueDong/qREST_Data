@@ -10,12 +10,15 @@ Dialog {
     required property var viewModel
     property string importFormat: ""
     property url importUrl: ""
+    property string importMode: "replace"
     property var selectedTargets: []
     property bool advancedOpen: false
 
     function openForImport(format, url) {
         importFormat = format;
         importUrl = url;
+        importMode = "replace";
+        importModeBox.currentIndex = 0;
         selectedTargets = [];
         advancedOpen = false;
         root.viewModel.clearExternalImport();
@@ -68,6 +71,11 @@ Dialog {
     }
 
     function applyMapping() {
+        if (importMode === "append") {
+            root.viewModel.appendExternalImport();
+            return;
+        }
+
         const targets = selectedTargets.slice(0, sourceRepeater.count);
         const used = {};
         for (let i = 0; i < sourceRepeater.count; ++i) {
@@ -132,6 +140,30 @@ Dialog {
             Label {
                 text: root.viewModel.externalImportSampleRate > 0 ? root.viewModel.externalImportSampleRate.toFixed(6).replace(/\.?0+$/, "") + " Hz" : "-"
                 font.bold: true
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 10
+
+            Label { text: "Mode" }
+            ComboBox {
+                id: importModeBox
+                textRole: "text"
+                valueRole: "value"
+                model: [
+                    { text: "Replace Dataset", value: "replace" },
+                    { text: "Append Channels", value: "append" }
+                ]
+                enabled: !root.viewModel.externalImportLoading
+                onCurrentValueChanged: root.importMode = currentValue
+            }
+            Label {
+                text: root.importMode === "append" ? "Incoming channels will be added as new qREST channels." : "Incoming channels must be mapped to existing qREST channels."
+                color: "#667085"
+                elide: Text.ElideRight
+                Layout.fillWidth: true
             }
         }
 
@@ -278,6 +310,7 @@ Dialog {
 
         GroupBox {
             title: "Channel Mapping"
+            visible: root.importMode === "replace"
             Layout.fillWidth: true
             Layout.fillHeight: true
 
@@ -345,7 +378,7 @@ Dialog {
         }
 
         TextArea {
-            text: root.viewModel.externalImportStatus
+            text: root.importMode === "append" ? root.viewModel.externalImportAppendPreview() : root.viewModel.externalImportStatus
             readOnly: true
             wrapMode: TextArea.Wrap
             Layout.fillWidth: true
@@ -372,8 +405,8 @@ Dialog {
                 onClicked: root.close()
             }
             Button {
-                text: "Apply To Draft"
-                enabled: root.viewModel.externalImportReady && !root.viewModel.externalImportLoading && root.viewModel.externalImportTargetChannels.length === root.viewModel.externalImportChannelCount
+                text: root.importMode === "append" ? "Add Channels To Draft" : "Apply To Draft"
+                enabled: root.viewModel.externalImportReady && !root.viewModel.externalImportLoading && (root.importMode === "append" || root.viewModel.externalImportTargetChannels.length === root.viewModel.externalImportChannelCount)
                 highlighted: true
                 onClicked: root.applyMapping()
             }

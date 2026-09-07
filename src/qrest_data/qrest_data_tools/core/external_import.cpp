@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 #include <limits>
@@ -66,6 +67,53 @@ void add_warning(ValidationReport &report, std::string message) {
 bool almost_equal(double a, double b, double rel = 1e-8) {
     const double scale = std::max({1.0, std::abs(a), std::abs(b)});
     return std::abs(a - b) <= rel * scale;
+}
+
+std::uint64_t tdms_start_time_ms(const tdms::Timestamp &timestamp) {
+    const long double ms =
+        tdms::timestamp_unix_seconds(timestamp) * 1000.0L;
+    if (ms < 0.0L) {
+        throw std::runtime_error("TDMS start timestamp is before Unix epoch");
+    }
+    return static_cast<std::uint64_t>(std::llround(ms));
+}
+
+std::uint64_t mseed_start_time_ms(const mseed::BTime &time) {
+    using namespace std::chrono;
+    const year_month_day first_day{
+        year{static_cast<int>(time.year)} / January / 1};
+    if (!first_day.ok() || time.day_of_year == 0) {
+        throw std::runtime_error("MiniSEED start timestamp is invalid");
+    }
+    const sys_days day =
+        sys_days{first_day} + days{static_cast<int>(time.day_of_year) - 1};
+    const year_month_day actual_day{day};
+    if (!actual_day.ok()
+        || actual_day.year() != year{static_cast<int>(time.year)}) {
+        throw std::runtime_error("MiniSEED start timestamp day is invalid");
+    }
+    const auto timestamp =
+        time_point_cast<milliseconds>(day + hours{time.hour}
+                                      + minutes{time.minute}
+                                      + seconds{time.second})
+        + milliseconds{time.fraction_0001s / 10};
+    return static_cast<std::uint64_t>(
+        timestamp.time_since_epoch().count());
+}
+
+std::optional<std::uint64_t>
+consistent_start_time(const std::vector<ExternalDataset> &datasets) {
+    if (datasets.empty() || !datasets.front().start_time_ms.has_value()) {
+        return std::nullopt;
+    }
+    const std::uint64_t first = *datasets.front().start_time_ms;
+    for (const auto &dataset : datasets) {
+        if (!dataset.start_time_ms.has_value()
+            || *dataset.start_time_ms != first) {
+            return std::nullopt;
+        }
+    }
+    return first;
 }
 
 double metadata_sample_rate_hz(const Metadata &metadata) {
@@ -196,6 +244,7 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
     merged.channel_count = channel_count;
     merged.sample_count = sample_count;
     merged.sample_rate_hz = sample_rate_hz;
+    merged.start_time_ms = consistent_start_time(datasets);
     merged.channel_labels.reserve(channel_count);
     merged.channel_sequential_data.assign(
         checked_value_count(channel_count, sample_count), 0.0);
@@ -297,6 +346,9 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
     result.channel_count = 3;
     result.sample_count = samples;
     result.sample_rate_hz = dataset.sample_rate_hz;
+    if (!dataset.timestamps.empty()) {
+        result.start_time_ms = tdms_start_time_ms(dataset.timestamps.front());
+    }
     result.channel_labels = {"N", "E", "Z"};
     result.channel_sequential_data.reserve(samples * result.channel_count);
 
@@ -372,6 +424,7 @@ ExternalDataset load_mseed_dataset(const std::string &input_path,
     result.channel_count = order.size();
     result.sample_count = group.sample_count();
     result.sample_rate_hz = group.sample_rate_hz;
+    result.start_time_ms = mseed_start_time_ms(group.start_time);
     result.channel_labels.reserve(order.size());
     result.channel_sequential_data.reserve(result.channel_count
                                            * result.sample_count);
@@ -427,6 +480,12 @@ ExternalDataset load_hdf5_dataset(const std::string &input_path,
     result.channel_count = reader.get_channel_num();
     result.sample_count = reader.get_npts();
     result.sample_rate_hz = metadata_sample_rate_hz(file_metadata);
+    try {
+        result.start_time_ms =
+            parse_iso8601_timestamp_ms(file_metadata.DataInfo.StartTime);
+    } catch (const std::exception &) {
+        result.start_time_ms.reset();
+    }
     result.channel_labels = metadata_channel_labels(file_metadata);
     result.channel_sequential_data = reader.read_accform();
 
@@ -586,6 +645,7 @@ ExternalDataset apply_external_channel_mapping(
         static_cast<std::size_t>(metadata.InstrumentInfo.ChannelNum);
     mapped.sample_count = dataset.sample_count;
     mapped.sample_rate_hz = dataset.sample_rate_hz;
+    mapped.start_time_ms = dataset.start_time_ms;
     mapped.channel_labels = metadata_channel_labels(metadata);
     mapped.channel_sequential_data.assign(
         checked_value_count(mapped.channel_count, mapped.sample_count), 0.0);
