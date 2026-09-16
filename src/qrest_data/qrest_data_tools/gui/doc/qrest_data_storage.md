@@ -15,7 +15,18 @@ qREST文件存储格式规范是一种专门为建筑结构轻量化地震监测
 
 三部分的结构如下图所示：
 
-![文件结构示意图](./svg/文件结构.svg)
+```mermaid
+block-beta
+    columns 1
+
+    FH["Part 0: File Header (文件头, 16字节)"]
+    P1["Part 1: Metadata (元数据部分, JSON字符串格式)"]
+    P2["Part 2: Data Packet (数据包部分)"]
+
+    style FH fill:#ffcccc,stroke:#cc0000,color:#000
+    style P1 fill:#ccffcc,stroke:#666
+    style P2 fill:#ccccff,stroke:#666
+```
 
 ## 1.基本约定
 
@@ -79,7 +90,63 @@ typedef struct {
 
 元数据字段的整体结构如下图所示。
 
-![元数据结构示意图](./svg/元数据结构.svg)
+```mermaid
+flowchart LR
+    %% 根节点
+    Root["qREST_DATA (元数据根节点)"]
+
+    %% 第一层级：四大主要模块
+    Root --> BaseInfo["基础属性"]
+    Root --> Build["BuildingInfo (建筑信息)"]
+    Root --> Inst["InstrumentInfo (监测设备信息)"]
+    Root --> Data["DataInfo (数据信息)"]
+
+    %% 基础属性展开
+    BaseInfo --> Header["Header"]
+    BaseInfo --> Version["Version [数组]"]
+    BaseInfo --> Units["Units [数组]"]
+
+    %% 建筑信息展开
+    Build --> PName["ProjectName"]
+    Build --> SType["StructuralType"]
+    Build --> ENum["ElevationNum"]
+    Build --> Elev["Elevation [楼层高度数组]"]
+    Build --> Geo["GeoLocation (地理位置)"]
+
+    %% 地理位置展开
+    Geo --> Lon["Longitude (经度)"]
+    Geo --> Lat["Latitude (纬度)"]
+    Geo --> NA["NorthAngle (正北夹角)"]
+
+    %% 监测设备信息展开
+    Inst --> Prov["Provider"]
+    Inst --> CNum["ChannelNum (通道总数)"]
+    Inst --> ChList["Channels (通道列表)"]
+
+    %% 通道信息展开 (表示1到N个关系)
+    ChList --> Ch["单个 Channel 配置 (1..N)"]
+    Ch --> CNo["ChannelNo"]
+    Ch --> Meas["Measurand (测量物理量)"]
+    Ch --> Scale["Scale (缩放因子)"]
+    Ch --> Azi["Azimuth (方位角)"]
+    Ch --> Loc["LocationXYZ [坐标数组]"]
+
+    %% 数据信息展开
+    Data --> EName["EventName"]
+    Data --> STime["StartTime"]
+    Data --> NPTS["NPTS (数据点数)"]
+    Data --> DT["DT (采样间隔)"]
+
+    style Root fill:#052c65,stroke:#052c65,color:#ffffff,stroke-width:2px
+    style Build fill:#e8f4f8,stroke:#b6d4fe,color:#052c65
+    style Inst fill:#e8f4f8,stroke:#b6d4fe,color:#052c65
+    style Data fill:#e8f4f8,stroke:#b6d4fe,color:#052c65
+    style BaseInfo fill:#e8f4f8,stroke:#b6d4fe,color:#052c65
+    style Geo fill:#fff9e6,stroke:#ffe69c,color:#664d03
+    style ChList fill:#fff9e6,stroke:#ffe69c,color:#664d03
+    style Ch fill:#f8f9fa,stroke:#adb5bd,stroke-dasharray: 5 5
+
+```
 
 ### 3.1 根节点 (Root Nodes)
 
@@ -148,14 +215,14 @@ Units 字段定义了数据中使用的基本物理单位，通常包括距离�
 |ChannelID|`String`|通道唯一标识符，通常和设备、通道编号相关联。|`"SSJY_01"`|
 |Measurand|`String`|测量的物理量，如 Acceleration、Velocity、Displacement。|`"Acceleration"`|
 |Scale|`Float`|测量值的缩放因子，数据包包体中的数据乘以缩放因子后应具有元数据中Units规定的单位。	|`1.0`|
-|Azimuth|`Float`|通道测量方向的方位角，单位为度（°）。以结构局部坐标系的 Y 轴正向为 0°，在 XY 平面内顺时针旋转至 360°，竖直方向使用-1。|`90.0`|
+|Azimuth|`Float`|通道测量方向的方位角，单位为度（°）。以结构局部坐标系的 Y 轴正向为 0°，顺时针旋转至 360°，竖直方向使用-1。|`90.0`|
 |LocationXYZ|`Array(Float)`|通道所在位置在结构局部坐标系中的三维坐标。|`[-20.6, -4.2, -2.7]`|
 
 - **备注**：关于Scale字段的说明：
 
 Scale 字段定义了测量值的缩放因子，数据包包体中的数据乘以缩放因子后应具有元数据中Units规定的单位。具体来说，存储在数据包包体中的数据通常为整数或浮点数，如使用Count值、ADC值和非文档规定单位的数值。为了确保这些数据能够正确地转换为元数据中Units字段规定的物理单位（如 m/s²、mm/s、mm 等），需要乘以 Scale 字段定义的缩放因子。
 如果数据包包体中的数据已具有Units字段规定的单位，则 Scale=1.0：否则则需要利用缩放因子保证单位统一。例如， 某数采输出物理量为电压值(mV)，灵敏度系数为 100mV/g，元数据中Units字段定义的单位为`["m", "s"]`，对应加速度单位为m/s²，则 Scale字段定义的缩放因子为：
-![Scale计算公式](./svg/Scale公式.svg)
+$$ Scale = \frac{1.0 \, \mathrm{m/s^2}}{100 \, \mathrm{mV/g} \times 9.81 \, \mathrm{m/s^2}} = 0.0001019368 \, \mathrm{m/s^2/mV} $$
 
 ### 3.4 数据包信息 (DataInfo)
 
@@ -179,7 +246,21 @@ Scale 字段定义了测量值的缩放因子，数据包包体中的数据乘�
 
 各字段详细说明如下表所示：
 
-![包头结构示意图](./svg/包头内存布局_64bit.svg)
+```mermaid
+packet-beta
+title 数据包头结构布局 (Packet Layout)
+0-15: "Magic (uint16)"
+16-31: "SourceID (uint16)"
+32-39: "Version (uint8)"
+40-47: "PacketType (uint8)"
+48-63: "ChannelCount (uint16)"
+64-79: "DataEncodings (uint16)"
+80-95: "SamplingRate (uint16)"
+96-127: "DataPointCount (uint32)"
+128-191: "Timestamp (uint64)"
+192-223: "BodySize (uint32)"
+224-255: "Checksum (uint32)"
+```
 
 | 偏移 | 字段名称 | 数据类型 | 长度 | 描述 |
 | --- | --- | --- | --- | --- |
@@ -198,14 +279,14 @@ Scale 字段定义了测量值的缩放因子，数据包包体中的数据乘�
 - **备注**：
 
 BodySize 字段指示了紧随包头之后的数据包部分的字节长度，接收端可以根据该字段值正确读取数据包内容。其计算方式为：
-![BodySize计算公式](./svg/BodySize公式.svg)
+$$ BodySize = ChannelCount × DataPointCount × TypeSize $$
 其中 TypeSize 由 DataEncodings 字段指定。
 
 结构体定义 (C 语言风格):
 
 ```c
 typedef struct {
-    uint16_t magic;          // 0x7144 ("qD")
+    uint16_t magic;         // 0x7144 ("qD")
     uint16_t source_id;      // 数据源ID
     uint8_t  version;         // 协议版本 0x01
     uint8_t  packet_type;     // 数据包类型
@@ -214,7 +295,7 @@ typedef struct {
     uint16_t sampling_rate;   // 采样率(Hz)
     uint32_t data_point_count;// 每个通道的数据点数量
     uint64_t timestamp;       // 时间戳（毫秒）
-    uint32_t body_size;       // 数据包包体长度
+    uint32_t packet_size;       // 数据包包体长度
     uint32_t checksum;        // CRC32校验和
 } QRestPacketHeader;
 ```
@@ -250,21 +331,21 @@ Checksum 字段使用 CRC32 算法计算包体部分的校验和，以确保数�
 算法代码示例：
 
 ```c
-uint32_t crc32(const uint8_t *data, size_t length) {
+uint32_t crc32(const uint8_t *data, size_t length)
+{
     uint32_t crc = 0xFFFFFFFF; 
-
     for (size_t i = 0; i < length; i++) {
         crc ^= data[i];
 
         for (int j = 0; j < 8; j++) {
             if (crc & 1) {
                 crc = (crc >> 1) ^ 0xEDB88320;
-            } else {
+            }
+            else {
                 crc >>= 1;
             }
         }
     }
-
     return ~crc;
 }
 ```
@@ -272,4 +353,25 @@ uint32_t crc32(const uint8_t *data, size_t length) {
 ### 4.2 数据包包体字段说明
 
 数据包包体包含了每个通道的时序数据，按照预定义的顺序进行存储。时序数据点数量由包头中的 DataPointCount 字段指定，数据编码方式由 DataEncodings 字段指定。读取时需要根据这些信息解析和处理包体中的时序数据，以确保数据的正确使用和分析。包体的具体结构如下图所示：
-![包体结构示意图](./svg/包体内存布局.svg)
+
+```mermaid
+block-beta
+    columns 1
+    
+    block:ch1
+        text1["通道 1 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+    
+    block:ch2
+        text2["通道 2 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+    
+    dot_block["... (更多通道)"]
+    
+    block:chN
+        textN["通道 N 数据: NPTS × TypeSize (NPTS × 8 字节)"]
+    end
+
+    %% 样式调整
+    style dot_block fill:none,stroke-dasharray: 5 5
+```
