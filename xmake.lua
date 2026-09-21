@@ -22,7 +22,7 @@ end
 set_configdir("$(builddir)/generated")
     add_configfiles("config/version.hpp.in", {
         filename = "version.hpp",
-        prefixdir = "dynamics"
+        prefixdir = "qrest_data"
     })
 
 add_requires("nlohmann_json")
