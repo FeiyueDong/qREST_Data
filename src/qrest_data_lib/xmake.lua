@@ -1,5 +1,6 @@
 target("qrest_data_lib")
     set_kind("shared")
+    set_languages("c++20")
     add_files("./*.cpp")
-    add_deps("qrest_data_core", {public = true})
+    add_deps("qrest_data_headers", {public = true})
     add_defines("QREST_DATA_BUILD_SHARED")

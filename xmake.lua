@@ -5,7 +5,6 @@ set_warnings("all")
 set_allowedplats("windows", "linux", "macosx", "mingw")
 
 add_rules("mode.debug", "mode.release")
-set_config("plat", "mingw")
 set_languages("c++20")
 
 if is_plat("windows") then
@@ -19,18 +18,19 @@ elseif is_plat("mingw") then
     set_toolchains("gcc")
 end
 
-set_configdir("$(builddir)/generated")
-    add_configfiles("config/version.h.in", {
-        filename = "version.h",
-        prefixdir = "qrest_data"
-    })
-
-add_requires("nlohmann_json")
-add_requires("cli11")
-add_requires("hdf5")
-
 if is_plat("linux", "macosx", "mingw") then
     add_cxflags("-fPIC")
 end
 
+rule("qrest_data.validate_standalone_version")
+    on_load(function (target)
+        import("core.project.project")
+        assert(target:version() == project.version(),
+               "qrest_data product version must match the standalone project version")
+    end)
+rule_end()
+
+includes("xmake/products.lua")
+target("qrest_data_headers")
+    add_rules("qrest_data.validate_standalone_version")
 includes("src")

@@ -1,0 +1,6 @@
+target("test_qrest_data_hdf5")
+    set_kind("binary")
+    add_files("../test_*.cpp")
+    add_deps("qrest_data_hdf5")
+    add_packages("hdf5", "nlohmann_json")
+    set_rundir("$(projectdir)")

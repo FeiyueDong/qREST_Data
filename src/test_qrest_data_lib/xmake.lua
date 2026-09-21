@@ -3,3 +3,17 @@ target("test_qrest_data_lib")
     add_files("./*.cpp")
     add_deps("qrest_data_lib")
     set_rundir("$(projectdir)")
+    set_runargs(
+        "resource/qrest_data/kunming/metadata.json",
+        "resource/qrest_data/kunming/data.txt",
+        "18",
+        "30000"
+    )
+    set_group("tests")
+
+target("test_qrest_data_c_api")
+    set_kind("binary")
+    set_languages("c11")
+    add_files("test_public_c_api.c")
+    add_deps("qrest_data_lib")
+    set_group("tests")

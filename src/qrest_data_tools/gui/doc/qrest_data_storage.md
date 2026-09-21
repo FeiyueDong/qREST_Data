@@ -1,3 +1,5 @@
+<!-- Synchronized from doc/qREST_DataStorage.md; do not edit independently. -->
+
 # qREST文件存储格式规范
 
 **Document Revision**: 1.0.1

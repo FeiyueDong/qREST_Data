@@ -1,8 +1,10 @@
 # qREST_Data接口文档
 
-**qrest_data Module Version**: v1.1.1
+**qrest_data Module Version**: 独立项目版本由根 `xmake.lua` 定义；嵌入式
+products 入口设置相同的 target-local 版本，并通过
+`<qrest_data/version.h>` 对外提供。
 
-**最后更新**: 2026-09-21
+**最后更新**: 2026-09-22
 
 以纯C语言接口的形式提供了一个动态库，用于解析和生成符合qREST数据协议的字节流。该接口定义了数据包的结构、元数据的格式以及相关的读写函数，方便其他编程语言调用和集成。
 
@@ -79,6 +81,10 @@ Windows 动态库在构建 `qrest_data_lib` 时通过
 - `timestamp`: 时间戳。
 - `body_size`: 包体大小。
 - `checksum`: 校验和。
+
+`qrest_from_bytes()` 返回经过校验的原始 Packet Header 字段；其中
+`version`、`packet_type`、`body_size` 和 `checksum` 均来自文件内包头，不由
+C API 重新推导或硬编码。
 
 > 注：结构体成员简单，不会自主分配内存，故未定义销毁函数。调用者负责管理内存。
 

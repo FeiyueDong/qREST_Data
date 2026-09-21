@@ -70,7 +70,6 @@ int main(int argc, char *argv[]) {
     std::string txt_file = argv[2];
     int channel_num = std::stoi(argv[3]);
     int npts = std::stoi(argv[4]);
-    std::string qrest_file = "c_api_test_output.qrest";
 
     try {
         if (std::string(qrest_data_version()) != QREST_DATA_VERSION_STRING) {
@@ -105,12 +104,9 @@ int main(int argc, char *argv[]) {
         std::cout << "Packaging successful! Generated binary stream size: "
                   << out_stream.len << " bytes" << std::endl;
 
-        // 4. 将字节流写入文件
-        std::ofstream ofs(qrest_file, std::ios::binary);
-        ofs.write(reinterpret_cast<const char *>(out_stream.bytes),
-                  out_stream.len);
-        ofs.close();
-        std::cout << "Written to local file: " << qrest_file << std::endl;
+        // 4. 复制 C API 输出，随后即可释放原始字节流。
+        std::string bin_data(
+            reinterpret_cast<const char *>(out_stream.bytes), out_stream.len);
 
         // 释放 C 层分配的字节流内存
         qrest_free_byte_stream(&out_stream);
@@ -118,8 +114,7 @@ int main(int argc, char *argv[]) {
 
         std::cout << "[2] Test: qrest_from_bytes" << std::endl;
 
-        // 1. 读取刚才生成的 qREST 文件作为输入
-        std::string bin_data = read_file_to_string(qrest_file);
+        // 1. 使用刚才生成的 qREST 字节流作为输入
         qrest_c_byte_stream_t in_stream = {
             reinterpret_cast<uint8_t *>(const_cast<char *>(bin_data.data())),
             bin_data.size()};
@@ -143,6 +138,37 @@ int main(int argc, char *argv[]) {
             != 0) {
             qrest_free_data(parsed_data);
             throw std::runtime_error("C-API returned an invalid file magic");
+        }
+
+        qrest_data::PacketHeaderPOD raw_packet_header{};
+        const std::size_t packet_offset =
+            sizeof(qrest_data::FileHeaderPOD)
+            + parsed_data->file_header.metadata_size;
+        std::memcpy(&raw_packet_header,
+                    bin_data.data() + packet_offset,
+                    sizeof(raw_packet_header));
+
+        const auto &c_header = parsed_data->packet_header;
+        constexpr uint8_t expected_packet_magic[2] = {0x71, 0x44};
+        const bool packet_header_matches =
+            std::memcmp(c_header.magic,
+                        expected_packet_magic,
+                        sizeof(c_header.magic))
+                == 0
+            && c_header.source_id == raw_packet_header.source_id
+            && c_header.version == raw_packet_header.version
+            && c_header.packet_type == raw_packet_header.packet_type
+            && c_header.channel_count == raw_packet_header.channel_count
+            && c_header.data_encodings == raw_packet_header.data_encodings
+            && c_header.sampling_rate == raw_packet_header.sampling_rate
+            && c_header.data_point_count == raw_packet_header.data_point_count
+            && c_header.timestamp == raw_packet_header.timestamp
+            && c_header.body_size == raw_packet_header.body_size
+            && c_header.checksum == raw_packet_header.checksum;
+        if (!packet_header_matches) {
+            qrest_free_data(parsed_data);
+            throw std::runtime_error(
+                "C-API packet header does not match the serialized header");
         }
 
         // 4. 打印验证解析出来的内容

@@ -2,17 +2,19 @@
 
 ## Project Structure & Module Organization
 
-This repository contains the qREST data management library and tools. Core C++ sources live in `src/`: `qrest_data_lib` provides the shared C API library, `qrest_data_hdf5` adds HDF5 support, `qrest_data_tools` is the command-line data conversion utility, and `qrest_data_tools_gui` is a Qt Quick app for visual qREST file inspection. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Test targets are kept beside their modules as `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `test_qrest_data_import_formats`. Sample metadata, text data, and `.qrest` files are under `resource/`; external-format parser fixtures are under `resource/dev/data`. Protocol and interface documentation is under `doc/`. The `project/` directory contains generated Visual Studio project files; prefer updating Xmake targets first.
+This repository contains the qREST data management library and tools. Public C/C++ headers live in `include/qrest_data/`. The standalone `xmake.lua` includes products and local tests; `xmake/products.lua` is the products-only entry for parent projects and must not add tests. Core implementations live in `src/`: `qrest_data_lib` provides the shared C ABI library, `qrest_data_hdf5` provides the HDF5 bridge, and `qrest_data_tools` contains CLI, GUI, import, and validation code. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Tests are kept beside their modules in `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `src/qrest_data_tools/test/`; independent smoke projects are under `tests/installed_sdk_smoke/` and `tests/products_smoke/`. qREST examples are under `resource/qrest_data/`, while tracked MiniSEED and TDMS fixtures are under `resource/wuhan_mseed/` and `resource/wuhan_tdms/`. Protocol and interface documentation is under `doc/`. Xmake is the only maintained build entry point.
 
 ## Build, Test, and Development Commands
 
-- `xmake config -p linux -m debug`: configure a Linux debug build. Use `mingw`, `windows`, or `macosx` when appropriate.
+- `xmake config -p linux -m debug`: configure a Linux debug build. Platforms must be selected explicitly; Windows/MSVC and Linux/GCC are the formal release platforms.
 - `xmake build`: build all libraries, tools, and test binaries into `build/<platform>/`.
 - `xmake build qrest_data_lib`: build one target while iterating.
-- `xmake run test_qrest_data_lib`: run the qREST data library regression test.
+- `xmake run test_qrest_data_lib`: run the C++ public-header, version, serialization, and C ABI regression test with its default fixture.
+- `xmake run test_qrest_data_c_api`: compile, link, and run a pure C consumer of the public C API.
 - `xmake run test_qrest_data_hdf5`: run HDF5 read/write tests; requires system HDF5.
-- `xmake run test_qrest_data_import_formats`: run TDMS, modified MiniSEED, and HDF5 bridge regressions; requires local `resource/dev/data` fixtures.
-- `xmake run qrest_data_tools pack resource/kunming2/metadata.json resource/kunming2/data.txt /tmp/sample.qrest`: generate a sample data file.
+- `xmake run test_qrest_data_import_formats`: run TDMS, modified MiniSEED, and HDF5 bridge regressions; requires the tracked `resource/wuhan_mseed/` and `resource/wuhan_tdms/` fixtures.
+- `tests/products_smoke/`: independent parent-project test of the products-only entry; embedded GUI is opt-in via `--qrest_data_enable_gui=y`.
+- `xmake run qrest_data_tools_cli pack resource/qrest_data/kunming/metadata.json resource/qrest_data/kunming/data.txt /tmp/sample.qrest`: generate a sample data file.
 
 ## Coding Style & Naming Conventions
 
@@ -28,4 +30,4 @@ Recent history uses short, imperative summaries such as `update proj dir` and `a
 
 ## Security & Configuration Tips
 
-Do not commit generated build outputs from `build/`, `out/`, or `.xmake/`. Keep sample data small and non-sensitive. When changing dependencies, update both `xmake.lua` and `vcpkg.json` or `vcpkg-configuration.json` as needed.
+Do not commit generated build outputs from `build/`, `out/`, or `.xmake/`. Keep sample data small and non-sensitive. Declare dependency changes in the relevant Xmake files.

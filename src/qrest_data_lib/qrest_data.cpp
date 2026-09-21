@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <span>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -83,6 +84,10 @@ int qrest_from_bytes(qrest_c_byte_stream_t input, qrest_c_data_t *out_data) {
         const char *packet_start = meta_start + header.get_metadata_size();
         std::string packet_raw_bytes(packet_start, header.get_data_size());
         DataPacket packet = DataPacket::from_bytes(packet_raw_bytes);
+        PacketHeaderPOD packet_header{};
+        std::memcpy(&packet_header,
+                    packet_raw_bytes.data(),
+                    sizeof(PacketHeaderPOD));
 
         // 4. 将 C++ 对象的数据搬运到 C 结构体中 (返回给外部)
         // 4.1 FileHeader
@@ -99,19 +104,21 @@ int qrest_from_bytes(qrest_c_byte_stream_t input, qrest_c_data_t *out_data) {
         out_data->metadata_json.str[meta_bytes.size()] = '\0';
 
         // 4.3 PacketHeader (基础属性映射)
-        out_data->packet_header.magic[0] = 0x71;
-        out_data->packet_header.magic[1] = 0x44;
-        out_data->packet_header.source_id = packet.get_source_id();
-        out_data->packet_header.version = packet.get_version();
-        out_data->packet_header.packet_type = 0x01;
-        out_data->packet_header.channel_count = packet.get_channel_count();
-        out_data->packet_header.data_encodings = packet.get_data_encodings();
-        out_data->packet_header.sampling_rate = packet.get_sampling_rate();
+        out_data->packet_header.magic[0] =
+            static_cast<uint8_t>(packet_header.magic >> 8);
+        out_data->packet_header.magic[1] =
+            static_cast<uint8_t>(packet_header.magic & 0xFF);
+        out_data->packet_header.source_id = packet_header.source_id;
+        out_data->packet_header.version = packet_header.version;
+        out_data->packet_header.packet_type = packet_header.packet_type;
+        out_data->packet_header.channel_count = packet_header.channel_count;
+        out_data->packet_header.data_encodings = packet_header.data_encodings;
+        out_data->packet_header.sampling_rate = packet_header.sampling_rate;
         out_data->packet_header.data_point_count =
-            packet.get_data_point_count();
-        out_data->packet_header.timestamp = packet.get_timestamp();
-        out_data->packet_header.body_size =
-            packet.get_packet_size() - 32; // 包体 = 总长 - 包头32字节
+            packet_header.data_point_count;
+        out_data->packet_header.timestamp = packet_header.timestamp;
+        out_data->packet_header.body_size = packet_header.body_size;
+        out_data->packet_header.checksum = packet_header.checksum;
 
         // 4.4 DataPacket Payload (复制底层波形数据)
         const std::vector<double> &wave_data = packet.get_data();

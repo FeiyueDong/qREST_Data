@@ -161,9 +161,9 @@ the qREST channel-major packet layout.
 - Extend structured metadata coverage beyond the fields exposed in the current
   Building, Channels, and Data pages.
 - Extend the channel editor with explicit reordering once the data matrix
-  workflow is redesigned. Channel add/delete/duplicate is currently locked
-  after packet body data exists, so existing matrix columns are not silently
-  remapped.
+  workflow is redesigned. After packet data exists, metadata-only Add and
+  Duplicate remain locked. Channel count changes must use Data -> Add Channels
+  or Delete Channel + Data so Metadata and Packet data remain synchronized.
 - Grow the geometry service into a dedicated model if it needs caching,
   selection metadata, or multiple camera modes. The current implementation
   computes projected edges/sensors/axes in `QrestViewModel`.

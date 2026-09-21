@@ -1,0 +1,7 @@
+target("test_qrest_data_import_formats")
+    set_kind("binary")
+    add_files("test_import_formats.cpp")
+    add_deps("qrest_data_tools_core")
+    add_deps("qrest_data_import_formats")
+    add_packages("hdf5", "nlohmann_json")
+    set_rundir("$(projectdir)")
