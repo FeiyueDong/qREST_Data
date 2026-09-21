@@ -1,5 +1,5 @@
 set_project("qrest_data")
-set_version("1.0.0")
+set_version("1.1.1")
 set_xmakever("3.0.5")
 set_warnings("all")
 set_allowedplats("windows", "linux", "macosx", "mingw")
@@ -18,6 +18,12 @@ elseif is_plat("mingw") then
     end
     set_toolchains("gcc")
 end
+
+set_configdir("$(builddir)/generated")
+    add_configfiles("config/version.hpp.in", {
+        filename = "version.hpp",
+        prefixdir = "dynamics"
+    })
 
 add_requires("nlohmann_json")
 add_requires("cli11")

@@ -14,3 +14,6 @@ numerical_old/
 release/
 qlab_web/
 doc/dev/
+resource/dev/
+*.mseed
+*.tdms
