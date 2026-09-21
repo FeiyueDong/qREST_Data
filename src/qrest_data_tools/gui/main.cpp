@@ -1,13 +1,15 @@
 #include <QGuiApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include <qrest_data/version.h>
 #include "field_help_registry.h"
 #include "qrest_view_model.h"
 
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     QCoreApplication::setApplicationName("qrest_data_tools_gui");
-    QCoreApplication::setApplicationVersion("1.0.1");
+    QCoreApplication::setApplicationVersion(
+        QStringLiteral(QREST_DATA_VERSION_STRING));
     QCoreApplication::setOrganizationName("qREST");
     QGuiApplication::setApplicationDisplayName("qREST Data Tools");
     app.setWindowIcon(QIcon(":/qt/qml/qrest_data_tools_gui/icon/logo.png"));

@@ -1,4 +1,5 @@
 target("qrest_data_lib")
     set_kind("shared")
     add_files("./*.cpp")
-    add_packages("nlohmann_json")
+    add_deps("qrest_data_core", {public = true})
+    add_defines("QREST_DATA_BUILD_SHARED")

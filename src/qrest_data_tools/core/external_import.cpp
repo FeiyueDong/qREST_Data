@@ -12,8 +12,8 @@
 
 #include "../formats/mseed/modified_mseed_export.hpp"
 #include "../formats/tdms/tdms_export.hpp"
-#include "qrest_data_hdf5/hdf5_reader.hpp"
-#include "qrest_data_hdf5/hdf5_writer.hpp"
+#include "../../qrest_data_hdf5/hdf5_reader.hpp"
+#include "../../qrest_data_hdf5/hdf5_writer.hpp"
 #include "qrest_file.hpp"
 
 namespace qrest_data::tools {

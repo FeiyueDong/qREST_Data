@@ -20,8 +20,8 @@ elseif is_plat("mingw") then
 end
 
 set_configdir("$(builddir)/generated")
-    add_configfiles("config/version.hpp.in", {
-        filename = "version.hpp",
+    add_configfiles("config/version.h.in", {
+        filename = "version.h",
         prefixdir = "qrest_data"
     })
 

@@ -18,7 +18,7 @@
 #include <stdexcept>
 #include <string>
 
-#include "metadata.hpp"
+#include <qrest_data/metadata.hpp>
 
 namespace {
 

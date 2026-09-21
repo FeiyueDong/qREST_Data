@@ -1,7 +1,10 @@
 # qREST文件存储格式规范
 
-**文档版本**: v1.0.1
-**最后更新**: 2026-04-16
+**Document Revision**: 1.0.1
+
+**qREST Metadata Format Version**: 1.0.0
+
+**最后更新**: 2026-09-21
 
 ## 0.概述
 

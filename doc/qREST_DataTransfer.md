@@ -1,7 +1,10 @@
 # qREST数据传输协议规范
 
-**文档版本**: v1.0.1
-**最后更新**: 2026-04-16
+**Document Revision**: 1.0.1
+
+**DataPacket Protocol Version**: 1
+
+**最后更新**: 2026-09-21
 
 ## 0.概述
 

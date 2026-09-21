@@ -1,9 +1,57 @@
 # qREST_Data项目
 
-**版本**: v1.0.1
-**最后更新**: 2026-04-16
+**qrest_data Module Version**: v1.1.1
+
+**最后更新**: 2026-09-21
 
 本项目是qREST(Quick Response Evaluation for Safety Tagging)的一个子项目，主要负责数据管理。主要定义了两个协议：数据存储协议和数据传输协议。并提供一些简单的工具用于做处理和转换。
+
+Module Version、qREST File / Metadata Format Version 和 DataPacket Protocol
+Version 是三个独立概念。当前模块版本为 `1.1.1`，Metadata Format Version
+仍为 `1.0.0`，DataPacket Protocol Version 仍为 `1`；发布模块版本不会自动
+改变文件或数据包格式。
+
+## 项目结构
+
+```text
+include/qrest_data/        Public qREST API
+src/qrest_data_lib/        C ABI implementation
+src/qrest_data_hdf5/       HDF5 support
+src/qrest_data_tools/      CLI / GUI / import / validation tools
+```
+
+外部代码统一从公共目录引用头文件，例如：
+
+```cpp
+#include <qrest_data/qrest_data.h>
+#include <qrest_data/metadata.hpp>
+```
+
+## 构建与安装
+
+Linux Debug 构建示例：
+
+```bash
+xmake config -p linux -m debug
+xmake build
+xmake run test_qrest_data_lib resource/qrest_data/kunming/metadata.json resource/qrest_data/kunming/data.txt 18 30000
+xmake run test_qrest_data_hdf5
+xmake run test_qrest_data_import_formats
+```
+
+安装到自定义前缀：
+
+```bash
+xmake install -o /path/to/prefix
+```
+
+生成发布包前先构建 Release，然后运行：
+
+```bash
+xmake config -p linux -m release
+xmake build
+python release.py linux --mode release
+```
 
 ## 1. 数据协议
 

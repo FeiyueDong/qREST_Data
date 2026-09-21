@@ -18,8 +18,9 @@ types instead of being reimplemented in QML.
 ## Current Structure
 
 - `main.cpp` starts `QGuiApplication`, sets desktop application metadata,
-  registers `QrestViewModel` and `FieldHelpRegistry`, and loads `main.qml` from
-  the Qt resource path.
+  takes the application version from the qrest_data Module Version, registers
+  `QrestViewModel` and `FieldHelpRegistry`, and loads `main.qml` from the Qt
+  resource path.
 - `main.qml` defines the single-window shell:
   - file menu actions for new/open/save qREST files,
   - data menu actions grouped around packet-body import, external import,
@@ -173,7 +174,9 @@ the qREST channel-major packet layout.
 - Keep binary-format edits in `qrest_data_lib`; this UI should orchestrate and
   present library behavior.
 - Metadata header/version defaults come from `qrest_data::format` constants in
-  `metadata.hpp`; avoid reintroducing local string/version literals in the GUI.
+  `include/qrest_data/metadata.hpp`; avoid reintroducing local string/version
+  literals in the GUI. The GUI Application Version comes from
+  `QREST_DATA_VERSION_STRING` and must not be hard-coded.
 - External import channel mapping is defined in `qrest_data_tools_core` using
   `ExternalChannelMapping`. The GUI reads external datasets asynchronously,
   previews detected channels, and lets users map external source order to

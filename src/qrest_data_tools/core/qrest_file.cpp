@@ -10,8 +10,8 @@
 #include <stdexcept>
 #include <string>
 
-#include "data_packet.hpp"
-#include "file_header.hpp"
+#include <qrest_data/data_packet.hpp>
+#include <qrest_data/file_header.hpp>
 
 namespace qrest_data::tools {
 namespace {

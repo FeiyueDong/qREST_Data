@@ -7,7 +7,7 @@
 #include <hdf5.h>
 
 #include "hdf5_export.hpp"
-#include "metadata.hpp"
+#include <qrest_data/metadata.hpp>
 
 namespace qrest_data {
 

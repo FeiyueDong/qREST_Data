@@ -1,4 +1,4 @@
-#include "qrest_data.h"
+#include <qrest_data/qrest_data.h>
 
 #include <chrono>
 #include <cstring>
@@ -7,13 +7,17 @@
 #include <vector>
 
 // 引用底层 C++ 头文件
-#include "data_packet.hpp"
-#include "file_header.hpp"
-#include "metadata.hpp"
+#include <qrest_data/data_packet.hpp>
+#include <qrest_data/file_header.hpp>
+#include <qrest_data/metadata.hpp>
 
 using namespace qrest_data;
 
 extern "C" {
+const char *qrest_data_version(void) {
+    return QREST_DATA_VERSION_STRING;
+}
+
 void qrest_free_byte_stream(qrest_c_byte_stream_t *stream) {
     if (stream && stream->bytes) {
         delete[] stream->bytes;
@@ -82,7 +86,8 @@ int qrest_from_bytes(qrest_c_byte_stream_t input, qrest_c_data_t *out_data) {
 
         // 4. 将 C++ 对象的数据搬运到 C 结构体中 (返回给外部)
         // 4.1 FileHeader
-        std::memcpy(out_data->file_header.magic, header.get_magic().c_str(), 8);
+        std::memset(out_data->file_header.magic, 0, 8);
+        std::memcpy(out_data->file_header.magic, "qREST", 5);
         out_data->file_header.metadata_size = header.get_metadata_size();
         out_data->file_header.data_size = header.get_data_size();
 

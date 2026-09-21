@@ -17,9 +17,9 @@
 
 #ifndef Q_MOC_RUN
 #include "../core/external_import.hpp"
-#include "data_packet.hpp"
-#include "file_header.hpp"
-#include "metadata.hpp"
+#include <qrest_data/data_packet.hpp>
+#include <qrest_data/file_header.hpp>
+#include <qrest_data/metadata.hpp>
 #endif
 
 #ifndef Q_MOC_RUN

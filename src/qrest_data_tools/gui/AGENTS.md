@@ -9,9 +9,9 @@ When shared qREST behavior is genuinely required, keep the UI as a consumer of
 `qrest_data_lib` and describe the reason clearly. Do not duplicate qREST binary
 serialization, packet checksum, metadata parsing, or file-header rules in QML.
 Second-round exceptions that intentionally live outside this directory are the
-core `Metadata` schema in `src/qrest_data/metadata.hpp` and shared validation in
-`src/qrest_data/qrest_data_tools/validation.*`; keep those changes schema- and
-policy-focused.
+core `Metadata` schema in `include/qrest_data/metadata.hpp` and shared
+validation in `src/qrest_data_tools/core/validation.*`; keep those changes
+schema- and policy-focused.
 
 Important local contracts:
 

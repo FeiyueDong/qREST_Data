@@ -5,11 +5,16 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <qrest_data/version.h>
 
-#ifdef _WIN32
-#define EXPORT __declspec(dllexport)
+#if defined(_WIN32)
+#  if defined(QREST_DATA_BUILD_SHARED)
+#    define QREST_DATA_API __declspec(dllexport)
+#  else
+#    define QREST_DATA_API __declspec(dllimport)
+#  endif
 #else
-#define EXPORT __attribute__((visibility("default")))
+#  define QREST_DATA_API __attribute__((visibility("default")))
 #endif
 
 #ifdef __cplusplus
@@ -18,6 +23,9 @@ extern "C" {
 
 // --- 1. 数据结构定义 ---
 
+// 返回当前动态库的 qrest_data Module Version。
+QREST_DATA_API const char *qrest_data_version(void);
+
 // 序列化字节流
 typedef struct {
     uint8_t *bytes; // 字节流
@@ -25,7 +33,7 @@ typedef struct {
 } qrest_c_byte_stream_t;
 
 // 释放由 qrest_to_bytes 内部申请的二进制流内存
-EXPORT void qrest_free_byte_stream(qrest_c_byte_stream_t *stream);
+QREST_DATA_API void qrest_free_byte_stream(qrest_c_byte_stream_t *stream);
 
 // 字符串
 typedef struct {
@@ -34,7 +42,7 @@ typedef struct {
 } qrest_c_string_t;
 
 // 释放字符串内存
-EXPORT void qrest_free_string(qrest_c_string_t *str);
+QREST_DATA_API void qrest_free_string(qrest_c_string_t *str);
 
 // double 数组
 typedef struct {
@@ -43,7 +51,7 @@ typedef struct {
 } qrest_c_double_array_t;
 
 // 释放 double 数组内存
-EXPORT void qrest_free_double_array(qrest_c_double_array_t *array);
+QREST_DATA_API void qrest_free_double_array(qrest_c_double_array_t *array);
 
 // 文件头
 typedef struct {
@@ -76,10 +84,10 @@ typedef struct {
 } qrest_c_data_t;
 
 // 初始化实例
-EXPORT qrest_c_data_t *qrest_init_data();
+QREST_DATA_API qrest_c_data_t *qrest_init_data(void);
 
 // 释放数据结构内存
-EXPORT void qrest_free_data(qrest_c_data_t *data);
+QREST_DATA_API void qrest_free_data(qrest_c_data_t *data);
 
 // --- 2. 导出函数 ---
 
@@ -87,8 +95,8 @@ EXPORT void qrest_free_data(qrest_c_data_t *data);
 // @param input 输入的二进制字节流
 // @param out_data 输出的解析结果
 // @return 0 成功，-1 参数错误，-2 长度异常，-3 格式或校验失败
-EXPORT int qrest_from_bytes(qrest_c_byte_stream_t input,
-                            qrest_c_data_t *out_data);
+QREST_DATA_API int qrest_from_bytes(qrest_c_byte_stream_t input,
+                                    qrest_c_data_t *out_data);
 
 // @brief 序列化：从输入的 JSON 字符串和数据包信息构建完整的二进制字节流
 // @param json_str 输入的元数据 JSON 字符串（无需包含尾随\0）
@@ -97,11 +105,11 @@ EXPORT int qrest_from_bytes(qrest_c_byte_stream_t input,
 // @param data_encodings 数据编码方式 (0=Float32, 1=Float64, 等)
 // @param out_stream 输出的二进制字节流 (由底层分配，需外部释放)
 // @return 0 成功，-1 参数错误，-2 数据维度不匹配，-3 序列化失败
-EXPORT int qrest_to_bytes(qrest_c_string_t json_str,
-                          qrest_c_double_array_t packet_data,
-                          uint16_t source_id,
-                          uint16_t data_encodings,
-                          qrest_c_byte_stream_t *out_stream);
+QREST_DATA_API int qrest_to_bytes(qrest_c_string_t json_str,
+                                  qrest_c_double_array_t packet_data,
+                                  uint16_t source_id,
+                                  uint16_t data_encodings,
+                                  qrest_c_byte_stream_t *out_stream);
 
 #ifdef __cplusplus
 }

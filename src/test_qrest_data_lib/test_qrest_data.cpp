@@ -1,3 +1,4 @@
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -6,8 +7,12 @@
 #include <vector>
 
 
-// 仅包含 C 接口头文件，模拟外部客户端调用环境
-#include "qrest_data/qrest_data.h"
+// 仅包含 Public Header，模拟外部客户端调用环境。
+#include <qrest_data/data_packet.hpp>
+#include <qrest_data/file_header.hpp>
+#include <qrest_data/metadata.hpp>
+#include <qrest_data/qrest_data.h>
+#include <qrest_data/version.h>
 
 /**
  * @brief 辅助函数：从文件读取所有内容到 std::string
@@ -68,6 +73,11 @@ int main(int argc, char *argv[]) {
     std::string qrest_file = "c_api_test_output.qrest";
 
     try {
+        if (std::string(qrest_data_version()) != QREST_DATA_VERSION_STRING) {
+            throw std::runtime_error(
+                "Runtime and compile-time module versions do not match");
+        }
+
         std::cout << "[1] Test: qrest_to_bytes" << std::endl;
 
         // 1. 准备输入数据
@@ -125,6 +135,14 @@ int main(int argc, char *argv[]) {
             throw std::runtime_error(
                 "C-API deserialization failed, error code: "
                 + std::to_string(parse_ret));
+        }
+
+        constexpr char expected_magic[8] = {
+            'q', 'R', 'E', 'S', 'T', '\0', '\0', '\0'};
+        if (std::memcmp(parsed_data->file_header.magic, expected_magic, 8)
+            != 0) {
+            qrest_free_data(parsed_data);
+            throw std::runtime_error("C-API returned an invalid file magic");
         }
 
         // 4. 打印验证解析出来的内容

@@ -1,16 +1,22 @@
 # 发布说明
 
-- **版本**: v1.0.1
-- **发布日期**: 2026-04-16
-- **修改**:
-  1. 修正了文件头中 Magic 字段的数据类型，从 `uint64` 修改为 `uint8[8]`，防止大端序和小端序系统之间的兼容性问题，并更准确地表示固定的字节序列。
-- **添加**:
-  1. 增加了若干qREST_Data工具，并撰写了相关使用文档：
-     - `qrest_data_tools`：用于生成、读取、验证和转换符合数据存储协议的qrest数据文件，并支持受限 HDF5 转换及 TDMS、modified MiniSEED 导入。
-     - `qrest_data_tools_gui`：用于通过可视化界面读取和解析qrest数据文件，并导出数据内容和元信息，便于验证和使用。
-     - `qrest_data`接口：提供了一个C语言接口的动态库，允许其他编程语言调用以解析和生成符合qREST数据协议的字节流.
-- **优化**:
-  1. 优化了项目的文件组织结构。
-  2. 添加了小工具的VS和xmake构建支持。
-  3. 创建了项目的git仓库。
-  4. 编写了发布用的python脚本，自动化生成发布包。
+## v1.1.1 - 2026-09-21
+
+- 将正式公共头文件统一到 `include/qrest_data/`，外部引用统一为
+  `#include <qrest_data/...>`。
+- 以 Xmake `set_version()` 作为唯一 Module Version 来源，生成 C/C++ 通用的
+  `qrest_data/version.h`，并让 GUI 和 C ABI 运行时版本查询保持一致。
+- 建立 `qrest_data_core` Header-only target，集中传递公共 include 路径和
+  `nlohmann_json` 依赖；移除全局 `include/qrest_data` 与 `src/` include root。
+- 完善 Windows `dllexport` / `dllimport` 宏，增加 `qrest_data_version()`。
+- 修复 C API 反序列化时 File Header Magic 的 8 字节越界读取风险。
+- 更新 `release.py`，从当前 Xmake 输出生成带版本号的 `bin/`、`lib/`、
+  `include/qrest_data/`、`doc/` 和 `examples/` 发布布局，并支持 Xmake install。
+- 保留 qREST Metadata Format Version `1.0.0` 和 DataPacket Protocol Version
+  `1`，本次没有改变文件格式或外部格式导入算法。
+- 延续 Data Tools GUI 的 View/Draft、Save As、外部格式导入、通道追加与验证
+  工作流；移除 GUI Application Version 的硬编码。
+
+## v1.0.1 - 2026-04-16
+
+- 修正文件头 Magic 字段类型，增加 qREST CLI/GUI、C API 和初始发布脚本。

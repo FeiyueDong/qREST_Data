@@ -338,7 +338,7 @@ void test_tdms_directory_mapping() {
 
 void test_hdf5_bridge() {
     const auto qrest = qrest_data::tools::read_qrest_file(
-        project_path("resource/wuhan/wuhan.qrest").string());
+        project_path("resource/qrest_data/wuhan/wuhan.qrest").string());
     const auto hdf5_path = (std::filesystem::temp_directory_path()
                             / "qrest_data_tools_import_formats_test.h5")
                                .string();

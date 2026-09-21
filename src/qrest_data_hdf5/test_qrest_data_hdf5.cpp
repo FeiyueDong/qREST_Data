@@ -7,7 +7,7 @@
 
 #include "hdf5_reader.hpp"
 #include "hdf5_writer.hpp"
-#include "metadata.hpp"
+#include <qrest_data/metadata.hpp>
 
 using namespace qrest_data;
 

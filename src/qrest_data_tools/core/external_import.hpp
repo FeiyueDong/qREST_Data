@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "metadata.hpp"
+#include <qrest_data/metadata.hpp>
 #include "validation.hpp"
 
 namespace qrest_data::tools {

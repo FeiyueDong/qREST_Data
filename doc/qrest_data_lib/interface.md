@@ -1,9 +1,25 @@
 # qREST_Data接口文档
 
-**接口版本**: v1.0.1
-**最后更新**: 2026-04-16
+**qrest_data Module Version**: v1.1.1
+
+**最后更新**: 2026-09-21
 
 以纯C语言接口的形式提供了一个动态库，用于解析和生成符合qREST数据协议的字节流。该接口定义了数据包的结构、元数据的格式以及相关的读写函数，方便其他编程语言调用和集成。
+
+公共 C 头文件位于 `include/qrest_data/qrest_data.h`，调用方应使用：
+
+```c
+#include <qrest_data/qrest_data.h>
+```
+
+该头文件会包含生成的 `<qrest_data/version.h>`。编译期可读取
+`QREST_DATA_VERSION_MAJOR`、`QREST_DATA_VERSION_MINOR`、
+`QREST_DATA_VERSION_PATCH` 和 `QREST_DATA_VERSION_STRING`。这些宏表示软件
+Module Version，不是 qREST Metadata Format Version；后者仍为 `1.0.0`。
+
+Windows 动态库在构建 `qrest_data_lib` 时通过
+`QREST_DATA_BUILD_SHARED` 导出符号，普通调用方不定义该宏并自动使用
+`dllimport`。其他平台使用默认可见性属性。
 
 ## 1. 数据结构
 
@@ -79,7 +95,18 @@
 
 ## 2. 接口函数
 
-### 2.1 反序列化函数 (`qrest_from_bytes`)
+### 2.1 运行时版本 (`qrest_data_version`)
+
+返回实际加载的动态库 Module Version：
+
+```c
+const char *qrest_data_version(void);
+```
+
+返回字符串由库持有，调用方不得释放。它应与编译期
+`QREST_DATA_VERSION_STRING` 一致。
+
+### 2.2 反序列化函数 (`qrest_from_bytes`)
 
 从输入的二进制字节流中解析出所有数据对象，并将结果存储在一个 `qrest_c_data_t` 结构体实例中。函数签名如下：
 
@@ -96,7 +123,7 @@ int qrest_from_bytes(qrest_c_byte_stream_t input,
   - `-2`: 数据包实际长度与头部声明不符。
   - `-3`: 格式错误或 CRC 校验失败。
 
-### 2.2 序列化函数 (`qrest_to_bytes`)
+### 2.3 序列化函数 (`qrest_to_bytes`)
 
 将输入的 `qrest_c_data_t` 结构体实例中的数据对象序列化为符合 qREST 数据协议的二进制字节流。函数签名如下：
 
