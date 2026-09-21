@@ -1,3 +1,6 @@
+add_includedirs(".")
+add_includedirs("..")
+
 target("qrest_data_import_formats")
     set_kind("static")
     add_files("formats/mseed/modified_mseed.cpp")
@@ -5,6 +8,7 @@ target("qrest_data_import_formats")
     add_files("formats/tdms/tdms_reader.cpp")
     add_files("formats/tdms/tdms_export.cpp")
     add_includedirs("formats/mseed", "formats/tdms", {public = true})
+    add_packages("nlohmann_json")
 
 target("qrest_data_tools_core")
     set_kind("static")
@@ -14,20 +18,13 @@ target("qrest_data_tools_core")
     add_files("core/external_import.cpp")
     add_deps("qrest_data_import_formats")
     add_deps("qrest_data_hdf5")
-    add_packages("hdf5")
-    add_syslinks("hdf5_cpp")
-    add_includedirs(".", "..", {public = true})
+    add_packages("hdf5", "nlohmann_json")
 
 target("qrest_data_tools_cli")
     set_kind("binary")
     add_files("cli/qrest_data_tools_cli.cpp")
     add_deps("qrest_data_tools_core")
-    add_packages("cli11", "hdf5")
-    add_syslinks("hdf5_cpp")
-    add_includedirs(".", "..")
-    if is_plat("linux") then
-        add_rpathdirs("$ORIGIN/../lib")
-    end
+    add_packages("hdf5", "nlohmann_json", "cli11")
 
 includes("gui")
 
@@ -36,10 +33,4 @@ target("test_qrest_data_import_formats")
     add_files("test/test_import_formats.cpp")
     add_deps("qrest_data_tools_core")
     add_deps("qrest_data_import_formats")
-    add_packages("hdf5")
-    add_syslinks("hdf5_cpp")
-    add_defines('QREST_DATA_PROJECT_DIR="$(projectdir)"')
-    add_includedirs(".", "..")
-    if is_plat("linux") then
-        add_rpathdirs("$ORIGIN/../lib")
-    end
+    add_packages("hdf5", "nlohmann_json")

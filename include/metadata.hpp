@@ -88,9 +88,9 @@ public:
 
 public:
     // 元数据取用频繁，故设计为公有成员变量，且变量名和JSON字段名保持一致
-    std::string Header{format::metadata_header}; // 文件标识
+    std::string Header{format::metadata_header};          // 文件标识
     std::array<int, 3> Version{format::metadata_version}; // 版本号
-    std::array<std::string, 2> Units{"m", "s"}; // 单位
+    std::array<std::string, 2> Units{"m", "s"};           // 单位
     BuildingInfoStruct BuildingInfo{};
     InstrumentInfoStruct InstrumentInfo{};
     DataInfoStruct DataInfo{};
@@ -297,8 +297,7 @@ inline void from_json(const nlohmann::json &j, Metadata::DataInfoStruct &info) {
     j.at("DT").get_to(info.DT);
     j.at("Corrected").get_to(info.Corrected);
     if (info.DT > 0.0 && std::isfinite(info.DT)) {
-        info.Frequency =
-            static_cast<int>(1.0 / info.DT + 0.5); // 四舍五入取整
+        info.Frequency = static_cast<int>(1.0 / info.DT + 0.5); // 四舍五入取整
     } else {
         info.Frequency = 0.0;
     }

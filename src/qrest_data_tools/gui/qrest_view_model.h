@@ -486,11 +486,11 @@ private:
 #ifndef Q_MOC_RUN
     void handleExternalImportFinished();
     [[nodiscard]] qrest_data::Metadata metadataForExternalImport() const;
-    [[nodiscard]] QString
-    appendDatasetPreview(const qrest_data::tools::ExternalDataset &dataset)
-        const;
-    void appendDatasetChannels(const qrest_data::tools::ExternalDataset &dataset,
-                               const QString &sourceLabel);
+    [[nodiscard]] QString appendDatasetPreview(
+        const qrest_data::tools::ExternalDataset &dataset) const;
+    void
+    appendDatasetChannels(const qrest_data::tools::ExternalDataset &dataset,
+                          const QString &sourceLabel);
 #endif
 
     DataTableModel *m_tableModel;          // 表格模型实例

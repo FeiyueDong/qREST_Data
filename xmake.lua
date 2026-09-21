@@ -6,40 +6,25 @@ set_allowedplats("windows", "linux", "macosx", "mingw")
 
 add_rules("mode.debug", "mode.release")
 set_config("plat", "mingw")
-if is_plat("mingw") then
-    set_config("sdk", "C:/Programing/msys64/ucrt64")
-    set_toolchains("gcc")
-elseif is_plat("linux") then
-    set_toolchains("gcc")
-elseif is_plat("macosx") then
-    set_toolchains("clang")
-end
-
 set_languages("c++20")
 
-if is_plat("linux", "macosx") then
-    add_requires("nlohmann-json", {system = true})
-    add_requires("cli11", {system = true})
-    add_requires("hdf5", {system = true})
+if is_plat("windows") then
+    set_toolchains("msvc")
+    add_cxflags("/utf-8")
+elseif is_plat("mingw") then
+    local msys2_root = os.getenv("MSYS2_ROOT")
+    if msys2_root and #msys2_root > 0 then
+        set_config("sdk", msys2_root)
+    end
+    set_toolchains("gcc")
 end
 
-if is_plat("mingw") then
-    add_requires("cli11", {system = true})
-    add_requires("hdf5", {system = true})
-end
-
-if is_plat("mingw") then
-    set_targetdir("$(projectdir)/build/mingw",{ bindir = "bin", libdir = "lib" })
-elseif is_plat("windows") then
-    set_targetdir("$(projectdir)/build/windows",{ bindir = "bin", libdir = "lib" })
-elseif is_plat("linux") then
-    set_targetdir("$(projectdir)/build/linux",{ bindir = "bin", libdir = "lib" })
-elseif is_plat("macosx") then
-    set_targetdir("$(projectdir)/build/macosx",{ bindir = "bin", libdir = "lib" })
-end
+add_requires("nlohmann_json")
+add_requires("cli11")
+add_requires("hdf5")
 
 if is_plat("linux", "macosx", "mingw") then
     add_cxflags("-fPIC")
 end
 
-includes("src/qrest_data")
+includes("src")
