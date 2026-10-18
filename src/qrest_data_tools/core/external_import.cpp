@@ -1,3 +1,15 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/core/external_import.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Sunday, 18 October 2026
+** Modified By: Codex
+*/
 #include "external_import.hpp"
 
 #include <algorithm>
@@ -245,6 +257,8 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
     merged.sample_count = sample_count;
     merged.sample_rate_hz = sample_rate_hz;
     merged.start_time_ms = consistent_start_time(datasets);
+    merged.distance_unit = datasets.front().distance_unit;
+    for(const auto &d:datasets)if(d.distance_unit!=merged.distance_unit)throw std::runtime_error("External files declare conflicting units");
     merged.channel_labels.reserve(channel_count);
     merged.channel_sequential_data.assign(
         checked_value_count(channel_count, sample_count), 0.0);
@@ -261,6 +275,7 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
                     ? dataset.channel_labels[channel_index]
                     : files[file_index].filename().string() + "/"
                           + dataset.channel_labels[channel_index]);
+            if(dataset.channel_measurands.size()==dataset.channel_count)merged.channel_measurands.push_back(dataset.channel_measurands[channel_index]);
             const auto source_offset = channel_index * sample_count;
             const auto target_offset = target_channel * sample_count;
             std::copy_n(dataset.channel_sequential_data.begin()
@@ -350,6 +365,8 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
         result.start_time_ms = tdms_start_time_ms(dataset.timestamps.front());
     }
     result.channel_labels = {"N", "E", "Z"};
+    result.channel_measurands = {"Acceleration", "Acceleration", "Acceleration"};
+    if(!options.output_counts)result.distance_unit=options.output_unit==TdmsImportOptions::Unit::MeterPerSecondSquared?"m":"cm";
     result.channel_sequential_data.reserve(samples * result.channel_count);
 
     const double actual_sensitivity =
@@ -431,6 +448,9 @@ ExternalDataset load_mseed_dataset(const std::string &input_path,
     for (const auto index : order) {
         const auto &channel = group.channels[index];
         result.channel_labels.push_back(channel.channel);
+        const auto dimension=channel.dimension;
+        result.channel_measurands.push_back(dimension==mseed::Dimension::Acceleration?"Acceleration":dimension==mseed::Dimension::Velocity?"Velocity":dimension==mseed::Dimension::Displacement?"Displacement":"Dimensionless");
+        if(dimension!=mseed::Dimension::Dimensionless)result.distance_unit="m";
         result.channel_sequential_data.insert(
             result.channel_sequential_data.end(),
             channel.values.begin(),
@@ -487,6 +507,8 @@ ExternalDataset load_hdf5_dataset(const std::string &input_path,
         result.start_time_ms.reset();
     }
     result.channel_labels = metadata_channel_labels(file_metadata);
+    result.distance_unit=file_metadata.Units[0];
+    for(const auto &c:file_metadata.InstrumentInfo.Channels)result.channel_measurands.push_back(c.Measurand);
     result.channel_sequential_data = reader.read_accform();
 
     if (metadata != nullptr) {
@@ -647,10 +669,13 @@ ExternalDataset apply_external_channel_mapping(
     mapped.sample_rate_hz = dataset.sample_rate_hz;
     mapped.start_time_ms = dataset.start_time_ms;
     mapped.channel_labels = metadata_channel_labels(metadata);
+    mapped.distance_unit=dataset.distance_unit;
+    if(dataset.channel_measurands.size()==dataset.channel_count)mapped.channel_measurands.resize(mapped.channel_count);
     mapped.channel_sequential_data.assign(
         checked_value_count(mapped.channel_count, mapped.sample_count), 0.0);
 
     for (const auto &entry : mapping) {
+        if(!mapped.channel_measurands.empty())mapped.channel_measurands[entry.target_channel]=dataset.channel_measurands[entry.source_channel];
         const auto source_offset = entry.source_channel * dataset.sample_count;
         const auto target_offset = entry.target_channel * mapped.sample_count;
         std::copy_n(dataset.channel_sequential_data.begin()

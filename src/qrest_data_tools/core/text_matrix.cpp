@@ -1,6 +1,19 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/core/text_matrix.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Sunday, 18 October 2026
+** Modified By: Codex
+*/
 #include "text_matrix.hpp"
 
 #include <fstream>
+#include <filesystem>
 #include <iomanip>
 #include <sstream>
 #include <stdexcept>
@@ -14,7 +27,7 @@ std::vector<double> read_time_major_text_matrix(const std::string &path,
         throw std::runtime_error("Text matrix dimensions must be positive");
     }
 
-    std::ifstream input(path);
+    std::ifstream input(std::filesystem::path(std::u8string(path.begin(),path.end())));
     if (!input.is_open()) {
         throw std::runtime_error("Cannot open data file: " + path);
     }
@@ -80,7 +93,7 @@ void write_time_major_text_matrix(const std::string &path,
         throw std::runtime_error("Text precision must be between 1 and 17");
     }
 
-    std::ofstream output(path);
+    std::ofstream output(std::filesystem::path(std::u8string(path.begin(),path.end())));
     if (!output.is_open()) {
         throw std::runtime_error("Cannot create data output file: " + path);
     }

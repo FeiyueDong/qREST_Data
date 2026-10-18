@@ -28,8 +28,10 @@ public:
     using Channel = Metadata::InstrumentInfoStruct::ChannelStruct;
     enum class ImportAction { Replace, Append };
     static DatasetDraft from_file(const std::filesystem::path &path);
-    static DatasetDraft from_values(Metadata metadata,
-        std::shared_ptr<const std::vector<double>> values, DraftSource source);
+    static DatasetDraft
+    from_values(Metadata metadata,
+                std::shared_ptr<const std::vector<double>> values,
+                DraftSource source);
     const Metadata &metadata() const { return metadata_; }
     const std::vector<double> &values() const { return *values_; }
     const auto &values_handle() const { return values_; }
@@ -45,13 +47,20 @@ public:
     void add_channel(Channel channel, std::vector<double> samples = {});
     void duplicate_channel(std::size_t column);
     void select_channels(const std::vector<std::size_t> &order);
-    void import_data(const ExternalDataset &data, const std::vector<std::size_t> &order,
-                     ImportAction action, Metadata metadata, bool physical_values);
-    ValidationReport validate(ValidationMode mode = ValidationMode::Final) const;
-    // Writes/verifies in a private sibling directory, publishes via an exclusive
-    // hard link. Unsupported filesystems fail closed; no rename-overwrite fallback.
+    void import_data(const ExternalDataset &data,
+                     const std::vector<std::size_t> &order,
+                     ImportAction action,
+                     Metadata metadata,
+                     bool physical_values);
+    ValidationReport
+    validate(ValidationMode mode = ValidationMode::Final) const;
+    // Writes/verifies in a private sibling directory, publishes via an
+    // exclusive hard link. Unsupported filesystems fail closed; no
+    // rename-overwrite fallback.
     void save_new(const std::filesystem::path &destination,
-                  const std::function<void(const std::filesystem::path &)> &verify = {}) const;
+                  const std::function<void(const std::filesystem::path &)>
+                      &verify = {}) const;
+
 private:
     Metadata metadata_;
     std::shared_ptr<const std::vector<double>> values_{

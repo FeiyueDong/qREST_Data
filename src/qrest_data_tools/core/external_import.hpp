@@ -1,3 +1,15 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/core/external_import.hpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Sunday, 18 October 2026
+** Modified By: Codex
+*/
 #ifndef QREST_DATA_TOOLS_EXTERNAL_IMPORT_HPP
 #define QREST_DATA_TOOLS_EXTERNAL_IMPORT_HPP
 
@@ -19,6 +31,9 @@ struct ExternalDataset {
     double sample_rate_hz{};
     std::optional<std::uint64_t> start_time_ms;
     std::vector<std::string> channel_labels;
+    // Empty when the source does not declare a known representation.
+    std::vector<std::string> channel_measurands;
+    std::string distance_unit;
     std::vector<double> channel_sequential_data;
 };
 
