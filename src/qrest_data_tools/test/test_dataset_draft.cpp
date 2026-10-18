@@ -209,6 +209,14 @@ int main() try {
         std::vector<double>{std::numeric_limits<double>::quiet_NaN()});
     rejects([&] { DatasetDraft::from_values(d.metadata(), bad, {}); },
             "invalid input");
+    auto extreme = d.metadata();
+    extreme.DataInfo.DT = 1e-300;
+    rejects([&] { d.apply_json(extreme.to_bytes()); },
+            "extreme JSON sampling rate rejected");
+    auto invalid_draft = d;
+    invalid_draft.replace_metadata(extreme);
+    check(!invalid_draft.validate().ok(),
+          "extreme structured sampling rate rejected");
     rejects([&] { d.apply_json("{}"); }, "invalid JSON");
     rejects([&] { d.save_new(root / "absent" / "fail.qrest"); },
             "write failure");

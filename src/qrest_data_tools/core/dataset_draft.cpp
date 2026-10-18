@@ -141,6 +141,12 @@ void DatasetDraft::replace_metadata(Metadata m) {
     dirty_ = true;
 }
 void DatasetDraft::apply_json(const std::string &json) {
+    // Check the packet sampling range before the legacy Metadata decoder's
+    // integer-derived Frequency conversion can see an extreme inverse DT.
+    const auto parsed = nlohmann::json::parse(json);
+    const double dt = parsed.at("DataInfo").at("DT").get<double>();
+    if (dt > 0)
+        (void)sampling_rate_from_dt(dt);
     auto m = Metadata::from_bytes(json);
     if (!values().empty())
         require(nlohmann::json(m.InstrumentInfo.Channels)
@@ -324,6 +330,8 @@ ValidationReport DatasetDraft::validate(ValidationMode mode) const {
     if (metadata_.BuildingInfo.StructuralFootprint.Shape.empty())
         issue("BuildingInfo.StructuralFootprint.Shape must be supplied");
     try {
+        if (!r.errors.empty())
+            return r;
         auto canonical = Metadata::from_bytes(metadata_.to_bytes());
         (void)canonical;
     } catch (const std::exception &e) {
