@@ -17,6 +17,7 @@
 #include <limits>
 #include <thread>
 #include "../core/dataset_draft.hpp"
+#include "../core/text_matrix.hpp"
 using namespace qrest_data::tools;
 namespace fs = std::filesystem;
 int checks{};
@@ -67,46 +68,137 @@ int main() try {
     m.Extension["Keep"] = "custom";
     auto samples = std::make_shared<const std::vector<double>>(
         std::vector<double>{1, 2, 3, 10, 20, 30});
-    auto d = DatasetDraft::from_values(m, samples, {});
-    check(d.validate().ok(), "valid input");
+    std::ofstream(root / "source.csv") << "1,2,3\n10,20,30\n";
+    check(read_text_matrix((root / "source.csv").string(), 2, 3, true, ',')
+              == *samples,
+          "channel-major CSV import");
+    std::ofstream(root / "corrupt.txt") << "1 junk\n";
+    rejects(
+        [&] { read_text_matrix((root / "corrupt.txt").string(), 1, 1, false); },
+        "corrupt trailing token rejected");
+    auto original = DatasetDraft::from_values(m, samples, {});
+    check(original.validate().ok(), "B17 raw source valid");
+    auto d = original;
     auto metadata = d.metadata();
     metadata.BuildingInfo.ProjectName = "edited";
     d.replace_metadata(metadata);
-    check(d.values_handle() == samples, "metadata shares samples");
-    check(m.BuildingInfo.ProjectName.empty(), "source unchanged");
-    d.select_channels({1, 0});
-    check(d.values()[0] == 10
-              && d.metadata().InstrumentInfo.Channels[0].Scale == 2,
-          "channel reorder");
+    check(d.values_handle() == samples, "metadata shares sample buffer");
+    auto ids = d.metadata_uids();
+    d.reorder_metadata_channels({ids[1], ids[0]});
+    check(d.values_handle() == samples
+              && d.binding(d.data_columns()[0].uid) == ids[0],
+          "B06 reorder keeps buffer and identity");
+    check(d.project_formal_output().values[0] == 10,
+          "reordered formal projection");
     d.duplicate_channel(0);
-    check(d.values()[6] == 10 && d.metadata().InstrumentInfo.ChannelNum == 3,
-          "duplicate waveform");
-    d.select_channels({2, 1});
-    check(d.values()[0] == 10 && d.values()[3] == 1, "delete channel");
-    for (const auto *shape : {"Circular", "Polygon"}) {
-        auto geometry = d.metadata();
-        geometry.BuildingInfo.StructuralFootprint.Shape = shape;
-        geometry.BuildingInfo.StructuralFootprint.Parameters.Radius = 5;
-        geometry.BuildingInfo.StructuralFootprint.Parameters.Corners = {
-            {0, 0}, {3, 0}, {1, 4}};
-        d.replace_metadata(geometry);
-        d.save_new(root / (std::string(shape) + ".qrest"));
-        auto read =
-            DatasetDraft::from_file(root / (std::string(shape) + ".qrest"));
-        check(read.metadata().BuildingInfo.StructuralFootprint.Shape == shape,
-              "shape roundtrip");
-    }
+    d.add_channel(c);
+    check(d.data_column_count() == 2 && d.values_handle() == samples
+              && !d.column_for(d.metadata_uids()[2]),
+          "B05 metadata additions have no waveforms");
+    d.reorder_metadata_channels({ids[0]});
+    check(d.data_column_count() == 2 && d.unbound_data_count() == 1
+              && d.values_handle() == samples,
+          "B04 delete unbinds without touching samples");
+    rejects([&] { d.reorder_metadata_channels({ids[0], ids[0]}); },
+            "duplicate UID transaction rejected");
+    check(d.metadata_uids().size() == 1, "failed transaction unchanged");
     auto before = d.values_handle();
-    auto json = d.metadata().to_bytes();
-    rejects([&] { d.select_channels({0, 0}); }, "duplicate order rejected");
-    rejects([&] { d.add_channel(c); }, "no invented zeros");
-    check(d.values_handle() == before && d.metadata().to_bytes() == json,
-          "transaction rollback");
+    d.import_metadata(original.metadata());
+    check(d.unbound_data_count() == 2 && d.values_handle() == before,
+          "B11 full Metadata replacement clears bindings");
+    d.bind_unassigned_sequentially();
+    auto a = d.data_columns()[0].uid, b = d.data_columns()[1].uid;
+    auto first = d.metadata_uids()[0], second = d.metadata_uids()[1];
+    rejects([&] { d.bind_column(a, second); }, "B07 busy target rejected");
+    check(d.binding(a) == first && d.binding(b) == second,
+          "busy target rollback");
+    d.swap_bindings(a, b);
+    check(d.binding(a) == second && d.values_handle() == before,
+          "B08 swap bindings only");
+    d.unbind_column(a);
+    check(d.available_channels(b).size() == 2, "B09 available channels update");
+    d.bind_column(a, second);
+    d.swap_bindings(a, b);
+    ExternalDataset e;
+    e.channel_count = 20;
+    e.sample_count = 3;
+    e.sample_rate_hz = 100;
+    for (int i = 0; i < 60; ++i)
+        e.channel_sequential_data.push_back(i + 1);
+    DatasetDraft many;
+    auto eighteen = m;
+    eighteen.InstrumentInfo.Channels.resize(18, c);
+    many.import_metadata(eighteen);
+    many.import_waveforms(e, DatasetDraft::ImportAction::Replace, false);
+    check(many.data_column_count() == 20 && many.unbound_data_count() == 2,
+          "B01 initial min-count binding");
+    check(many.validate().ok() && !many.validate().warnings.empty(),
+          "B13 extra data is a warning");
+    auto full = many.values_handle();
+    auto projected = many.project_formal_output();
+    check(projected.values.size() == 54 && projected.omitted_columns == 2
+              && many.values_handle() == full,
+          "B13 projection leaves all 20 real columns");
+    many.unbind_column(many.data_columns()[0].uid);
+    check(!many.validate().ok(), "B14 missing allocation fails Final");
+    e.channel_count = 15;
+    e.channel_sequential_data.resize(45);
+    many.import_waveforms(e, DatasetDraft::ImportAction::Replace, false);
+    check(!many.validate().ok() && many.validate(ValidationMode::Draft).ok(),
+          "B02 fewer columns valid only as draft");
+    DatasetDraft data_first;
+    data_first.import_waveforms(e, DatasetDraft::ImportAction::Replace, false);
+    check(data_first.unbound_data_count() == 15, "data without Metadata");
+    data_first.import_metadata(eighteen);
+    check(data_first.unbound_data_count() == 0
+              && data_first.column_for(data_first.metadata_uids()[0]) == 0,
+          "B03 first coexistence binds");
+    auto oldid = many.data_columns()[0].uid;
+    many.import_waveforms(e, DatasetDraft::ImportAction::Replace, false);
+    check(many.data_columns()[0].uid != oldid && many.unbound_data_count() == 0,
+          "B12 new data identities and initial bindings");
+    auto oldbinding = many.binding(many.data_columns()[0].uid);
+    many.import_waveforms(e, DatasetDraft::ImportAction::Append, false);
+    check(many.data_column_count() == 30 && many.unbound_data_count() == 15
+              && many.binding(many.data_columns()[0].uid) == oldbinding,
+          "B10 append keeps previous bindings, new columns unbound");
+    auto badappend = e;
+    badappend.sample_rate_hz = 50;
+    auto intact = many.values_handle();
+    rejects(
+        [&] {
+            many.import_waveforms(
+                badappend, DatasetDraft::ImportAction::Append, false);
+        },
+        "append source facts checked");
+    check(many.values_handle() == intact, "append rollback");
+    DatasetDraft projection;
+    e.channel_count = 5;
+    e.channel_sequential_data.resize(15);
+    projection.import_waveforms(e, DatasetDraft::ImportAction::Replace, false);
+    auto three = m;
+    three.InstrumentInfo.Channels.resize(3, c);
+    projection.import_metadata(three);
+    for (auto col : projection.data_columns())
+        projection.unbind_column(col.uid);
+    auto cols = projection.data_columns();
+    auto uids = projection.metadata_uids();
+    projection.bind_column(cols[2].uid, uids[0]);
+    projection.bind_column(cols[3].uid, uids[1]);
+    projection.bind_column(cols[0].uid, uids[2]);
+    auto mapped = projection.project_formal_output();
+    check(mapped.values == std::vector<double>({7, 8, 9, 10, 11, 12, 1, 2, 3}),
+          "B15 non-contiguous D3,D4,D1 projection");
     auto output = root / fs::path(u8"新数据.qrest");
     d.save_new(output);
     auto read = DatasetDraft::from_file(output);
-    check(read.values() == d.values() && read.metadata().to_bytes() == json,
-          "raw roundtrip");
+    check(read.values() == d.project_formal_output().values,
+          "formal raw roundtrip");
+    projection.save_new(root / "mapped.qrest");
+    check(DatasetDraft::from_file(root / "mapped.qrest").values()
+                  == mapped.values
+              && projection.data_column_count() == 5,
+          "B15 projected save preserves source waves");
     rejects([&] { d.save_new(output); }, "existing file protected");
     rejects(
         [&] {
@@ -130,9 +222,9 @@ int main() try {
             ++failed;
         }
     };
-    std::thread a(race), b(race);
-    a.join();
-    b.join();
+    std::thread writer_a(race), writer_b(race);
+    writer_a.join();
+    writer_b.join();
     check(saved == 1 && failed == 1, "exclusive publication race");
     check(DatasetDraft::from_file(root / "race.qrest").values() == d.values(),
           "race output valid");
@@ -141,70 +233,26 @@ int main() try {
     src.snapshot_id = "snapshot";
     auto physical = DatasetDraft::from_values(m, samples, src);
     physical.source_removed();
-    samples.reset();
     check(physical.metadata().InstrumentInfo.Channels[0].Scale == 1
-              && physical.metadata().InstrumentInfo.Channels[1].Scale == 1,
-          "Scale=1 physical input");
-    check(physical.values()[5] == 30 && physical.source().removed,
-          "removed source ownership");
+              && physical.values_handle() == samples,
+          "B17 QANS physical Scale1 ownership");
+    auto mismatch = physical.metadata();
+    mismatch.InstrumentInfo.Channels[0].Scale = 2;
+    physical.replace_metadata(mismatch);
+    check(!physical.validate().ok(), "B16 physical Scale mismatch rejected");
+    mismatch.InstrumentInfo.Channels[0].Scale = 1;
+    mismatch.DataInfo.NPTS = 4;
+    physical.replace_metadata(mismatch);
+    check(!physical.validate().ok(), "B16 sample count mismatch");
+    mismatch.DataInfo.NPTS = 3;
+    mismatch.Units[0] = "cm";
+    physical.replace_metadata(mismatch);
+    check(!physical.validate().ok(), "B16 known unit mismatch");
+    physical = DatasetDraft::from_values(m, samples, src);
     physical.save_new(root / "physical.qrest");
     check(DatasetDraft::from_file(root / "physical.qrest").values()
               == physical.values(),
-          "physical roundtrip");
-    ExternalDataset e;
-    e.channel_count = 2;
-    e.sample_count = 3;
-    e.sample_rate_hz = 100;
-    e.channel_sequential_data = {7, 8, 9, 70, 80, 90};
-    auto imp = d.metadata();
-    d.import_data(e, {1, 0}, DatasetDraft::ImportAction::Replace, imp, true);
-    check(d.values()[0] == 70 && d.values()[3] == 7
-              && d.metadata().InstrumentInfo.Channels[0].Scale == 1,
-          "mapped replace");
-    e.distance_unit = "cm";
-    rejects(
-        [&] {
-            d.import_data(
-                e, {0, 1}, DatasetDraft::ImportAction::Replace, imp, true);
-        },
-        "unit conflict");
-    e.distance_unit.clear();
-    e.channel_measurands = {"Velocity", "Velocity"};
-    rejects(
-        [&] {
-            d.import_data(
-                e, {0, 1}, DatasetDraft::ImportAction::Replace, imp, true);
-        },
-        "measurand conflict");
-    e.channel_measurands.clear();
-    before = d.values_handle();
-    json = d.metadata().to_bytes();
-    e.sample_count = 2;
-    rejects(
-        [&] {
-            d.import_data(
-                e, {0, 1}, DatasetDraft::ImportAction::Replace, imp, true);
-        },
-        "import mismatch");
-    check(d.values_handle() == before && d.metadata().to_bytes() == json,
-          "import rollback");
-    e.sample_count = 3;
-    imp = d.metadata();
-    imp.InstrumentInfo.Channels.push_back(c);
-    d.import_data(e, {0}, DatasetDraft::ImportAction::Append, imp, true);
-    check(d.values()[6] == 7 && d.metadata().InstrumentInfo.ChannelNum == 3,
-          "append channel");
-    before = d.values_handle();
-    imp = d.metadata();
-    imp.InstrumentInfo.Channels.push_back(c);
-    imp.DataInfo.StartTime = "2026-10-19T00:00:00Z";
-    rejects(
-        [&] {
-            d.import_data(
-                e, {0}, DatasetDraft::ImportAction::Append, imp, true);
-        },
-        "append time conflict");
-    check(d.values_handle() == before, "append rollback");
+          "B17 physical roundtrip");
     auto bad = std::make_shared<const std::vector<double>>(
         std::vector<double>{std::numeric_limits<double>::quiet_NaN()});
     rejects([&] { DatasetDraft::from_values(d.metadata(), bad, {}); },

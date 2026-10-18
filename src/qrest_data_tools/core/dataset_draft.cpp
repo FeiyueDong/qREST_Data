@@ -93,133 +93,209 @@ void normalize_draft_metadata(Metadata &m) {
 DatasetDraft DatasetDraft::from_file(const std::filesystem::path &path) {
     auto f = read_qrest_file(utf8(path));
     require_report(validate_qrest_file(utf8(path)));
-    DatasetDraft d;
-    d.metadata_ = std::move(f.metadata);
-    d.values_ = std::make_shared<const std::vector<double>>(
-        std::move(f.channel_sequential_data));
+    DraftSource source;
+    source.path = utf8(std::filesystem::absolute(path));
+    source.description = "Original stored samples and channel Scale";
+    auto d = from_values(std::move(f.metadata),
+                         std::make_shared<const std::vector<double>>(
+                             std::move(f.channel_sequential_data)),
+                         source);
     d.encoding_ = f.packet.data_encoding;
     d.source_id_ = f.packet.source_id;
-    d.source_.path = utf8(std::filesystem::absolute(path));
-    d.source_.description = "Original stored samples and channel Scale";
-    check_values(d.metadata_, d.values());
     return d;
 }
 DatasetDraft
 DatasetDraft::from_values(Metadata m,
                           std::shared_ptr<const std::vector<double>> v,
-                          DraftSource s) {
+                          DraftSource source) {
     require(bool(v), "Missing owned input samples");
-    if (s.normalized_physical) {
+    normalize_draft_metadata(m);
+    check_values(m, *v);
+    if (source.normalized_physical) {
         for (auto &c : m.InstrumentInfo.Channels)
             c.Scale = 1;
         m.Extension["EditorSource"] = {
-            {"path", s.path},
-            {"dataset_id", s.dataset_id},
-            {"snapshot_id", s.snapshot_id},
+            {"path", source.path},
+            {"dataset_id", source.dataset_id},
+            {"snapshot_id", source.snapshot_id},
             {"representation", "physical values stored with Scale=1"}};
     }
-    normalize_draft_metadata(m);
-    check_values(m, *v);
     DatasetDraft d;
     d.metadata_ = std::move(m);
     d.values_ = std::move(v);
-    d.source_ = std::move(s);
+    d.source_ = std::move(source);
+    d.sample_count_ = d.metadata_.DataInfo.NPTS;
+    d.sampling_rate_ = 1 / d.metadata_.DataInfo.DT;
+    require(std::isfinite(d.sampling_rate_) && d.sampling_rate_ > 0,
+            "Invalid input sample rate");
+    d.start_time_ = parse_iso8601_timestamp_ms(d.metadata_.DataInfo.StartTime);
+    for (const auto &c : d.metadata_.InstrumentInfo.Channels) {
+        d.metadata_uids_.push_back(d.next_uid_++);
+        d.columns_.push_back({d.next_uid_++,
+                              {},
+                              d.source_.path,
+                              c.Measurand,
+                              d.metadata_.Units[0],
+                              d.source_.normalized_physical,
+                              c.Scale});
+    }
+    d.initial_binding();
     return d;
 }
-void DatasetDraft::replace_metadata(Metadata m) {
-    if (!values().empty()) {
-        require(m.InstrumentInfo.Channels.size()
-                    == metadata_.InstrumentInfo.Channels.size(),
-                "Use channel transactions to change columns");
-        require(m.DataInfo.NPTS == metadata_.DataInfo.NPTS,
-                "NPTS is determined by imported samples");
+std::optional<std::size_t> DatasetDraft::metadata_index(Uid uid) const {
+    auto it = std::find(metadata_uids_.begin(), metadata_uids_.end(), uid);
+    if (it == metadata_uids_.end())
+        return {};
+    return std::size_t(it - metadata_uids_.begin());
+}
+std::size_t DatasetDraft::column_index(Uid uid) const {
+    for (std::size_t i = 0; i < columns_.size(); ++i)
+        if (columns_[i].uid == uid)
+            return i;
+    throw std::invalid_argument("Unknown data column UID");
+}
+std::optional<std::size_t> DatasetDraft::column_for(Uid uid) const {
+    for (std::size_t i = 0; i < columns_.size(); ++i)
+        if (columns_[i].bound_channel == uid)
+            return i;
+    return {};
+}
+std::optional<DatasetDraft::Uid> DatasetDraft::binding(Uid uid) const {
+    return columns_.at(column_index(uid)).bound_channel;
+}
+std::vector<DatasetDraft::Uid>
+DatasetDraft::available_channels(Uid current) const {
+    auto index = column_index(current);
+    std::vector<Uid> out;
+    for (auto uid : metadata_uids_) {
+        auto occupied = column_for(uid);
+        if (!occupied || *occupied == index)
+            out.push_back(uid);
     }
+    return out;
+}
+void DatasetDraft::bind_column(Uid column, Uid target) {
+    auto index = column_index(column);
+    require(metadata_index(target).has_value(), "Unknown Metadata channel UID");
+    auto occupied = column_for(target);
+    require(!occupied || *occupied == index,
+            "Metadata channel is already bound; unbind or swap explicitly");
+    columns_[index].bound_channel = target;
+    dirty_ = true;
+}
+void DatasetDraft::unbind_column(Uid column) {
+    columns_.at(column_index(column)).bound_channel.reset();
+    dirty_ = true;
+}
+void DatasetDraft::swap_bindings(Uid a, Uid b) {
+    auto ai = column_index(a), bi = column_index(b);
+    require(ai != bi && columns_[ai].bound_channel
+                && columns_[bi].bound_channel,
+            "Swap requires two distinct bound real data columns");
+    std::swap(columns_[ai].bound_channel, columns_[bi].bound_channel);
+    dirty_ = true;
+}
+void DatasetDraft::bind_unassigned_sequentially() {
+    std::vector<Uid> free;
+    for (auto uid : metadata_uids_)
+        if (!column_for(uid))
+            free.push_back(uid);
+    std::size_t i = 0;
+    for (auto &col : columns_)
+        if (!col.bound_channel && i < free.size())
+            col.bound_channel = free[i++];
+    if (i) {
+        initially_bound_ = true;
+        dirty_ = true;
+    }
+}
+void DatasetDraft::initial_binding() {
+    if (!initially_bound_ && !metadata_uids_.empty() && !columns_.empty()) {
+        const auto dirty = dirty_;
+        bind_unassigned_sequentially();
+        dirty_ = dirty;
+    }
+}
+std::size_t DatasetDraft::unbound_data_count() const {
+    return std::count_if(columns_.begin(), columns_.end(), [](const auto &c) {
+        return !c.bound_channel;
+    });
+}
+void DatasetDraft::replace_metadata(Metadata m) {
+    require(m.InstrumentInfo.Channels.size() == metadata_uids_.size(),
+            "Use Metadata channel transactions or full Metadata import to "
+            "change channels");
     normalize_draft_metadata(m);
-    // Draft allows incomplete fields; invalid values remain visible for
-    // correction.
     metadata_ = std::move(m);
     dirty_ = true;
 }
+void DatasetDraft::import_metadata(Metadata m) {
+    normalize_draft_metadata(m);
+    std::vector<Uid> ids;
+    for (std::size_t i = 0; i < m.InstrumentInfo.Channels.size(); ++i)
+        ids.push_back(next_uid_++);
+    metadata_ = std::move(m);
+    metadata_uids_ = std::move(ids);
+    for (auto &c : columns_)
+        c.bound_channel.reset();
+    initial_binding();
+    dirty_ = true;
+}
 void DatasetDraft::apply_json(const std::string &json) {
-    // Check the packet sampling range before the legacy Metadata decoder's
-    // integer-derived Frequency conversion can see an extreme inverse DT.
     const auto parsed = nlohmann::json::parse(json);
     const double dt = parsed.at("DataInfo").at("DT").get<double>();
     if (dt > 0)
         (void)sampling_rate_from_dt(dt);
     auto m = Metadata::from_bytes(json);
-    if (!values().empty())
-        require(nlohmann::json(m.InstrumentInfo.Channels)
-                    == nlohmann::json(metadata_.InstrumentInfo.Channels),
-                "With waveforms present, edit channels using the channel page "
-                "(JSON cannot reorder or replace columns)");
-    normalize_draft_metadata(m);
-    require_report(validate_metadata(m, {ValidationMode::Draft}));
-    replace_metadata(std::move(m));
+    import_metadata(std::move(m));
 }
 void DatasetDraft::edit_channel(std::size_t c, Channel channel) {
-    auto m = metadata_;
-    m.InstrumentInfo.Channels.at(c) = std::move(channel);
-    replace_metadata(std::move(m));
+    metadata_.InstrumentInfo.Channels.at(c) = std::move(channel);
+    normalize_draft_metadata(metadata_);
+    dirty_ = true;
 }
 void DatasetDraft::add_channel(Channel channel, std::vector<double> samples) {
-    auto m = metadata_;
-    auto v = std::make_shared<std::vector<double>>(values());
-    if (!values().empty())
-        require(samples.size() == std::size_t(m.DataInfo.NPTS),
-                "New channel requires an explicit complete waveform; no "
-                "implicit zeros");
-    else
-        require(samples.empty(), "Use import to establish sample dimensions");
-    m.InstrumentInfo.Channels.push_back(std::move(channel));
-    normalize_draft_metadata(m);
-    v->insert(v->end(), samples.begin(), samples.end());
-    metadata_ = std::move(m);
-    values_ = std::move(v);
+    require(samples.empty(),
+            "Metadata additions cannot manufacture waveform columns; import "
+            "real data separately");
+    metadata_.InstrumentInfo.Channels.push_back(std::move(channel));
+    metadata_uids_.push_back(next_uid_++);
+    normalize_draft_metadata(metadata_);
+    initial_binding();
     dirty_ = true;
 }
 void DatasetDraft::duplicate_channel(std::size_t c) {
-    auto channel = metadata_.InstrumentInfo.Channels.at(c);
-    channel.ChannelID = "UNKNOWN";
-    std::vector<double> samples;
-    if (!values().empty()) {
-        const auto n = std::size_t(metadata_.DataInfo.NPTS);
-        samples.assign(values().begin() + c * n,
-                       values().begin() + (c + 1) * n);
-    }
-    add_channel(std::move(channel), std::move(samples));
+    auto copy = metadata_.InstrumentInfo.Channels.at(c);
+    copy.ChannelID = "UNKNOWN";
+    add_channel(std::move(copy));
 }
-void DatasetDraft::select_channels(const std::vector<std::size_t> &order) {
+void DatasetDraft::reorder_metadata_channels(const std::vector<Uid> &order) {
+    std::set<Uid> seen;
     auto m = metadata_;
     m.InstrumentInfo.Channels.clear();
-    auto v = std::make_shared<std::vector<double>>();
-    std::set<std::size_t> seen;
-    const auto n = std::size_t(std::max(0, metadata_.DataInfo.NPTS));
-    for (auto c : order) {
-        require(seen.insert(c).second,
-                "Duplicate column in channel transaction");
+    for (auto uid : order) {
+        auto index = metadata_index(uid);
+        require(index && seen.insert(uid).second,
+                "Invalid/duplicate Metadata UID");
         m.InstrumentInfo.Channels.push_back(
-            metadata_.InstrumentInfo.Channels.at(c));
-        if (!values().empty())
-            v->insert(v->end(),
-                      values().begin() + c * n,
-                      values().begin() + (c + 1) * n);
+            metadata_.InstrumentInfo.Channels[*index]);
     }
     normalize_draft_metadata(m);
     metadata_ = std::move(m);
-    values_ = std::move(v);
+    metadata_uids_ = order;
+    for (auto &c : columns_)
+        if (c.bound_channel && !seen.contains(*c.bound_channel))
+            c.bound_channel.reset();
     dirty_ = true;
 }
-void DatasetDraft::import_data(const ExternalDataset &data,
-                               const std::vector<std::size_t> &order,
-                               ImportAction action,
-                               Metadata m,
-                               bool physical) {
+void DatasetDraft::import_waveforms(const ExternalDataset &data,
+                                    ImportAction action,
+                                    bool physical,
+                                    const std::vector<double> &source_scales) {
     require(data.sample_count > 0
                 && data.sample_count
-                       <= std::size_t(std::numeric_limits<int>::max()),
-            "Invalid imported NPTS");
-    require(data.channel_count > 0
+                       <= std::size_t(std::numeric_limits<int>::max())
+                && data.channel_count > 0
                 && data.sample_count <= std::numeric_limits<std::size_t>::max()
                                             / data.channel_count,
             "Invalid imported dimensions");
@@ -227,90 +303,140 @@ void DatasetDraft::import_data(const ExternalDataset &data,
                 == data.sample_count * data.channel_count,
             "Imported matrix size mismatch");
     require(std::isfinite(data.sample_rate_hz) && data.sample_rate_hz > 0,
-            "Explicit sample rate required");
-    const std::size_t first = action == ImportAction::Append
-                                  ? metadata_.InstrumentInfo.Channels.size()
-                                  : 0;
-    require(m.InstrumentInfo.Channels.size() == first + order.size()
-                && !order.empty(),
-            "Mapping must cover every destination channel");
-    require(m.DataInfo.NPTS == int(data.sample_count)
-                && close(1 / m.DataInfo.DT, data.sample_rate_hz),
-            "Import NPTS/sample rate conflict");
-    if (!data.distance_unit.empty())
-        require(data.distance_unit == m.Units[0],
-                "Import declared unit conflicts with destination unit");
-    const auto time = parse_iso8601_timestamp_ms(m.DataInfo.StartTime);
-    if (data.start_time_ms)
-        require(time == *data.start_time_ms,
-                "Import StartTime conflict; no automatic alignment");
-    auto v = std::make_shared<std::vector<double>>();
-    if (action == ImportAction::Append && !values().empty()) {
-        require(m.DataInfo.NPTS == metadata_.DataInfo.NPTS
-                    && close(m.DataInfo.DT, metadata_.DataInfo.DT)
-                    && time
-                           == parse_iso8601_timestamp_ms(
-                               metadata_.DataInfo.StartTime)
-                    && m.Units == metadata_.Units,
-                "Append sample count/rate/time/unit conflict");
-        for (std::size_t c = 0; c < first; ++c)
-            require(nlohmann::json(m.InstrumentInfo.Channels[c])
-                        == nlohmann::json(metadata_.InstrumentInfo.Channels[c]),
-                    "Append cannot alter existing channels");
-        *v = values();
-    } else
-        require(
-            action != ImportAction::Append || first == 0,
-            "Existing metadata channels have no waveforms; replace/fill first");
-    std::set<std::size_t> seen;
-    for (std::size_t c = 0; c < order.size(); ++c) {
-        auto s = order[c];
-        require(s < data.channel_count && seen.insert(s).second,
-                "Invalid/duplicate source channel mapping");
-        if (data.channel_measurands.size() == data.channel_count)
-            require(
-                m.InstrumentInfo.Channels[first + c].Measurand
-                    == data.channel_measurands[s],
-                "Import declared Measurand conflicts with destination channel");
-        auto begin =
-            data.channel_sequential_data.begin() + s * data.sample_count;
-        v->insert(v->end(), begin, begin + data.sample_count);
-        if (physical)
-            m.InstrumentInfo.Channels[first + c].Scale = 1;
+            "Explicit valid source sample rate required");
+    for (double x : data.channel_sequential_data)
+        require(std::isfinite(x), "Source contains NaN/Inf");
+    require(source_scales.empty() || source_scales.size() == data.channel_count,
+            "Source Scale count mismatch");
+    for (double scale : source_scales)
+        require(std::isfinite(scale) && scale != 0, "Invalid source Scale");
+    require(data.channel_measurands.empty()
+                || data.channel_measurands.size() == data.channel_count,
+            "Source quantity count mismatch");
+    const bool append = action == ImportAction::Append && !columns_.empty();
+    if (append) {
+        require(sample_count_ == data.sample_count
+                    && close(sampling_rate_, data.sample_rate_hz)
+                    && start_time_ == data.start_time_ms,
+                "Append source sample count/rate/start time conflict");
+        for (const auto &c : columns_)
+            require(c.distance_unit.empty() || data.distance_unit.empty()
+                        || c.distance_unit == data.distance_unit,
+                    "Append source unit conflict");
     }
-    normalize_draft_metadata(m);
-    check_values(m, *v);
-    require_report(validate_metadata(m, {ValidationMode::Draft}));
-    metadata_ = std::move(m);
-    values_ = std::move(v);
+    auto buffer = std::make_shared<std::vector<double>>();
+    auto cols = append ? columns_ : std::vector<DataColumn>{};
+    if (append)
+        *buffer = values();
+    buffer->insert(buffer->end(),
+                   data.channel_sequential_data.begin(),
+                   data.channel_sequential_data.end());
+    auto next = next_uid_;
+    for (std::size_t i = 0; i < data.channel_count; ++i)
+        cols.push_back(
+            {next++,
+             {},
+             data.source_format + " D" + std::to_string(i + 1),
+             data.channel_measurands.empty() ? "" : data.channel_measurands[i],
+             data.distance_unit,
+             physical,
+             source_scales.empty() ? std::optional<double>{}
+                                   : source_scales[i]});
+    values_ = std::move(buffer);
+    columns_ = std::move(cols);
+    next_uid_ = next;
+    sample_count_ = data.sample_count;
+    sampling_rate_ = data.sample_rate_hz;
+    start_time_ = data.start_time_ms;
+    if (!append)
+        initially_bound_ = false;
+    initial_binding();
     encoding_ = 1;
     dirty_ = true;
 }
+void DatasetDraft::import_data(const ExternalDataset &data,
+                               const std::vector<std::size_t> &order,
+                               ImportAction action,
+                               Metadata,
+                               bool physical) {
+    ExternalDataset selected = data;
+    selected.channel_sequential_data.clear();
+    selected.channel_labels.clear();
+    selected.channel_measurands.clear();
+    std::set<std::size_t> seen;
+    require(!order.empty(), "No imported columns selected");
+    require(data.channel_count
+                && data.sample_count <= std::numeric_limits<std::size_t>::max()
+                                            / data.channel_count
+                && data.channel_sequential_data.size()
+                       == data.sample_count * data.channel_count,
+            "Source matrix mismatch");
+    for (auto c : order) {
+        require(c < data.channel_count && seen.insert(c).second,
+                "Invalid/duplicate source column");
+        auto begin =
+            data.channel_sequential_data.begin() + c * data.sample_count;
+        selected.channel_sequential_data.insert(
+            selected.channel_sequential_data.end(),
+            begin,
+            begin + data.sample_count);
+        if (data.channel_measurands.size() == data.channel_count)
+            selected.channel_measurands.push_back(data.channel_measurands[c]);
+    }
+    selected.channel_count = order.size();
+    import_waveforms(selected, action, physical);
+}
 ValidationReport DatasetDraft::validate(ValidationMode mode) const {
     auto r = validate_metadata(metadata_, {mode});
-    const auto issue = [&](std::string s) {
+    auto issue = [&](std::string s) {
         (mode == ValidationMode::Final ? r.errors : r.warnings)
             .push_back(std::move(s));
     };
-    if (metadata_.InstrumentInfo.Channels.size()
-        > std::numeric_limits<std::uint16_t>::max())
+    if (metadata_uids_.empty())
+        issue("Metadata: no channels supplied");
+    if (metadata_uids_.size() > std::numeric_limits<std::uint16_t>::max())
         r.errors.push_back("Too many channels for qREST packet");
-    if (values().size()
-        > (std::numeric_limits<std::uint32_t>::max() - 32) / sizeof(double))
-        r.errors.push_back("Packet exceeds qREST size limit");
-    if (values().empty()
-        || values().size()
-               != std::size_t(std::max(0, metadata_.DataInfo.NPTS))
-                      * metadata_.InstrumentInfo.Channels.size())
-        issue("Data: missing waveform or matrix dimensions do not match "
-              "metadata");
-    for (std::size_t c = 0; c < metadata_.InstrumentInfo.Channels.size(); ++c) {
-        const auto scale = metadata_.InstrumentInfo.Channels[c].Scale;
-        const auto n = std::size_t(std::max(0, metadata_.DataInfo.NPTS));
-        for (std::size_t i = c * n; i < std::min(values().size(), (c + 1) * n);
-             ++i) {
-            const auto x = values()[i];
-            bool valid = std::isfinite(x) && std::isfinite(x * scale);
+    if (sample_count_
+        && metadata_uids_.size()
+               > (std::numeric_limits<std::uint32_t>::max() - 32)
+                     / sizeof(double) / sample_count_)
+        r.errors.push_back("Projected packet exceeds qREST size limit");
+    for (std::size_t c = 0; c < metadata_uids_.size(); ++c) {
+        auto col = column_for(metadata_uids_[c]);
+        auto prefix = "Channel[" + std::to_string(c) + "]: ";
+        if (!col) {
+            issue(prefix + "no real waveform bound");
+            continue;
+        }
+        const auto &fact = columns_[*col];
+        const auto &target = metadata_.InstrumentInfo.Channels[c];
+        if (sample_count_ != std::size_t(std::max(0, metadata_.DataInfo.NPTS)))
+            issue(prefix + "source NPTS differs from Metadata");
+        if (!(metadata_.DataInfo.DT > 0)
+            || !close(1 / metadata_.DataInfo.DT, sampling_rate_))
+            issue(prefix + "source sample rate differs from Metadata DT");
+        try {
+            if (start_time_
+                && *start_time_
+                       != parse_iso8601_timestamp_ms(
+                           metadata_.DataInfo.StartTime))
+                issue(prefix + "source StartTime differs from Metadata");
+        } catch (const std::exception &e) {
+            issue(prefix + e.what());
+        }
+        if (!fact.distance_unit.empty()
+            && fact.distance_unit != metadata_.Units[0])
+            issue(prefix + "source unit differs from Metadata unit");
+        if (!fact.measurand.empty() && fact.measurand != target.Measurand)
+            issue(prefix + "source quantity differs from Metadata Measurand");
+        if (!fact.physical && fact.source_scale
+            && target.Scale != *fact.source_scale)
+            issue(prefix + "source stored Scale differs from Metadata Scale");
+        if (fact.physical && target.Scale != 1)
+            issue(prefix + "physical source values require explicit Scale=1");
+        for (std::size_t t = 0; t < sample_count_; ++t) {
+            auto x = values()[*col * sample_count_ + t];
+            bool valid = std::isfinite(x) && std::isfinite(x * target.Scale);
             if (encoding_ == 0)
                 valid &= std::isfinite(static_cast<float>(x))
                          && double(static_cast<float>(x)) == x;
@@ -320,24 +446,32 @@ ValidationReport DatasetDraft::validate(ValidationMode mode) const {
                 valid &=
                     x >= -2147483648. && x <= 2147483647. && std::trunc(x) == x;
             if (!valid) {
-                r.errors.push_back(
-                    "Data/channel " + std::to_string(c + 1)
-                    + ": non-finite physical value or loss in packet encoding");
+                issue(prefix
+                      + "non-finite physical value or loss in packet encoding");
                 break;
             }
         }
     }
+    auto omitted = unbound_data_count();
+    if (omitted)
+        r.warnings.push_back(
+            "当前草稿包含 " + std::to_string(omitted)
+            + " 条未绑定波形数据列。这些数据列不会写入正式 .qrest "
+              "文件；已绑定的有效列将按 Metadata 通道编号输出。");
     if (metadata_.BuildingInfo.StructuralFootprint.Shape.empty())
         issue("BuildingInfo.StructuralFootprint.Shape must be supplied");
-    try {
-        if (!r.errors.empty())
-            return r;
-        auto canonical = Metadata::from_bytes(metadata_.to_bytes());
-        (void)canonical;
-    } catch (const std::exception &e) {
-        issue(std::string("Metadata serialization: ") + e.what());
-    }
     return r;
+}
+DatasetDraft::FormalPayload DatasetDraft::project_formal_output() const {
+    require_report(validate());
+    FormalPayload p{metadata_, {}, unbound_data_count()};
+    p.values.reserve(sample_count_ * metadata_uids_.size());
+    for (auto uid : metadata_uids_) {
+        auto c = *column_for(uid);
+        auto begin = values().begin() + c * sample_count_;
+        p.values.insert(p.values.end(), begin, begin + sample_count_);
+    }
+    return p;
 }
 void DatasetDraft::save_new(
     const std::filesystem::path &destination,
@@ -345,7 +479,7 @@ void DatasetDraft::save_new(
     namespace fs = std::filesystem;
     require(destination.extension() == ".qrest",
             "Destination must be a new .qrest file");
-    require_report(validate());
+    const auto output = project_formal_output();
     auto target = fs::absolute(destination);
     auto parent = target.parent_path();
     require(!fs::exists(fs::symlink_status(target)),
@@ -366,11 +500,12 @@ void DatasetDraft::save_new(
     }
     require(!temp.path.empty(), "Cannot reserve temporary save directory");
     auto file = temp.path / "verified.qrest";
-    write_qrest_file(utf8(file), metadata_, values(), source_id_, encoding_);
+    write_qrest_file(
+        utf8(file), output.metadata, output.values, source_id_, encoding_);
     auto read = read_qrest_file(utf8(file));
     require_report(validate_qrest_file(utf8(file)));
-    require(read.metadata.to_bytes() == metadata_.to_bytes()
-                && read.channel_sequential_data == values(),
+    require(read.metadata.to_bytes() == output.metadata.to_bytes()
+                && read.channel_sequential_data == output.values,
             "Saved file round-trip differs from draft");
     require(read.packet.data_encoding == encoding_
                 && read.packet.source_id == source_id_,
