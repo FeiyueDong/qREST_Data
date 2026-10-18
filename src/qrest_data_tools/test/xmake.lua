@@ -5,3 +5,10 @@ target("test_qrest_data_import_formats")
     add_deps("qrest_data_import_formats")
     add_packages("hdf5", "nlohmann_json")
     set_rundir("$(projectdir)")
+
+target("test_qrest_data_dataset_draft")
+    set_kind("binary")
+    add_files("test_dataset_draft.cpp")
+    add_deps("qrest_data_tools_core")
+    if is_plat("linux") then add_syslinks("pthread") end
+    set_rundir("$(projectdir)")

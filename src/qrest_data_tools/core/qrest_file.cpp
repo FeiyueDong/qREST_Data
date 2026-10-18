@@ -1,9 +1,19 @@
+/**
+** qREST - Quick Response Evaluation for Safety Tagging
+** Copyright 2024 - 2026 QLab, Dong Feiyue. All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/core/qrest_file.cpp
+** Original creation/author: not recorded in existing source
+** Last Modified: Sunday, 18 October 2026
+** Modified By: Codex
+*/
 #include "qrest_file.hpp"
 
 #include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <fstream>
+#include <filesystem>
 #include <iterator>
 #include <limits>
 #include <sstream>
@@ -17,7 +27,7 @@ namespace qrest_data::tools {
 namespace {
 
 std::string read_binary_file(const std::string &path) {
-    std::ifstream input(path, std::ios::binary);
+    std::ifstream input(std::filesystem::path(std::u8string(path.begin(), path.end())), std::ios::binary);
     if (!input.is_open()) {
         throw std::runtime_error("Cannot open input file: " + path);
     }
@@ -26,13 +36,14 @@ std::string read_binary_file(const std::string &path) {
 }
 
 void write_binary_file(const std::string &path, const std::string &bytes) {
-    std::ofstream output(path, std::ios::binary);
+    std::ofstream output(std::filesystem::path(std::u8string(path.begin(), path.end())), std::ios::binary);
     if (!output.is_open()) {
         throw std::runtime_error("Cannot create output file: " + path);
     }
     output.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    output.close();
     if (!output) {
-        throw std::runtime_error("Failed while writing output file: " + path);
+        throw std::runtime_error("Failed while writing or closing output file: " + path);
     }
 }
 
