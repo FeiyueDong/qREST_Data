@@ -61,6 +61,8 @@ std::vector<double> read_text_matrix(const std::string &path,
             out[channel_major ? row * samples + col : col * samples + row] =
                 value;
         }
+        if (delimiter && !stream.eof())
+            throw std::runtime_error("Source text has extra columns");
         if (!(stream >> std::ws).eof()
             || (delimiter && !line.empty() && line.back() == delimiter))
             throw std::runtime_error("Source text has extra columns");

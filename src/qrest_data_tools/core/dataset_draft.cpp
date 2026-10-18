@@ -254,10 +254,7 @@ void DatasetDraft::edit_channel(std::size_t c, Channel channel) {
     normalize_draft_metadata(metadata_);
     dirty_ = true;
 }
-void DatasetDraft::add_channel(Channel channel, std::vector<double> samples) {
-    require(samples.empty(),
-            "Metadata additions cannot manufacture waveform columns; import "
-            "real data separately");
+void DatasetDraft::add_channel(Channel channel) {
     metadata_.InstrumentInfo.Channels.push_back(std::move(channel));
     metadata_uids_.push_back(next_uid_++);
     normalize_draft_metadata(metadata_);
@@ -266,7 +263,6 @@ void DatasetDraft::add_channel(Channel channel, std::vector<double> samples) {
 }
 void DatasetDraft::duplicate_channel(std::size_t c) {
     auto copy = metadata_.InstrumentInfo.Channels.at(c);
-    copy.ChannelID = "UNKNOWN";
     add_channel(std::move(copy));
 }
 void DatasetDraft::reorder_metadata_channels(const std::vector<Uid> &order) {
@@ -291,7 +287,8 @@ void DatasetDraft::reorder_metadata_channels(const std::vector<Uid> &order) {
 void DatasetDraft::import_waveforms(const ExternalDataset &data,
                                     ImportAction action,
                                     bool physical,
-                                    const std::vector<double> &source_scales) {
+                                    const std::vector<double> &source_scales,
+                                    const std::string &source_label) {
     require(data.sample_count > 0
                 && data.sample_count
                        <= std::size_t(std::numeric_limits<int>::max())
@@ -336,7 +333,8 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
         cols.push_back(
             {next++,
              {},
-             data.source_format + " D" + std::to_string(i + 1),
+             (source_label.empty() ? data.source_format : source_label) + " D"
+                 + std::to_string(i + 1),
              data.channel_measurands.empty() ? "" : data.channel_measurands[i],
              data.distance_unit,
              physical,
@@ -353,38 +351,6 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
     initial_binding();
     encoding_ = 1;
     dirty_ = true;
-}
-void DatasetDraft::import_data(const ExternalDataset &data,
-                               const std::vector<std::size_t> &order,
-                               ImportAction action,
-                               Metadata,
-                               bool physical) {
-    ExternalDataset selected = data;
-    selected.channel_sequential_data.clear();
-    selected.channel_labels.clear();
-    selected.channel_measurands.clear();
-    std::set<std::size_t> seen;
-    require(!order.empty(), "No imported columns selected");
-    require(data.channel_count
-                && data.sample_count <= std::numeric_limits<std::size_t>::max()
-                                            / data.channel_count
-                && data.channel_sequential_data.size()
-                       == data.sample_count * data.channel_count,
-            "Source matrix mismatch");
-    for (auto c : order) {
-        require(c < data.channel_count && seen.insert(c).second,
-                "Invalid/duplicate source column");
-        auto begin =
-            data.channel_sequential_data.begin() + c * data.sample_count;
-        selected.channel_sequential_data.insert(
-            selected.channel_sequential_data.end(),
-            begin,
-            begin + data.sample_count);
-        if (data.channel_measurands.size() == data.channel_count)
-            selected.channel_measurands.push_back(data.channel_measurands[c]);
-    }
-    selected.channel_count = order.size();
-    import_waveforms(selected, action, physical);
 }
 ValidationReport DatasetDraft::validate(ValidationMode mode) const {
     auto r = validate_metadata(metadata_, {mode});

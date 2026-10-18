@@ -78,16 +78,12 @@ public:
     void import_waveforms(const ExternalDataset &,
                           ImportAction,
                           bool physical,
-                          const std::vector<double> &source_scales = {});
+                          const std::vector<double> &source_scales = {},
+                          const std::string &source_label = {});
     void apply_json(const std::string &json);
     void edit_channel(std::size_t column, Channel channel);
-    void add_channel(Channel channel, std::vector<double> samples = {});
+    void add_channel(Channel channel);
     void duplicate_channel(std::size_t column);
-    void import_data(const ExternalDataset &data,
-                     const std::vector<std::size_t> &order,
-                     ImportAction action,
-                     Metadata metadata,
-                     bool physical_values);
     ValidationReport
     validate(ValidationMode mode = ValidationMode::Final) const;
     // Writes/verifies in a private sibling directory, publishes via an

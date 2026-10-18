@@ -64,6 +64,8 @@ int main() try {
     c.Measurand = "Acceleration";
     c.Scale = .5;
     m.InstrumentInfo.Channels = {c, c};
+    m.InstrumentInfo.Channels[0].ChannelID = "M1";
+    m.InstrumentInfo.Channels[1].ChannelID = "M2";
     m.InstrumentInfo.Channels[1].Scale = 2;
     m.Extension["Keep"] = "custom";
     auto samples = std::make_shared<const std::vector<double>>(
@@ -76,6 +78,12 @@ int main() try {
     rejects(
         [&] { read_text_matrix((root / "corrupt.txt").string(), 1, 1, false); },
         "corrupt trailing token rejected");
+    std::ofstream(root / "extra.csv") << "1,2, \n";
+    rejects(
+        [&] {
+            read_text_matrix((root / "extra.csv").string(), 2, 1, false, ',');
+        },
+        "trailing empty CSV column rejected");
     auto original = DatasetDraft::from_values(m, samples, {});
     check(original.validate().ok(), "B17 raw source valid");
     auto d = original;
@@ -91,6 +99,9 @@ int main() try {
     check(d.project_formal_output().values[0] == 10,
           "reordered formal projection");
     d.duplicate_channel(0);
+    check(d.metadata().InstrumentInfo.Channels[2].ChannelID == "M2"
+              && d.metadata_uids()[2] != ids[1],
+          "B05 copy preserves attributes with a fresh UID");
     d.add_channel(c);
     check(d.data_column_count() == 2 && d.values_handle() == samples
               && !d.column_for(d.metadata_uids()[2]),
