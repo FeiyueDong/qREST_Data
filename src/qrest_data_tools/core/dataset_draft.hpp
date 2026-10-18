@@ -71,6 +71,10 @@ public:
     void bind_column(Uid column, Uid channel);
     void unbind_column(Uid column);
     void swap_bindings(Uid a, Uid b);
+    // Fail atomically if the target owner changed since user confirmation.
+    // Only an unbound real column can take over; bound pairs use swap.
+    void take_over_binding(Uid column, Uid channel, Uid expected_owner);
+    void unbind_all_columns();
     void bind_unassigned_sequentially();
     void reorder_metadata_channels(const std::vector<Uid> &order);
     std::size_t unbound_data_count() const;

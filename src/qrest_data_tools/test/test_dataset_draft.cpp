@@ -145,6 +145,73 @@ int main() try {
           "B01 initial min-count binding");
     check(many.validate().ok() && !many.validate().warnings.empty(),
           "B13 extra data is a warning");
+    {
+        auto transaction = many;
+        const auto buffer = transaction.values_handle();
+        const auto meta = transaction.metadata().to_bytes();
+        const auto facts = transaction.data_columns();
+        const auto owner = facts[0].uid, recipient = facts[18].uid;
+        const auto channel = transaction.metadata_uids()[0];
+        transaction.take_over_binding(recipient, channel, owner);
+        check(!transaction.binding(owner)
+                  && transaction.binding(recipient) == channel
+                  && transaction.binding(facts[1].uid)
+                         == facts[1].bound_channel,
+              "F05 takeover changes exactly two bindings");
+        check(transaction.values_handle() == buffer
+                  && transaction.values() == *buffer
+                  && transaction.metadata().to_bytes() == meta,
+              "F05 takeover preserves metadata and samples");
+        bool facts_unchanged = true;
+        for (std::size_t i = 0; i < facts.size(); ++i) {
+            const auto &now = transaction.data_columns()[i];
+            const auto &was = facts[i];
+            facts_unchanged &= now.uid == was.uid && now.source == was.source
+                               && now.measurand == was.measurand
+                               && now.distance_unit == was.distance_unit
+                               && now.physical == was.physical
+                               && now.source_scale == was.source_scale;
+        }
+        check(facts_unchanged, "F05 takeover preserves column order and facts");
+        const auto projected_takeover = transaction.project_formal_output();
+        check(projected_takeover.values[0] == (*buffer)[18 * 3]
+                  && transaction.validate().ok(),
+              "F05 formal projection uses takeover binding");
+        rejects([&] { transaction.take_over_binding(owner, channel, owner); },
+                "F05 stale owner rejected atomically");
+        rejects(
+            [&] {
+                transaction.take_over_binding(recipient, channel, recipient);
+            },
+            "F05 same column rejected");
+        rejects(
+            [&] {
+                transaction.take_over_binding(facts[1].uid, channel, recipient);
+            },
+            "F05 bound recipient must use swap");
+        rejects([&] { transaction.take_over_binding(owner, 0, recipient); },
+                "F05 invalid Metadata UID rejected");
+        rejects([&] { transaction.take_over_binding(0, channel, recipient); },
+                "F05 invalid data UID rejected");
+        check(!transaction.binding(owner)
+                  && transaction.binding(recipient) == channel,
+              "F05 rejected takeover leaves bindings unchanged");
+        transaction.unbind_all_columns();
+        check(transaction.unbound_data_count() == 20
+                  && transaction.values_handle() == buffer
+                  && transaction.metadata().to_bytes() == meta
+                  && !transaction.validate().ok(),
+              "F05 unbind all preserves input and blocks Final");
+        transaction.unbind_all_columns();
+        check(transaction.unbound_data_count() == 20,
+              "F05 unbind all is repeatable");
+        transaction.bind_unassigned_sequentially();
+        check(transaction.unbound_data_count() == 2
+                  && transaction.binding(owner) == channel
+                  && transaction.project_formal_output().values
+                         == many.project_formal_output().values,
+              "F05 explicit sequential binding recovers projection");
+    }
     auto full = many.values_handle();
     auto projected = many.project_formal_output();
     check(projected.values.size() == 54 && projected.omitted_columns == 2

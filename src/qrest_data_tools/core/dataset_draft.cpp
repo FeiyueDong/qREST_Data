@@ -195,6 +195,30 @@ void DatasetDraft::swap_bindings(Uid a, Uid b) {
     std::swap(columns_[ai].bound_channel, columns_[bi].bound_channel);
     dirty_ = true;
 }
+void DatasetDraft::take_over_binding(Uid column,
+                                     Uid channel,
+                                     Uid expected_owner) {
+    const auto target = column_index(column);
+    const auto previous = column_index(expected_owner);
+    require(metadata_index(channel).has_value(),
+            "Unknown Metadata channel UID");
+    require(target != previous && !columns_[target].bound_channel,
+            "Takeover requires a distinct unbound real data column");
+    require(columns_[previous].bound_channel == channel
+                && column_for(channel) == previous,
+            "Metadata channel owner changed; confirm the new owner first");
+    columns_[previous].bound_channel.reset();
+    columns_[target].bound_channel = channel;
+    dirty_ = true;
+}
+void DatasetDraft::unbind_all_columns() {
+    for (auto &column : columns_) {
+        if (column.bound_channel) {
+            column.bound_channel.reset();
+            dirty_ = true;
+        }
+    }
+}
 void DatasetDraft::bind_unassigned_sequentially() {
     std::vector<Uid> free;
     for (auto uid : metadata_uids_)
