@@ -1,17 +1,9 @@
 local qrest_data_root = path.normalize(path.join(os.scriptdir(), ".."))
 local qrest_data_version = "1.1.1"
-local qrest_data_standalone =
-    path.absolute(os.projectdir()) == path.absolute(qrest_data_root)
 
 add_requires("nlohmann_json")
 add_requires("cli11")
 add_requires("hdf5")
-
-option("qrest_data_enable_gui")
-    set_default(qrest_data_standalone)
-    set_showmenu(true)
-    set_description("Build the qrest_data Qt Quick GUI")
-option_end()
 
 target("qrest_data_headers")
     set_kind("headeronly")
@@ -47,19 +39,6 @@ for _, name in ipairs({"qrest_data_lib", "qrest_data_hdf5",
                       "qrest_data_import_formats", "qrest_data_tools_core",
                       "qrest_data_tools_cli"}) do
     target(name)
-        set_version(qrest_data_version)
-        if is_plat("windows") then
-            add_cxflags("/utf-8")
-        end
-end
-
-local gui_enabled = get_config("qrest_data_enable_gui")
-if gui_enabled == nil then
-    gui_enabled = qrest_data_standalone
-end
-if gui_enabled then
-    includes(path.join(qrest_data_root, "src/qrest_data_tools/gui"))
-    target("qrest_data_tools_gui")
         set_version(qrest_data_version)
         if is_plat("windows") then
             add_cxflags("/utf-8")

@@ -13,6 +13,7 @@ xmake build -P .
 xmake run -P . products_smoke
 ```
 
-The target list must contain qrest_data products and `products_smoke`, but no
-qrest_data `test_*` targets or GUI by default. Set
-`--qrest_data_enable_gui=y` at configuration time to opt in to the GUI.
+The target list must contain exactly `qrest_data_headers`, `qrest_data_lib`,
+`qrest_data_hdf5`, `qrest_data_import_formats`, `qrest_data_tools_core`,
+`qrest_data_tools_cli`, and `products_smoke`. The smoke project's load check
+rejects any missing or additional target and verifies version isolation.

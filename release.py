@@ -5,11 +5,9 @@
 from __future__ import annotations
 
 import argparse
-import os
 import platform as host_platform
 import re
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -80,10 +78,9 @@ def copy_artifacts(
             "qrest_data_lib.dll",
             "qrest_data_lib.lib",
             "qrest_data_tools_cli.exe",
-            "qrest_data_tools_gui.exe",
         )
         if target_platform == "windows"
-        else ("libqrest_data_lib.so", "qrest_data_tools_cli", "qrest_data_tools_gui")
+        else ("libqrest_data_lib.so", "qrest_data_tools_cli")
     )
     missing = [name for name in required_artifacts if not (build_dir / name).is_file()]
     if missing:
@@ -96,70 +93,19 @@ def copy_artifacts(
             continue
         name = artifact.name
         if target_platform == "windows":
-            if name.endswith(".dll") or name in {
-                "qrest_data_tools_cli.exe",
-                "qrest_data_tools_gui.exe",
-            }:
+            if (
+                name.endswith(".dll") and not name.lower().startswith("qt")
+            ) or name == "qrest_data_tools_cli.exe":
                 copy_file(artifact, package_dir / "bin" / name)
             elif name.startswith("qrest_data") and name.endswith(".lib"):
                 copy_file(artifact, package_dir / "lib" / name)
         else:
-            if name in {"qrest_data_tools_cli", "qrest_data_tools_gui"}:
+            if name == "qrest_data_tools_cli":
                 copy_file(artifact, package_dir / "bin" / name)
             elif name.startswith("libqrest_data") and (
                 ".so" in name or name.endswith(".a") or name.endswith(".dylib")
             ):
                 copy_file(artifact, package_dir / "lib" / name)
-
-
-def deploy_windows_gui(package_dir: Path, mode: str) -> None:
-    gui_executable = package_dir / "bin" / "qrest_data_tools_gui.exe"
-    if not gui_executable.is_file():
-        raise FileNotFoundError(
-            "Windows release requires qrest_data_tools_gui.exe; build the GUI target first."
-        )
-
-    configured_tool = os.environ.get("WINDEPLOYQT")
-    candidates = [configured_tool] if configured_tool else []
-    candidates.extend(("windeployqt6", "windeployqt"))
-    deploy_tool = next(
-        (resolved for name in candidates if (resolved := shutil.which(name))),
-        None,
-    )
-    if deploy_tool is None:
-        raise FileNotFoundError(
-            "windeployqt was not found. Add it to PATH or set WINDEPLOYQT before packaging Windows."
-        )
-
-    subprocess.run(
-        [
-            deploy_tool,
-            f"--{mode}",
-            "--no-compiler-runtime",
-            "--qmldir",
-            str(PROJECT_ROOT / "src" / "qrest_data_tools" / "gui" / "qml"),
-            "--dir",
-            str(package_dir / "bin"),
-            str(gui_executable),
-        ],
-        check=True,
-    )
-
-    runtime_suffix = "d" if mode == "debug" else ""
-    required_runtime = (
-        package_dir / "bin" / f"Qt6Core{runtime_suffix}.dll",
-        package_dir / "bin" / f"Qt6Gui{runtime_suffix}.dll",
-        package_dir / "bin" / f"Qt6Qml{runtime_suffix}.dll",
-        package_dir / "bin" / f"Qt6Quick{runtime_suffix}.dll",
-        package_dir / "bin" / "platforms" / f"qwindows{runtime_suffix}.dll",
-        package_dir / "bin" / "qml",
-    )
-    missing = [str(path) for path in required_runtime if not path.exists()]
-    if missing:
-        raise RuntimeError(
-            "windeployqt completed but required Qt runtime files are missing: "
-            + ", ".join(missing)
-        )
 
 
 def create_package(args: argparse.Namespace) -> Path:
@@ -180,8 +126,6 @@ def create_package(args: argparse.Namespace) -> Path:
         staged_package.mkdir()
 
         copy_artifacts(build_dir, staged_package, target_platform)
-        if target_platform == "windows":
-            deploy_windows_gui(staged_package, args.mode)
         copy_tree(
             PROJECT_ROOT / "include" / "qrest_data",
             staged_package / "include" / "qrest_data",

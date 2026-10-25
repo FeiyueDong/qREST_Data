@@ -15,9 +15,8 @@ qrest_data_tools import mseed <mseed-file-or-dir> <metadata.json> <output.qrest>
 
 When the input is a directory, files are sorted by filename and concatenated in
 that order. The command-line default maps external channels sequentially to the
-metadata channel list. Use the external channel mapping API or GUI import
-workflow when source channel labels must be matched to site-specific channel
-IDs.
+metadata channel list. Use the external channel mapping API when source channel
+labels must be matched to site-specific channel IDs.
 
 Before writing a `.qrest` file, the merged external data is checked against the
 provided metadata. `InstrumentInfo.ChannelNum`, `DataInfo.NPTS`, and the sample

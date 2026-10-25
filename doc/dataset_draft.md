@@ -1,6 +1,6 @@
 # Dataset editing Core
 
-`qrest_data_tools_core` exports `dataset_draft.hpp` through its target include path. It has no Qt dependency. The Widgets frontend consumes this product; QML GUI and CLI remain available.
+`qrest_data_tools_core` exports `dataset_draft.hpp` through its target include path. It has no Qt dependency. The `qrest_module` frontend consumes this product; this project also provides the CLI.
 
 A `DatasetDraft` owns three independent objects: Metadata with stable channel UIDs, source ChannelData facts (sample count/rate/optional start time plus immutable channel-sequential samples), and one-to-one data-column-to-Metadata bindings. ChannelNo is display order, never identity. Metadata edits, deletion, duplication, reorder and binding operations share the original sample buffer. Adding/duplicating Metadata creates an unallocated channel. Removing Metadata only unbinds its waveform.
 

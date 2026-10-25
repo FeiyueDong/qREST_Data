@@ -3,7 +3,7 @@
 **qrest_data Module Version**: 独立项目版本由根 `xmake.lua` 定义；嵌入式
 products 入口为生成 `<qrest_data/version.h>` 设置相同的 target-local 版本。
 
-**最后更新**: 2026-09-22
+**最后更新**: 2026-10-25
 
 本项目是qREST(Quick Response Evaluation for Safety Tagging)的一个子项目，主要负责数据管理。主要定义了两个协议：数据存储协议和数据传输协议。并提供一些简单的工具用于做处理和转换。
 
@@ -18,7 +18,8 @@ Protocol Version 仍为 `1`。发布模块版本不会自动改变文件或数�
 include/qrest_data/        Public qREST API
 src/qrest_data_lib/        C ABI implementation
 src/qrest_data_hdf5/       HDF5 support
-src/qrest_data_tools/      CLI / GUI / import / validation tools
+src/qrest_data_tools/      CLI / import / validation / dataset editing core
+src/deprecated/           已废弃功能归档，不参与构建、安装或发布
 xmake/products.lua        Embedded products-only build entry
 tests/products_smoke/     Independent products-entry integration test
 ```
@@ -61,13 +62,12 @@ xmake build
 python release.py linux --mode release
 ```
 
-Windows 发布包生成时，`release.py` 会调用 `windeployqt` 部署 Qt Quick/QML
-运行时；若工具不可用则直接失败。动态链接的 HDF5 DLL 必须由 Xmake 放入构建
-输出目录，发布脚本会复制其中的全部 DLL。MSVC 运行时应通过官方 Visual C++
+Windows 发布包生成时，动态链接的 HDF5 DLL 必须由 Xmake 放入构建
+输出目录，发布脚本会复制相应的 DLL。MSVC 运行时应通过官方 Visual C++
 Redistributable 安装；发布脚本不复制开发机上的单个运行时 DLL。正式发布仍需在
-未安装 Qt、Xmake、Visual Studio 或 HDF5 的干净 Windows 环境中进行启动验收。
+未安装 Xmake、Visual Studio 或 HDF5 的干净 Windows 环境中进行启动验收。
 
-Linux CLI/GUI 使用 `$ORIGIN/../lib` 查找发布包内的 qREST 动态库；Qt 与 HDF5
+Linux CLI 使用 `$ORIGIN/../lib` 查找发布包内的 qREST 动态库；HDF5
 仍作为系统运行时依赖。
 
 安装后的 SDK 可使用 `tests/installed_sdk_smoke/` 进行独立消费验证，该测试只
@@ -84,8 +84,7 @@ target("consumer")
 
 `products.lua` 定义 `qrest_data_headers`、`qrest_data_lib`、HDF5 桥接库、
 导入格式库、Tools Core 和 CLI，不引入本项目的测试 target。独立入口
-`xmake.lua` 仍构建产品和测试，且默认包含 GUI；上层嵌入时 GUI 默认关闭，
-可在配置时传入 `--qrest_data_enable_gui=y`。直接集成可运行
+`xmake.lua` 构建产品和测试。直接集成可运行
 `tests/products_smoke/` 验证 target 边界和版本头。
 
 ## 1. 数据协议
@@ -212,10 +211,6 @@ qrest_data_tools_cli validate mseed <input.mseed>
 qrest_data_tools_cli validate hdf5 <input.h5>
 ```
 
-### 2.2 qREST 可视化工具 (`qrest_data_tools_gui`)
-
-`qrest_data_tools_gui` 提供可视化界面的 qREST 文件解析、元数据查看和数据包体导入导出能力。
-
-### 2.3 qrest数据接口 (qrest_data)
+### 2.2 qrest数据接口 (qrest_data)
 
 提供了一个C语言接口的动态库，用于使用其他语言解析或生成qrest数据格式的字节流。接口定义见[数据接口](doc/qrest_data_lib/interface.md)。

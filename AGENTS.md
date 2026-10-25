@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This repository contains the qREST data management library and tools. Public C/C++ headers live in `include/qrest_data/`. The standalone `xmake.lua` includes products and local tests; `xmake/products.lua` is the products-only entry for parent projects and must not add tests. Core implementations live in `src/`: `qrest_data_lib` provides the shared C ABI library, `qrest_data_hdf5` provides the HDF5 bridge, and `qrest_data_tools` contains CLI, GUI, import, and validation code. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Tests are kept beside their modules in `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `src/qrest_data_tools/test/`; independent smoke projects are under `tests/installed_sdk_smoke/` and `tests/products_smoke/`. qREST examples are under `resource/qrest_data/`, while tracked MiniSEED and TDMS fixtures are under `resource/wuhan_mseed/` and `resource/wuhan_tdms/`. Protocol and interface documentation is under `doc/`. Xmake is the only maintained build entry point.
+This repository contains the qREST data management library and tools. Public C/C++ headers live in `include/qrest_data/`. The standalone `xmake.lua` includes products and local tests; `xmake/products.lua` is the products-only entry for parent projects and must not add tests. Core implementations live in `src/`: `qrest_data_lib` provides the shared C ABI library, `qrest_data_hdf5` provides the HDF5 bridge, and `qrest_data_tools` contains CLI, import, validation, and shared dataset editing code. Imported external-format parsers live under `src/qrest_data_tools/formats/`. Retired features are archived under `src/deprecated/` and must not be included in builds, installation, or release packages. Tests are kept beside their modules in `src/test_qrest_data_lib`, `src/qrest_data_hdf5/test_*.cpp`, and `src/qrest_data_tools/test/`; independent smoke projects are under `tests/installed_sdk_smoke/` and `tests/products_smoke/`. qREST examples are under `resource/qrest_data/`, while tracked MiniSEED and TDMS fixtures are under `resource/wuhan_mseed/` and `resource/wuhan_tdms/`. Protocol and interface documentation is under `doc/`. Xmake is the only maintained build entry point.
 
 ## Build, Test, and Development Commands
 
@@ -13,7 +13,7 @@ This repository contains the qREST data management library and tools. Public C/C
 - `xmake run test_qrest_data_c_api`: compile, link, and run a pure C consumer of the public C API.
 - `xmake run test_qrest_data_hdf5`: run HDF5 read/write tests; requires system HDF5.
 - `xmake run test_qrest_data_import_formats`: run TDMS, modified MiniSEED, and HDF5 bridge regressions; requires the tracked `resource/wuhan_mseed/` and `resource/wuhan_tdms/` fixtures.
-- `tests/products_smoke/`: independent parent-project test of the products-only entry; embedded GUI is opt-in via `--qrest_data_enable_gui=y`.
+- `tests/products_smoke/`: independent parent-project test of the products-only target boundary and version propagation.
 - `xmake run qrest_data_tools_cli pack resource/qrest_data/kunming/metadata.json resource/qrest_data/kunming/data.txt /tmp/sample.qrest`: generate a sample data file.
 
 ## Coding Style & Naming Conventions
@@ -26,7 +26,7 @@ Add or update tests when changing serialization, metadata handling, byte layout,
 
 ## Commit & Pull Request Guidelines
 
-Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, link related issues, and include screenshots only for `qrest_data_tools_gui` UI changes.
+Recent history uses short, imperative summaries such as `update proj dir` and `add new data`. Keep commits focused and mention the touched area when helpful, for example `update hdf5 reader`. Pull requests should describe the data-format or API impact, list tests run, and link related issues.
 
 ## Security & Configuration Tips
 
