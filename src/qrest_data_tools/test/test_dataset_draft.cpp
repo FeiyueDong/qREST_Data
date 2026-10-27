@@ -7,9 +7,10 @@
 ** File: /src/qrest_data_tools/test/test_dataset_draft.cpp
 ** File Created: Sunday, 18 October 2026
 ** Author: Codex
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Tuesday, 27 October 2026
 ** Modified By: Codex
 */
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <fstream>
@@ -86,6 +87,154 @@ int main() try {
         "trailing empty CSV column rejected");
     auto original = DatasetDraft::from_values(m, samples, {});
     check(original.validate().ok(), "B17 raw source valid");
+    {
+        auto timed = original;
+        const auto origin = timed.data_start_time();
+        const auto ids = timed.metadata_uids();
+        const auto columns = timed.data_columns();
+        auto mismatch = timed.metadata();
+        mismatch.DataInfo.NPTS = 4;
+        mismatch.DataInfo.DT = .02;
+        mismatch.DataInfo.StartTime = "2026-10-18T00:00:01Z";
+        timed.replace_metadata(mismatch);
+        const auto report = timed.validate();
+        for (const auto *fragment : {"source NPTS differs",
+                                     "source sample rate differs",
+                                     "source StartTime differs"}) {
+            auto count = std::count_if(report.errors.begin(),
+                                       report.errors.end(),
+                                       [&](const auto &message) {
+                                           return message.find(fragment)
+                                                  != std::string::npos;
+                                       });
+            check(
+                count == 1,
+                "dataset sampling conflict reported once across all channels");
+        }
+        check(std::none_of(report.errors.begin(),
+                           report.errors.end(),
+                           [](const auto &message) {
+                               return message.starts_with("Channel[")
+                                      && message.find("source StartTime")
+                                             != std::string::npos;
+                           }),
+              "global time conflict has no channel prefix");
+        const auto draft_report = timed.validate(ValidationMode::Draft);
+        check(
+            std::count_if(
+                draft_report.warnings.begin(),
+                draft_report.warnings.end(),
+                [](const auto &message) {
+                    return message
+                           == "Dataset: source StartTime differs from Metadata";
+                })
+                == 1,
+            "draft warning scope is dataset-wide too");
+        timed = original;
+        timed.correct_start_time("2026-10-18T00:00:01.250Z");
+        check(timed.validate().ok() && timed.data_start_time() == *origin + 1250
+                  && timed.metadata().DataInfo.StartTime
+                         == "2026-10-18T00:00:01.250Z",
+              "explicit correction changes metadata and effective origin "
+              "together");
+        check(timed.values_handle() == samples && timed.metadata_uids() == ids
+                  && timed.data_columns()[0].bound_channel
+                         == columns[0].bound_channel
+                  && timed.data_columns()[1].bound_channel
+                         == columns[1].bound_channel
+                  && timed.data_sample_rate() == original.data_sample_rate()
+                  && timed.data_sample_count() == original.data_sample_count()
+                  && timed.metadata().DataInfo.DT
+                         == original.metadata().DataInfo.DT
+                  && original.data_start_time() == origin,
+              "time correction preserves samples, DT, identities, bindings and "
+              "independent source");
+        auto audit = timed.metadata().Extension.at("EditorTimeCorrection");
+        check(audit["original_start_time_ms"] == *origin
+                  && audit["offset_ms"] == 1250
+                  && timed.metadata().Extension["Keep"] == "custom",
+              "correction provenance and other extensions preserved");
+        const auto corrected = root / "corrected.qrest";
+        timed.save_new(corrected);
+        auto reloaded = DatasetDraft::from_file(corrected);
+        check(reloaded.data_start_time() == timed.data_start_time()
+                  && reloaded.values() == *samples
+                  && reloaded.metadata().Extension["EditorTimeCorrection"]
+                         == audit,
+              "corrected packet and metadata roundtrip with provenance");
+        reloaded.correct_start_time("2026-10-17T23:59:59.500Z");
+        check(reloaded.metadata().Extension["EditorTimeCorrection"]["offset_ms"]
+                      == -500
+                  && reloaded.metadata().Extension["EditorTimeCorrection"]
+                                                  ["original_start_time_ms"]
+                         == *origin,
+              "corrections after reload keep original origin and cumulative "
+              "signed offset");
+        const auto same_audit =
+            reloaded.metadata().Extension["EditorTimeCorrection"];
+        reloaded.correct_start_time("2026-10-18T07:59:59.500+08:00");
+        check(reloaded.metadata().Extension["EditorTimeCorrection"]
+                      == same_audit
+                  && reloaded.validate().ok(),
+              "equivalent timezone representation does not create another "
+              "correction");
+        const auto before = reloaded.metadata().to_bytes();
+        const auto before_origin = reloaded.data_start_time();
+        for (const auto *bad : {"invalid",
+                                "2026-10-18T00:00:00.000001Z",
+                                "1969-01-01T00:00:00Z"}) {
+            rejects([&] { reloaded.correct_start_time(bad); },
+                    "invalid correction is rejected");
+            check(reloaded.metadata().to_bytes() == before
+                      && reloaded.data_start_time() == before_origin
+                      && reloaded.values() == *samples,
+                  "rejected correction is atomic");
+        }
+        auto tampered = reloaded.metadata();
+        tampered.Extension["EditorTimeCorrection"]["effective_start_time_ms"] =
+            1;
+        reloaded.replace_metadata(tampered);
+        rejects([&] { reloaded.correct_start_time("2026-10-18T00:00:02Z"); },
+                "conflicting provenance rejected");
+        check(reloaded.metadata().to_bytes() == tampered.to_bytes()
+                  && reloaded.data_start_time() == before_origin,
+              "provenance failure keeps metadata and origin");
+        ExternalDataset source;
+        source.channel_count = 2;
+        source.sample_count = 3;
+        source.sample_rate_hz = 100;
+        source.start_time_ms = origin;
+        source.channel_sequential_data = *samples;
+        reloaded = timed;
+        rejects(
+            [&] {
+                reloaded.import_waveforms(
+                    source, DatasetDraft::ImportAction::Append, false);
+            },
+            "Append compares corrected effective origin");
+        check(reloaded.data_column_count() == 2
+                  && reloaded.data_start_time() == timed.data_start_time(),
+              "failed append preserves corrected draft");
+        reloaded.import_waveforms(
+            source, DatasetDraft::ImportAction::Replace, false);
+        check(!reloaded.metadata().Extension.contains("EditorTimeCorrection")
+                  && reloaded.data_start_time() == origin,
+              "replacing waveforms discards the previous source correction "
+              "provenance");
+        source.start_time_ms.reset();
+        DatasetDraft unknown;
+        unknown.import_waveforms(
+            source, DatasetDraft::ImportAction::Replace, false);
+        unknown.correct_start_time("2026-10-18T00:00:00Z");
+        check(
+            unknown.metadata()
+                    .Extension["EditorTimeCorrection"]["original_start_time_ms"]
+                    .is_null()
+                && unknown.metadata()
+                       .Extension["EditorTimeCorrection"]["offset_ms"]
+                       .is_null(),
+            "unknown source origin is not fabricated in provenance");
+    }
     auto d = original;
     auto metadata = d.metadata();
     metadata.BuildingInfo.ProjectName = "edited";

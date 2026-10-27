@@ -207,3 +207,26 @@ The synthetic load repeats the project-owned fixture's legal Steim-2 payload;
 it measures whole-process wall time and Linux peak RSS for validate/import.
 It is not a compression-quality or realistic wavefield benchmark. The output
 includes dimensions, byte counts, hashes and per-command logs/measurements.
+
+
+## DatasetDraft time correction and validation scope
+
+`NPTS`, sample rate/`DT`, and `StartTime` belong to the synchronized dataset.
+Their compatibility checks run once per dataset and use a `Dataset:` prefix;
+channel binding, quantity, source units and Scale checks remain per channel.
+Ordinary `replace_metadata()` / JSON import preserve waveform sampling facts.
+
+The explicit C++ core transaction `DatasetDraft::correct_start_time(iso8601)`
+changes the draft's effective origin and `Metadata.DataInfo.StartTime` together.
+It requires real columns and a valid UTC-offset timestamp exactly representable
+in milliseconds. It leaves samples, sample rate, NPTS, Scale, bindings, UIDs and
+all source files unchanged. Saving still publishes a new file exclusively.
+
+`Metadata.Extension.EditorTimeCorrection` records schema_version=1, the original
+UTC start in milliseconds, the effective UTC start and cumulative signed offset.
+An unknown original start and its offset remain null. Further corrections,
+including after saving/reloading, retain that original origin. Equivalent UTC
+spellings do not add a correction. Conflicting existing provenance or invalid
+input fails atomically. Replacing all waveforms clears the previous source's
+correction record; append checks the effective origin. The .qrest container,
+metadata schema and public C ABI are unchanged.

@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/dataset_draft.hpp
 ** File Created: Sunday, 18 October 2026
 ** Author: Codex
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Tuesday, 27 October 2026
 ** Modified By: Codex
 */
 #pragma once
@@ -57,12 +57,18 @@ public:
     // Property edits preserve channel identities; full JSON import replaces
     // them.
     void replace_metadata(Metadata metadata);
+    // Explicit correction of the dataset-wide effective time origin. Samples,
+    // DT, bindings and the original file are untouched; provenance is recorded
+    // in Metadata.Extension["EditorTimeCorrection"]. Ordinary metadata edits
+    // never invoke this operation implicitly.
+    void correct_start_time(const std::string &iso8601);
     void import_metadata(Metadata metadata);
     const auto &metadata_uids() const { return metadata_uids_; }
     const auto &data_columns() const { return columns_; }
     std::size_t data_column_count() const { return columns_.size(); }
     std::size_t data_sample_count() const { return sample_count_; }
     double data_sample_rate() const { return sampling_rate_; }
+    // Effective origin, including an explicitly applied time correction.
     const auto &data_start_time() const { return start_time_; }
     std::optional<std::size_t> metadata_index(Uid uid) const;
     std::optional<std::size_t> column_for(Uid metadata_uid) const;

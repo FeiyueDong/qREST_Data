@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/dataset_draft.cpp
 ** File Created: Sunday, 18 October 2026
 ** Author: Codex
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Tuesday, 27 October 2026
 ** Modified By: Codex
 */
 #include "dataset_draft.hpp"
@@ -253,6 +253,58 @@ void DatasetDraft::replace_metadata(Metadata m) {
     metadata_ = std::move(m);
     dirty_ = true;
 }
+void DatasetDraft::correct_start_time(const std::string &iso8601) {
+    require(!columns_.empty(),
+            "Time correction requires real waveform columns");
+    const auto target = parse_iso8601_timestamp_ms(iso8601);
+    require(target <= std::uint64_t(std::numeric_limits<std::int64_t>::max()),
+            "Time correction target is out of range");
+    // The source parser accepts additional fractional digits. Do not silently
+    // truncate a requested sub-millisecond correction into the ms contract.
+    const auto dot = iso8601.find('.');
+    if (dot != std::string::npos)
+        for (auto i = dot + 4;
+             i < iso8601.size() && iso8601[i] >= '0' && iso8601[i] <= '9';
+             ++i)
+            require(iso8601[i] == '0',
+                    "Time correction must be exactly representable in "
+                    "milliseconds");
+    auto candidate = metadata_;
+    candidate.DataInfo.StartTime = iso8601;
+    if (start_time_ != target) {
+        nlohmann::json original = start_time_ ? nlohmann::json(*start_time_)
+                                              : nlohmann::json(nullptr);
+        const auto old = candidate.Extension.find("EditorTimeCorrection");
+        if (old != candidate.Extension.end()) {
+            require(old->is_object() && old->value("schema_version", 0) == 1
+                        && old->contains("original_start_time_ms")
+                        && old->contains("effective_start_time_ms")
+                        && start_time_
+                        && (*old)["effective_start_time_ms"] == *start_time_,
+                    "Existing EditorTimeCorrection provenance conflicts with "
+                    "effective time");
+            original = old->at("original_start_time_ms");
+            require(original.is_null()
+                        || (original.is_number_unsigned()
+                            && original.get<std::uint64_t>() <= std::uint64_t(
+                                   std::numeric_limits<std::int64_t>::max())),
+                    "Invalid original time correction provenance");
+        }
+        candidate.Extension["EditorTimeCorrection"] = {
+            {"schema_version", 1},
+            {"original_start_time_ms", original},
+            {"effective_start_time_ms", target},
+            {"offset_ms",
+             original.is_null()
+                 ? nlohmann::json(nullptr)
+                 : nlohmann::json(static_cast<std::int64_t>(target)
+                                  - static_cast<std::int64_t>(
+                                      original.get<std::uint64_t>()))}};
+    }
+    metadata_ = std::move(candidate);
+    start_time_ = target;
+    dirty_ = true;
+}
 void DatasetDraft::import_metadata(Metadata m) {
     normalize_draft_metadata(m);
     std::vector<Uid> ids;
@@ -364,8 +416,12 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
              physical,
              source_scales.empty() ? std::optional<double>{}
                                    : source_scales[i]});
+    auto metadata = metadata_;
+    if (!append)
+        metadata.Extension.erase("EditorTimeCorrection");
     values_ = std::move(buffer);
     columns_ = std::move(cols);
+    metadata_ = std::move(metadata);
     next_uid_ = next;
     sample_count_ = data.sample_count;
     sampling_rate_ = data.sample_rate_hz;
@@ -391,6 +447,22 @@ ValidationReport DatasetDraft::validate(ValidationMode mode) const {
                > (std::numeric_limits<std::uint32_t>::max() - 32)
                      / sizeof(double) / sample_count_)
         r.errors.push_back("Projected packet exceeds qREST size limit");
+    if (!columns_.empty()) {
+        if (sample_count_ != std::size_t(std::max(0, metadata_.DataInfo.NPTS)))
+            issue("Dataset: source NPTS differs from Metadata");
+        if (!(metadata_.DataInfo.DT > 0)
+            || !close(1 / metadata_.DataInfo.DT, sampling_rate_))
+            issue("Dataset: source sample rate differs from Metadata DT");
+        try {
+            if (start_time_
+                && *start_time_
+                       != parse_iso8601_timestamp_ms(
+                           metadata_.DataInfo.StartTime))
+                issue("Dataset: source StartTime differs from Metadata");
+        } catch (const std::exception &e) {
+            issue(std::string("Dataset: ") + e.what());
+        }
+    }
     for (std::size_t c = 0; c < metadata_uids_.size(); ++c) {
         auto col = column_for(metadata_uids_[c]);
         auto prefix = "Channel[" + std::to_string(c) + "]: ";
@@ -400,20 +472,6 @@ ValidationReport DatasetDraft::validate(ValidationMode mode) const {
         }
         const auto &fact = columns_[*col];
         const auto &target = metadata_.InstrumentInfo.Channels[c];
-        if (sample_count_ != std::size_t(std::max(0, metadata_.DataInfo.NPTS)))
-            issue(prefix + "source NPTS differs from Metadata");
-        if (!(metadata_.DataInfo.DT > 0)
-            || !close(1 / metadata_.DataInfo.DT, sampling_rate_))
-            issue(prefix + "source sample rate differs from Metadata DT");
-        try {
-            if (start_time_
-                && *start_time_
-                       != parse_iso8601_timestamp_ms(
-                           metadata_.DataInfo.StartTime))
-                issue(prefix + "source StartTime differs from Metadata");
-        } catch (const std::exception &e) {
-            issue(prefix + e.what());
-        }
         if (!fact.distance_unit.empty()
             && fact.distance_unit != metadata_.Units[0])
             issue(prefix + "source unit differs from Metadata unit");
