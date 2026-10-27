@@ -31,6 +31,14 @@ struct ChannelSeries {
     std::string sensitivity_origin;
     double actual_sensitivity{};
 
+    std::uint32_t start_time_resolution_us{100};
+    // Common grid-phase window inferred from all records, relative to the
+    // encoded first timestamp. This is an integrity bound, not a clock
+    // correction.
+    long double start_phase_lower_us{-50};
+    long double start_phase_upper_us{50};
+    std::int64_t last_record_time_us{};
+    std::uint32_t last_record_time_resolution_us{100};
     std::int64_t start_time_us{};
     BTime start_time{};
     BTime last_record_time{};

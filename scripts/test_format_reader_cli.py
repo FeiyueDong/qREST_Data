@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import tempfile
+import struct
 
 root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -63,6 +64,42 @@ with tempfile.TemporaryDirectory(prefix="qrest_reader_cli_") as directory:
         channel["Measurand"] = "RawCounts"
     meta.write_text(json.dumps(metadata))
     run("import", "mseed", seed, meta, temp / "counts.qrest", "--counts", "--encoding", "1")
+    # Quantized BTime must preserve legitimate non-integral record durations.
+    raw_seed = (fixtures / "standard_1s.bin").read_bytes()
+    for rate in (75, 120):
+        waveform = bytearray()
+        for index in range(3):
+            record = bytearray(raw_seed[index * 512:(index + 1) * 512])
+            record[15:18] = b"HHZ"
+            struct.pack_into(">h", record, 32, rate)
+            ticks = round(index * 100 * 10000 / rate)
+            record[26] = ticks // 10000
+            struct.pack_into(">H", record, 28, ticks % 10000)
+            waveform.extend(record)
+        source = temp / f"timing_{rate}.mseed"
+        source.write_bytes(waveform)
+        report = run("validate", "mseed", source, "--gap-policy", "error")
+        summary = json.loads(report[report.index("{"):])
+        assert summary["samples"] == 300 and summary["missing_samples"] == 0
+        assert summary["sample_rate_hz"] == rate
+        metadata["DataInfo"]["NPTS"] = 300
+        metadata["DataInfo"]["DT"] = 1.0 / rate
+        metadata["InstrumentInfo"]["ChannelNum"] = 1
+        metadata["InstrumentInfo"]["Channels"] = metadata["InstrumentInfo"]["Channels"][:1]
+        metadata["InstrumentInfo"]["Channels"][0]["ChannelID"] = "HHZ"
+        meta.write_text(json.dumps(metadata))
+        output = temp / f"timing_{rate}.qrest"
+        run("import", "mseed", source, meta, output, "--counts", "--encoding", "1")
+        run("validate", "qrest", output)
+        extracted = temp / f"timing_{rate}.json"
+        run("extract", output, extracted, temp / f"timing_{rate}.txt")
+        back = json.loads(extracted.read_text())
+        assert back["DataInfo"] == metadata["DataInfo"]
+        assert back["Units"] == ["count", "s"]
+        assert back["InstrumentInfo"]["Channels"][0]["Scale"] == 1
+    # Restore the original matrix dimensions for the unchanged pack command.
+    metadata = json.loads((fixtures / "metadata.json").read_text())
+    meta.write_text(json.dumps(metadata))
     # Generic numeric matrix packing keeps its original command semantics.
     run("pack", meta, temp / "sit-dat.txt", temp / "matrix.qrest")
 print(f"CLI reader checks passed: {checks}")

@@ -122,8 +122,13 @@ Header parse_header(std::span<const std::uint8_t> b) {
             h.record_length = std::size_t{1} << h.record_length_exponent;
             extension = pos + 8;
         } else if (type == 1001) {
+            if (h.has_blockette_1001)
+                throw std::runtime_error("duplicate Blockette 1001");
+            h.has_blockette_1001 = true;
             h.start_time_us += static_cast<std::int8_t>(b[pos + 5]);
         } else if (type == 100) {
+            if (h.actual_sample_rate_hz > 0)
+                throw std::runtime_error("duplicate Blockette 100");
             h.actual_sample_rate_hz =
                 std::bit_cast<float>(u32(b.data() + pos + 4, le));
             if (!(h.actual_sample_rate_hz > 0)

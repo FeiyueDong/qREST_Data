@@ -14,8 +14,6 @@
 namespace qrest_data::tools::mseed {
 namespace {
 
-constexpr long double kBTimeToleranceSeconds = 0.00000101L;
-
 bool almost_equal(double a, double b) {
     const double scale = std::max({1.0, std::abs(a), std::abs(b)});
     return std::abs(a - b) <= 1e-12 * scale;
@@ -29,40 +27,75 @@ std::string stream_name(const ChannelSeries &s) {
     return s.network + "." + s.station + "." + s.location + "." + s.channel;
 }
 
-std::int64_t time_offset_to_samples(long double seconds,
+// All calculations use relative microseconds, avoiding cancellation of Unix
+// epoch seconds (in particular on MSVC, where long double has double
+// precision). A timestamp pair contributes half of each encoding step to its
+// error budget. This checks a unique integer sample offset; it never rounds an
+// arbitrary clock jump onto the grid or grows uncertainty with the number of
+// records.
+std::int64_t time_offset_to_samples(long double delta_us,
                                     double sample_rate,
-                                    const std::string &context) {
-    if (!(sample_rate > 0.0) || !std::isfinite(sample_rate)) {
+                                    std::uint32_t reference_resolution_us,
+                                    std::uint32_t current_resolution_us,
+                                    const std::string &context,
+                                    long double elapsed_us = 0) {
+    if (!(sample_rate > 0.0) || !std::isfinite(sample_rate))
         throw std::runtime_error("invalid sample rate while checking "
                                  + context);
+    const long double interval_us = 1000000.0L / sample_rate;
+    const long double budget_us =
+        (static_cast<long double>(reference_resolution_us)
+         + current_resolution_us)
+        / 2;
+    const long double arithmetic_us =
+        32 * std::numeric_limits<long double>::epsilon()
+        * std::max(
+            {1.0L, std::fabs(delta_us), std::fabs(elapsed_us), interval_us});
+    const long double tolerance_us = budget_us + arithmetic_us;
+    const auto detail = [&]() {
+        std::ostringstream detail;
+        detail << std::setprecision(16) << context << ": delta_us=" << delta_us
+               << ", interval_us=" << interval_us
+               << ", tolerance_us=" << tolerance_us
+               << ", timestamp_resolutions_us=" << reference_resolution_us
+               << '/' << current_resolution_us;
+        return detail.str();
+    };
+    if (!reference_resolution_us || !current_resolution_us
+        || !(tolerance_us < interval_us / 2))
+        throw std::runtime_error(
+            "insufficient timing precision for unambiguous sampling grid in "
+            + detail());
+    const long double rounded = std::round(delta_us / interval_us);
+    // Exclusive powers-of-two bounds also work when long double == double.
+    if (!std::isfinite(rounded) || rounded >= std::ldexp(1.0L, 63)
+        || rounded < -std::ldexp(1.0L, 63))
+        throw std::runtime_error("time discontinuity is too large in "
+                                 + detail());
+    const long double residual_us = std::fabs(delta_us - rounded * interval_us);
+    if (residual_us > tolerance_us) {
+        std::ostringstream extra;
+        extra << detail() << ", nearest_sample_offset=" << rounded
+              << ", residual_us=" << residual_us;
+        throw std::runtime_error(
+            "time discontinuity is not aligned to the sampling grid in "
+            + extra.str());
     }
+    return static_cast<std::int64_t>(rounded);
+}
 
-    const long double exact_samples =
-        seconds * static_cast<long double>(sample_rate);
-    if (exact_samples
-            > static_cast<long double>(std::numeric_limits<std::int64_t>::max())
-        || exact_samples < static_cast<long double>(
-               std::numeric_limits<std::int64_t>::min())) {
-        throw std::runtime_error("time discontinuity is too large while "
-                                 "checking "
-                                 + context);
-    }
-
-    const auto rounded = static_cast<std::int64_t>(std::llround(exact_samples));
-    const long double snapped_seconds = static_cast<long double>(rounded)
-                                        / static_cast<long double>(sample_rate);
-    const long double residual = std::fabs(seconds - snapped_seconds);
-
-    if (residual > kBTimeToleranceSeconds) {
-        std::ostringstream oss;
-        oss << "time discontinuity in " << context
-            << " is not aligned to the sampling grid: delta="
-            << std::setprecision(12) << static_cast<double>(seconds)
-            << " s, nearest sample offset=" << rounded
-            << ", residual=" << static_cast<double>(residual) << " s";
-        throw std::runtime_error(oss.str());
-    }
-    return rounded;
+std::string record_time_context(const Header &h,
+                                const ChannelSeries &series,
+                                long double expected_elapsed_us) {
+    std::ostringstream text;
+    text << "stream " << stream_name(h)
+         << ", previous_record_start_us=" << series.last_record_time_us
+         << ", current_record_start_us=" << h.start_time_us
+         << ", grid_start_us=" << series.start_time_us
+         << ", expected_next_start_us=" << std::fixed << std::setprecision(3)
+         << static_cast<long double>(series.start_time_us)
+                + expected_elapsed_us;
+    return text.str();
 }
 
 struct ChannelKey {
@@ -80,7 +113,7 @@ struct ChannelKey {
 struct Accumulator {
     ChannelSeries series;
     bool initialized{false};
-    long double expected_next_seconds{};
+    std::size_t previous_record_samples{};
 };
 
 struct GroupKey {
@@ -143,83 +176,92 @@ void append_missing(ChannelSeries &series, std::uint64_t count) {
     series.missing_sample_count += count;
 }
 
-void align_group_channels(ChannelGroup &group) {
-    if (group.channels.empty()) {
+void align_group_channels(ChannelGroup &group, GapPolicy policy) {
+    if (group.channels.empty())
         return;
-    }
-
-    long double group_start_seconds =
-        std::numeric_limits<long double>::infinity();
-    long double group_end_seconds =
-        -std::numeric_limits<long double>::infinity();
-    BTime earliest_btime{};
-    std::int64_t earliest_us{};
-    bool have_earliest = false;
-
-    for (const auto &ch : group.channels) {
-        const long double start =
-            (static_cast<long double>(ch.start_time_us) / 1000000.0L);
-        const long double end =
-            start
-            + static_cast<long double>(ch.values.size())
-                  / static_cast<long double>(ch.sample_rate_hz);
-        if (!have_earliest || start < group_start_seconds) {
-            group_start_seconds = start;
-            earliest_btime = ch.start_time;
-            earliest_us = ch.start_time_us;
-            have_earliest = true;
-        }
-        group_end_seconds = std::max(group_end_seconds, end);
-    }
-
-    group.start_time = earliest_btime;
+    // Select an integer timestamp reference, then work only in offsets from it.
+    const auto earliest =
+        std::min_element(group.channels.begin(),
+                         group.channels.end(),
+                         [](const auto &a, const auto &b) {
+                             return a.start_time_us < b.start_time_us;
+                         });
+    const auto earliest_us = earliest->start_time_us;
+    const auto earliest_resolution = earliest->start_time_resolution_us;
+    auto phase_lower_us = earliest->start_phase_lower_us;
+    auto phase_upper_us = earliest->start_phase_upper_us;
     group.start_time_us = earliest_us;
-
+    group.start_time = earliest->start_time;
+    std::size_t latest_index = 0;
+    long double group_end_us = 0;
+    for (std::size_t i = 0; i < group.channels.size(); ++i) {
+        const auto &ch = group.channels[i];
+        const auto end =
+            static_cast<long double>(ch.start_time_us - earliest_us)
+            + ch.values.size() * 1000000.0L / ch.sample_rate_hz;
+        if (i == 0 || end > group_end_us) {
+            group_end_us = end;
+            latest_index = i;
+        }
+    }
+    const auto end_resolution =
+        group.channels[latest_index].start_time_resolution_us;
     for (auto &ch : group.channels) {
-        const long double original_start =
-            (static_cast<long double>(ch.start_time_us) / 1000000.0L);
-        const long double original_end =
-            original_start
-            + static_cast<long double>(ch.values.size())
-                  / static_cast<long double>(ch.sample_rate_hz);
-
-        const long double lead_seconds = original_start - group_start_seconds;
-        const std::int64_t lead_samples = time_offset_to_samples(
-            lead_seconds,
+        const long double start_us =
+            static_cast<long double>(ch.start_time_us - earliest_us);
+        const long double end_us =
+            start_us + ch.values.size() * 1000000.0L / ch.sample_rate_hz;
+        const auto lead = time_offset_to_samples(start_us,
+                                                 ch.sample_rate_hz,
+                                                 earliest_resolution,
+                                                 ch.start_time_resolution_us,
+                                                 "leading alignment of stream "
+                                                     + stream_name(ch));
+        const auto trail = time_offset_to_samples(
+            group_end_us - end_us,
             ch.sample_rate_hz,
-            "leading alignment of stream " + stream_name(ch));
-        if (lead_samples < 0) {
+            end_resolution,
+            ch.start_time_resolution_us,
+            "trailing alignment of stream " + stream_name(ch),
+            group_end_us);
+        const auto residual_us =
+            start_us - lead * 1000000.0L / ch.sample_rate_hz;
+        phase_lower_us =
+            std::max(phase_lower_us, residual_us + ch.start_phase_lower_us);
+        phase_upper_us =
+            std::min(phase_upper_us, residual_us + ch.start_phase_upper_us);
+        const auto arithmetic_us = 32
+                                   * std::numeric_limits<long double>::epsilon()
+                                   * std::max(1.0L, std::fabs(group_end_us));
+        if (phase_lower_us > phase_upper_us + arithmetic_us)
+            throw std::runtime_error("inconsistent cross-channel timestamp "
+                                     "quantization phase in stream "
+                                     + stream_name(ch));
+        if (lead < 0 || trail < 0)
+            throw std::runtime_error("invalid channel alignment in stream "
+                                     + stream_name(ch));
+        if (policy == GapPolicy::Error && (lead || trail))
             throw std::runtime_error(
-                "internal error while aligning leading samples of "
+                "channel coverage differs under gap-policy=error in stream "
                 + stream_name(ch));
-        }
-        prepend_missing(ch, static_cast<std::uint64_t>(lead_samples));
-
-        const long double trail_seconds = group_end_seconds - original_end;
-        const std::int64_t trail_samples = time_offset_to_samples(
-            trail_seconds,
-            ch.sample_rate_hz,
-            "trailing alignment of stream " + stream_name(ch));
-        if (trail_samples < 0) {
-            throw std::runtime_error(
-                "internal error while aligning trailing samples of "
-                + stream_name(ch));
-        }
-        append_missing(ch, static_cast<std::uint64_t>(trail_samples));
-        ch.trailing_missing_sample_count +=
-            static_cast<std::uint64_t>(trail_samples);
+        prepend_missing(ch, static_cast<std::uint64_t>(lead));
+        append_missing(ch, static_cast<std::uint64_t>(trail));
+        ch.trailing_missing_sample_count += static_cast<std::uint64_t>(trail);
+        ch.start_time_us = earliest_us;
         ch.start_time = group.start_time;
-        ch.start_time_us = group.start_time_us;
+        ch.start_time_resolution_us = earliest_resolution;
     }
-
-    const std::size_t expected_rows = group.channels.front().values.size();
-    for (const auto &ch : group.channels) {
-        if (ch.values.size() != expected_rows) {
-            throw std::runtime_error("failed to align channel lengths in group "
-                                     + group.network + "." + group.station + "."
-                                     + group.location);
-        }
+    if (phase_lower_us > phase_upper_us)
+        phase_lower_us = phase_upper_us = (phase_lower_us + phase_upper_us) / 2;
+    for (auto &ch : group.channels) {
+        ch.start_phase_lower_us = phase_lower_us;
+        ch.start_phase_upper_us = phase_upper_us;
     }
+    const auto expected = group.channels.front().values.size();
+    for (const auto &ch : group.channels)
+        if (ch.values.size() != expected)
+            throw std::runtime_error(
+                "failed to align channel lengths in stream " + stream_name(ch));
 }
 
 } // namespace
@@ -315,9 +357,6 @@ std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
 
         ChannelKey key{h.network, h.station, h.location, h.channel};
         auto &acc = channels[key];
-        const long double record_start =
-            (static_cast<long double>(h.start_time_us) / 1000000.0L);
-        long double effective_record_start = record_start;
 
         if (!acc.initialized) {
             acc.initialized = true;
@@ -328,6 +367,11 @@ std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
             acc.series.channel_order = h.channel_order;
             acc.series.start_time = h.start_time;
             acc.series.start_time_us = h.start_time_us;
+            acc.series.start_time_resolution_us = h.time_resolution_us();
+            acc.series.start_phase_lower_us =
+                -static_cast<long double>(h.time_resolution_us()) / 2;
+            acc.series.start_phase_upper_us =
+                static_cast<long double>(h.time_resolution_us()) / 2;
             acc.series.source_order = source_order.at(key);
             acc.series.source_format =
                 h.standard_v2 ? "miniseed-v2" : "modified-miniseed";
@@ -364,55 +408,83 @@ std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
             }
 
             if (options.gap_policy != GapPolicy::Ignore) {
-                const long double delta =
-                    record_start - acc.expected_next_seconds;
-
-                if (std::fabs(delta) <= kBTimeToleranceSeconds) {
-                    effective_record_start = acc.expected_next_seconds;
-                } else {
-                    const std::string context = "stream " + stream_name(h);
-                    const std::int64_t offset_samples =
-                        time_offset_to_samples(delta, fs, context);
-
-                    if (offset_samples < 0) {
-                        std::ostringstream oss;
-                        oss << "time overlap in " << context
-                            << ": record starts at "
-                            << format_btime(h.start_time)
-                            << ", overlap=" << (-offset_samples) << " samples ("
-                            << std::setprecision(12)
-                            << static_cast<double>(-delta) << " s)";
-                        throw std::runtime_error(oss.str());
-                    }
-
-                    if (offset_samples > 0) {
-                        if (options.gap_policy == GapPolicy::Error) {
-                            std::ostringstream oss;
-                            oss << "time discontinuity in " << context
-                                << ": record starts at "
-                                << format_btime(h.start_time)
-                                << ", missing=" << offset_samples
-                                << " samples (" << std::setprecision(12)
-                                << (static_cast<double>(offset_samples) / fs)
-                                << " s)";
-                            throw std::runtime_error(oss.str());
-                        }
-
-                        append_missing(
-                            acc.series,
-                            static_cast<std::uint64_t>(offset_samples));
-                        acc.series.gaps.push_back(
-                            DataGap{h.start_time,
-                                    static_cast<std::uint64_t>(offset_samples),
-                                    static_cast<double>(
-                                        static_cast<long double>(offset_samples)
-                                        / static_cast<long double>(fs))});
-
-                        effective_record_start =
-                            acc.expected_next_seconds
-                            + static_cast<long double>(offset_samples)
-                                  / static_cast<long double>(fs);
-                    }
+                const long double elapsed_us =
+                    acc.series.values.size() * 1000000.0L / fs;
+                const long double delta_us =
+                    static_cast<long double>(h.start_time_us
+                                             - acc.series.start_time_us)
+                    - elapsed_us;
+                const auto context =
+                    record_time_context(h, acc.series, elapsed_us);
+                const auto offset =
+                    time_offset_to_samples(delta_us,
+                                           fs,
+                                           acc.series.start_time_resolution_us,
+                                           h.time_resolution_us(),
+                                           context,
+                                           elapsed_us);
+                // Check the adjacent pair too: a coarse first record must not
+                // hide a later clock jump between two precise records.
+                const auto previous_duration_us =
+                    acc.previous_record_samples * 1000000.0L / fs;
+                const auto adjacent_delta =
+                    static_cast<long double>(h.start_time_us
+                                             - acc.series.last_record_time_us)
+                    - previous_duration_us;
+                const auto adjacent_offset = time_offset_to_samples(
+                    adjacent_delta,
+                    fs,
+                    acc.series.last_record_time_resolution_us,
+                    h.time_resolution_us(),
+                    context,
+                    previous_duration_us);
+                if (offset != adjacent_offset)
+                    throw std::runtime_error(
+                        "inconsistent adjacent/anchored sampling grid in "
+                        + context);
+                if (offset < 0)
+                    throw std::runtime_error("time overlap in " + context
+                                             + ", overlap_samples="
+                                             + std::to_string(-offset));
+                const auto residual_us = delta_us - offset * 1000000.0L / fs;
+                const auto half_step =
+                    static_cast<long double>(h.time_resolution_us()) / 2;
+                const auto lower = std::max(acc.series.start_phase_lower_us,
+                                            residual_us - half_step);
+                const auto upper = std::min(acc.series.start_phase_upper_us,
+                                            residual_us + half_step);
+                const auto arithmetic_us =
+                    32 * std::numeric_limits<long double>::epsilon()
+                    * std::max(1.0L, std::fabs(elapsed_us));
+                if (lower > upper + arithmetic_us) {
+                    std::ostringstream detail;
+                    detail << "time discontinuity: no common timestamp "
+                              "quantization phase in "
+                           << context << ", residual_us=" << residual_us
+                           << ", interval_us=" << 1000000.0L / fs
+                           << ", tolerance_us="
+                           << (acc.series.start_time_resolution_us
+                               + h.time_resolution_us())
+                                  / 2.0L;
+                    throw std::runtime_error(detail.str());
+                }
+                // Closed endpoints retain legitimate halfway quantization,
+                // including round-to-even encoders. Collapse only roundoff.
+                acc.series.start_phase_lower_us =
+                    lower <= upper ? lower : (lower + upper) / 2;
+                acc.series.start_phase_upper_us =
+                    lower <= upper ? upper : (lower + upper) / 2;
+                if (offset > 0) {
+                    if (options.gap_policy == GapPolicy::Error)
+                        throw std::runtime_error(
+                            "time discontinuity in " + context
+                            + ", missing_samples=" + std::to_string(offset));
+                    append_missing(acc.series,
+                                   static_cast<std::uint64_t>(offset));
+                    acc.series.gaps.push_back(
+                        {h.start_time,
+                         static_cast<std::uint64_t>(offset),
+                         double(offset) / fs});
                 }
             }
         }
@@ -425,17 +497,9 @@ std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
         acc.series.valid_sample_count += record.samples.size();
         ++acc.series.record_count;
         acc.series.last_record_time = h.start_time;
-        if (options.gap_policy == GapPolicy::Ignore) {
-            acc.expected_next_seconds =
-                record_start
-                + static_cast<long double>(record.samples.size())
-                      / static_cast<long double>(fs);
-        } else {
-            acc.expected_next_seconds =
-                effective_record_start
-                + static_cast<long double>(record.samples.size())
-                      / static_cast<long double>(fs);
-        }
+        acc.series.last_record_time_us = h.start_time_us;
+        acc.series.last_record_time_resolution_us = h.time_resolution_us();
+        acc.previous_record_samples = record.samples.size();
     }
 
     if (channels.empty()) {
@@ -479,17 +543,8 @@ std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
     result.reserve(grouped.size());
     for (auto &[key, group] : grouped) {
         (void)key;
-        if (options.gap_policy == GapPolicy::Error && !group.channels.empty()) {
-            for (const auto &ch : group.channels) {
-                if (ch.start_time_us != group.channels.front().start_time_us
-                    || ch.values.size() != group.channels.front().values.size())
-                    throw std::runtime_error(
-                        "channel coverage differs under gap-policy=error");
-            }
-        }
-        if (options.gap_policy != GapPolicy::Ignore) {
-            align_group_channels(group);
-        }
+        if (options.gap_policy != GapPolicy::Ignore)
+            align_group_channels(group, options.gap_policy);
         std::sort(group.channels.begin(),
                   group.channels.end(),
                   [](const auto &a, const auto &b) {

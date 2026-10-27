@@ -110,6 +110,40 @@ into a single stream; filenames are never used to infer missing timestamps.
 TDMS retains its existing collection semantics. The new TDMS file under
 `resource/example_data` is outside this change; old Wuhan TDMS regressions remain.
 
+## MiniSEED time precision
+
+The integer `start_time_us` retains the decoded timestamp; it does not imply
+that the source encoded microseconds. The internal header tracks whether
+Blockette 1001 is present: BTime alone has a 100 us encoding step, while 1001
+provides a signed microsecond remainder and a 1 us step. Duplicate Blockette
+100/1001 declarations are rejected. Blockette 100's valid actual sample rate
+continues to take precedence over fixed-header rate factors.
+
+For two timestamp references with encoding steps `q1` and `q2`, sample-grid
+checks use a quantization budget `(q1 + q2) / 2`, with a small arithmetic guard
+scaled to relative elapsed time. That budget is about 100 us for two BTime
+records and 1 us for two microsecond records. The complete tolerance must stay
+**strictly below half a sample interval**; otherwise the reader reports
+`insufficient timing precision` instead of choosing an ambiguous sample offset.
+The same rule is used for record continuity and channel start/end alignment.
+
+A timestamp residual near zero means quantization of a continuous boundary;
+a residual near a nonzero integer sample offset means a real gap or overlap.
+All records must also admit one common quantization-phase window on the grid
+anchored at the first record. Adjacent records are checked independently so a
+coarse first timestamp cannot hide later microsecond errors. The phase windows
+are intersected across channels too. Closed endpoints preserve legitimate
+halfway/round-to-even quantization; the window is an integrity bound, never a
+correction applied to stored timestamps or values.
+
+Calculations subtract integer timestamps before floating-point division and
+use total sample counts for theoretical elapsed times. This avoids accumulated
+roundoff and subtracting large Unix-epoch floating-point values. Errors include
+stream identity, previous/current timestamp, theoretical next timestamp,
+residual, encoding steps, sample interval and tolerance where relevant.
+75/120 Hz non-integer record durations work with ordinary time checking enabled.
+Gaps still follow the selected policy; there is no resampling or clock repair.
+
 ## SDK boundary
 
 Include `<qrest_data/external_reader.h>` and link **`qrest_data_readers`**, a
@@ -161,3 +195,15 @@ target and C/C++ consumers; Windows/MSVC, MinGW and clean-machine runtime gates
 require their respective environments.
 
 本轮实际执行结果见 [重构验证记录](reader_refactor_validation.md)。
+
+Linux developer memory/time baseline (creates a new scratch directory):
+
+```sh
+python3 scripts/benchmark_format_reader.py /absolute/path/to/qrest_data_tools_cli \
+    --work-dir /tmp/qrest_reader_benchmark --channels 63 --rate 200 --seconds 3600
+```
+
+The synthetic load repeats the project-owned fixture's legal Steim-2 payload;
+it measures whole-process wall time and Linux peak RSS for validate/import.
+It is not a compression-quality or realistic wavefield benchmark. The output
+includes dimensions, byte counts, hashes and per-command logs/measurements.

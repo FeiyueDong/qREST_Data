@@ -30,6 +30,12 @@ struct Header {
     bool standard_v2{false};
     bool header_little_endian{false};
     bool has_extension{false};
+    bool has_blockette_1001{false};
+    // Timestamp value and encoding resolution are separate facts. BTime has
+    // 100 us steps; Blockette 1001 supplies the signed microsecond remainder.
+    std::uint32_t time_resolution_us() const noexcept {
+        return has_blockette_1001 ? 1u : 100u;
+    }
     std::int64_t start_time_us{};
     double actual_sample_rate_hz{};
     std::string waveform_id;            // wc / wt / ws

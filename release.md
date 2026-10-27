@@ -1,3 +1,10 @@
+# MiniSEED 时间精度修复（2026-10-27，尚未正式发版）
+
+- 记录并使用 BTime / Blockette 1001 的编码精度，修复 75/120 Hz 非整数记录时长的误拒绝；记录连续性及跨通道对齐统一使用动态误差预算和共同采样网格检查。
+- 新增 Blockette 100/1001、量化边界、微秒异常、缺口/重叠、乱序、跨通道和高采样率精度不足测试；保持现有格式与 C ABI。
+- 模块版本维持 `1.1.1`，`.qrest` / metadata / DataPacket 协议版本不变。Windows/MSVC 发布验收仍待执行。
+- 本轮实际证据及性能基线见 [验证记录](doc/reader_refactor_validation.md)。
+
 # 外部读取更新（开发中）
 
 新增标准 MiniSEED 2、SIT-4S DAT 和 SIT Gal TXT，共用 Steim-2 解码、物理量转换和通道映射；新增 `qrest_data_readers` 共享库及 `external_reader.h` C API。
