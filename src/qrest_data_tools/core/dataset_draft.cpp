@@ -262,13 +262,16 @@ void DatasetDraft::correct_start_time(const std::string &iso8601) {
     // The source parser accepts additional fractional digits. Do not silently
     // truncate a requested sub-millisecond correction into the ms contract.
     const auto dot = iso8601.find('.');
-    if (dot != std::string::npos)
-        for (auto i = dot + 4;
+    if (dot != std::string::npos) {
+        std::size_t digits = 0;
+        for (auto i = dot + 1;
              i < iso8601.size() && iso8601[i] >= '0' && iso8601[i] <= '9';
-             ++i)
-            require(iso8601[i] == '0',
-                    "Time correction must be exactly representable in "
-                    "milliseconds");
+             ++i, ++digits)
+            if (digits >= 3)
+                require(iso8601[i] == '0',
+                        "Time correction must be exactly representable in "
+                        "milliseconds");
+    }
     auto candidate = metadata_;
     candidate.DataInfo.StartTime = iso8601;
     if (start_time_ != target) {

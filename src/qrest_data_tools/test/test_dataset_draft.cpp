@@ -178,6 +178,16 @@ int main() try {
                   && reloaded.validate().ok(),
               "equivalent timezone representation does not create another "
               "correction");
+        for (const auto *iso : {"2026-10-18T00:00:00.1+08:00",
+                                "2026-10-18T00:00:00.12-03:30",
+                                "2026-10-18T00:00:00.123000+05:45"}) {
+            auto fractional = original;
+            fractional.correct_start_time(iso);
+            check(fractional.validate().ok()
+                      && fractional.data_start_time()
+                             == parse_iso8601_timestamp_ms(iso),
+                  "fractional precision scans no timezone offset digits");
+        }
         const auto before = reloaded.metadata().to_bytes();
         const auto before_origin = reloaded.data_start_time();
         for (const auto *bad : {"invalid",
