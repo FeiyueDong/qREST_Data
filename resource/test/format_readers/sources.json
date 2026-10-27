@@ -1,0 +1,14 @@
+{
+  "HBSY0012026102222.dat": {
+    "bytes": 2837312,
+    "sha256": "18344c891f46ecc404da52cfc0e8bd2f60958f7266ac76f2fb58fd201d4860d7"
+  },
+  "HBSY0012026102222_dat.mseed": {
+    "bytes": 5529600,
+    "sha256": "1d5bb0bc41d5b4b26f5577678576a735c5d0296fcd8c41f0178d8f13624b0cfd"
+  },
+  "HBSY001_20261022_220000_SRate_100_SF_10000000_Gal_dat.txt": {
+    "bytes": 19179892,
+    "sha256": "3c025bb3b9a5b9e2eebaa76dba3d6a8ed1a34d06948240ddef90d991a13e6bfc"
+  }
+}

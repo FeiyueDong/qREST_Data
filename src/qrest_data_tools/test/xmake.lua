@@ -12,3 +12,9 @@ target("test_qrest_data_dataset_draft")
     add_deps("qrest_data_tools_core")
     if is_plat("linux") then add_syslinks("pthread") end
     set_rundir("$(projectdir)")
+
+target("test_qrest_data_format_readers")
+    set_kind("binary")
+    add_files("test_format_readers.cpp")
+    add_deps("qrest_data_tools_core", "qrest_data_readers")
+    set_rundir("$(projectdir)")

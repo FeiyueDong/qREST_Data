@@ -1,0 +1,90 @@
+{
+  "Header": "qREST_DATA",
+  "Version": [
+    1,
+    0,
+    0
+  ],
+  "Units": [
+    "cm",
+    "s"
+  ],
+  "BuildingInfo": {
+    "ProjectName": "ReaderFixture",
+    "GeoLocation": {
+      "Longitude": 0,
+      "Latitude": 0,
+      "NorthAngle": 0
+    },
+    "StructuralType": "UNKNOWN",
+    "StructuralFootprint": {
+      "Shape": "Rectangular",
+      "Parameters": {
+        "Length": 1,
+        "Width": 1
+      },
+      "BoundingBox": {
+        "MinX": 0,
+        "MaxX": 1,
+        "MinY": 0,
+        "MaxY": 1
+      }
+    },
+    "ElevationNum": 1,
+    "Elevation": [
+      0
+    ]
+  },
+  "InstrumentInfo": {
+    "Provider": "Test",
+    "ChannelNum": 3,
+    "Channels": [
+      {
+        "ChannelNo": 1,
+        "ChannelID": "NS",
+        "DeviceType": "UNKNOWN",
+        "Measurand": "Acceleration",
+        "Scale": 1,
+        "Azimuth": -1,
+        "LocationXYZ": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "ChannelNo": 2,
+        "ChannelID": "EW",
+        "DeviceType": "UNKNOWN",
+        "Measurand": "Acceleration",
+        "Scale": 1,
+        "Azimuth": -1,
+        "LocationXYZ": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "ChannelNo": 3,
+        "ChannelID": "UD",
+        "DeviceType": "UNKNOWN",
+        "Measurand": "Acceleration",
+        "Scale": 1,
+        "Azimuth": -1,
+        "LocationXYZ": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "DataInfo": {
+    "EventName": "Fixture",
+    "StartTime": "2026-10-22T14:00:00.000Z",
+    "NPTS": 100,
+    "DT": 0.01,
+    "Corrected": "NULL"
+  }
+}

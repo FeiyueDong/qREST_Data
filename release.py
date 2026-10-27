@@ -77,10 +77,12 @@ def copy_artifacts(
         (
             "qrest_data_lib.dll",
             "qrest_data_lib.lib",
+            "qrest_data_readers.dll",
+            "qrest_data_readers.lib",
             "qrest_data_tools_cli.exe",
         )
         if target_platform == "windows"
-        else ("libqrest_data_lib.so", "qrest_data_tools_cli")
+        else ("libqrest_data_lib.so", "libqrest_data_readers.so", "qrest_data_tools_cli")
     )
     missing = [name for name in required_artifacts if not (build_dir / name).is_file()]
     if missing:

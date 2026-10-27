@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 
+#include <nlohmann/json.hpp>
 #include <qrest_data/metadata.hpp>
 
 namespace {
@@ -103,6 +104,15 @@ struct ImportTdmsCommand {
 };
 
 struct ImportMseedCommand {
+    std::string format{"mseed"};
+    std::string unit;
+    double sensitivity{};
+    std::string quantity;
+    std::string timezone;
+    bool counts{false};
+    std::vector<std::size_t>
+        channel_map; // target number (1-based) for each source
+
     std::string input_path;
     std::string metadata_path;
     std::string output_path;
@@ -138,6 +148,15 @@ struct ValidateTdmsCommand {
 };
 
 struct ValidateMseedCommand {
+    std::string format{"mseed"};
+    std::string unit;
+    double sensitivity{};
+    std::string quantity;
+    std::string timezone;
+    bool counts{false};
+    std::vector<std::size_t>
+        channel_map; // target number (1-based) for each source
+
     std::string input_path;
     std::size_t group_index{};
     std::string gap_policy{"fill-nan"};
@@ -325,12 +344,72 @@ void configure_import_tdms_command(CLI::App *command,
                            values.no_time_check);
 }
 
+template <class Command>
+void configure_reader_options(CLI::App *command, Command &v, bool importing) {
+    auto *unit =
+        command
+            ->add_option("--unit",
+                         v.unit,
+                         "Output unit (mseed default m/s2; SIT default cm/s2)")
+            ->check(CLI::IsMember({"m/s2", "cm/s2"}));
+    if (v.format == "sit-txt") {
+        command->add_option("--timezone",
+                            v.timezone,
+                            "Source numeric UTC offset; default +08:00");
+    } else {
+        auto *counts =
+            command->add_flag("--counts", v.counts, "Explicit raw counts mode");
+        auto *sensitivity =
+            command
+                ->add_option("--sensitivity",
+                             v.sensitivity,
+                             "Actual sensitivity in count per SI-unit")
+                ->check(CLI::PositiveNumber);
+        auto *quantity =
+            command
+                ->add_option("--quantity",
+                             v.quantity,
+                             "Physical quantity for explicit calibration")
+                ->check(CLI::IsMember(
+                    {"Acceleration", "Velocity", "Displacement"}));
+        counts->excludes(unit);
+        counts->excludes(sensitivity);
+        counts->excludes(quantity);
+    }
+    if (importing)
+        command
+            ->add_option("--channel-map",
+                         v.channel_map,
+                         "Target channel number for each source, e.g. 3,1,2")
+            ->delimiter(',')
+            ->check(CLI::PositiveNumber);
+}
+template <class Command>
+std::string reader_options_json(const Command &v) {
+    nlohmann::json j = nlohmann::json::object();
+    if (!v.unit.empty())
+        j["unit"] = v.unit;
+    if (!v.timezone.empty())
+        j["timezone"] = v.timezone;
+    if (v.format != "sit-txt") {
+        j["counts"] = v.counts;
+        j["group_index"] = v.group_index;
+        j["gap_policy"] = v.no_time_check ? "ignore" : v.gap_policy;
+        j["include_dimensionless"] = v.include_dimensionless;
+        if (v.sensitivity != 0)
+            j["sensitivity"] = v.sensitivity;
+        if (!v.quantity.empty())
+            j["quantity"] = v.quantity;
+    }
+    return j.dump();
+}
+
 void configure_import_mseed_command(CLI::App *command,
                                     ImportMseedCommand &values) {
     command
         ->add_option("input",
                      values.input_path,
-                     "Input modified MiniSEED file or directory")
+                     "Input selected-format file or directory")
         ->required()
         ->check(CLI::ExistingPath);
     command
@@ -342,11 +421,13 @@ void configure_import_mseed_command(CLI::App *command,
         ->required();
     configure_qrest_packet_options(
         command, values.source_id, values.data_encoding);
-    configure_mseed_options(command,
-                            values.group_index,
-                            values.gap_policy,
-                            values.include_dimensionless,
-                            values.no_time_check);
+    if (values.format != "sit-txt")
+        configure_mseed_options(command,
+                                values.group_index,
+                                values.gap_policy,
+                                values.include_dimensionless,
+                                values.no_time_check);
+    configure_reader_options(command, values, true);
 }
 
 void configure_import_hdf5_command(CLI::App *command,
@@ -390,14 +471,16 @@ void configure_validate_mseed_command(CLI::App *command,
     command
         ->add_option("input",
                      values.input_path,
-                     "Input modified MiniSEED file or directory")
+                     "Input selected-format file or directory")
         ->required()
         ->check(CLI::ExistingPath);
-    configure_mseed_options(command,
-                            values.group_index,
-                            values.gap_policy,
-                            values.include_dimensionless,
-                            values.no_time_check);
+    if (values.format != "sit-txt")
+        configure_mseed_options(command,
+                                values.group_index,
+                                values.gap_policy,
+                                values.include_dimensionless,
+                                values.no_time_check);
+    configure_reader_options(command, values, false);
 }
 
 void configure_validate_hdf5_command(CLI::App *command,
@@ -440,23 +523,6 @@ TdmsImportOptions make_tdms_import_options(const std::string &unit,
     options.post_scale = post_scale;
     options.output_counts = output_counts;
     options.verify_time_axis = !no_time_check;
-    return options;
-}
-
-MseedImportOptions make_mseed_import_options(std::size_t group_index,
-                                             const std::string &gap_policy,
-                                             bool include_dimensionless,
-                                             bool no_time_check) {
-    MseedImportOptions options;
-    options.group_index = group_index;
-    options.include_dimensionless = include_dimensionless;
-    if (no_time_check || gap_policy == "ignore") {
-        options.gap_policy = MseedImportOptions::GapPolicy::Ignore;
-    } else if (gap_policy == "error") {
-        options.gap_policy = MseedImportOptions::GapPolicy::Error;
-    } else {
-        options.gap_policy = MseedImportOptions::GapPolicy::FillNaN;
-    }
     return options;
 }
 
@@ -579,34 +645,12 @@ ExternalDataset load_tdms_validation_input(const ValidateTdmsCommand &command) {
     return merge_validation_datasets(datasets, files, "tdms-directory");
 }
 
-ExternalDataset
-load_mseed_validation_input(const ValidateMseedCommand &command) {
-    const auto options =
-        make_mseed_import_options(command.group_index,
-                                  command.gap_policy,
-                                  command.include_dimensionless,
-                                  command.no_time_check);
-    const auto files = sorted_format_files(
-        command.input_path, {".mseed", ".miniseed"}, "MiniSEED");
-    std::vector<ExternalDataset> datasets;
-    datasets.reserve(files.size());
-    for (const auto &file : files) {
-        try {
-            datasets.push_back(load_mseed_dataset(file.string(), options));
-        } catch (const std::exception &e) {
-            throw std::runtime_error("Failed to read MiniSEED file "
-                                     + file.filename().string() + ": "
-                                     + e.what());
-        }
-    }
-    if (files.size() == 1) {
-        return std::move(datasets.front());
-    }
-    return merge_validation_datasets(
-        datasets, files, "modified-miniseed-directory");
-}
-
 void print_dataset_summary(const ExternalDataset &dataset) {
+    if (!dataset.representation.empty()) {
+        std::cout << qrest_data::tools::external_dataset_summary_json(dataset)
+                  << '\n';
+        return;
+    }
     std::cout << "  source_format : " << dataset.source_format << '\n'
               << "  channels      : " << dataset.channel_count << '\n'
               << "  samples       : " << dataset.sample_count << '\n'
@@ -761,13 +805,17 @@ int run_import_tdms_command(const ImportTdmsCommand &command) {
 int run_import_mseed_command(const ImportMseedCommand &command) {
     const std::string metadata_json = read_text_file(command.metadata_path);
     const Metadata metadata = Metadata::from_bytes(metadata_json);
-    const auto dataset = load_mseed_collection(
-        command.input_path,
-        metadata,
-        make_mseed_import_options(command.group_index,
-                                  command.gap_policy,
-                                  command.include_dimensionless,
-                                  command.no_time_check));
+    const auto source = qrest_data::tools::read_external_dataset(
+        command.input_path, command.format, reader_options_json(command));
+    auto mapping =
+        qrest_data::tools::make_sequential_channel_mapping(source, metadata);
+    if (!command.channel_map.empty()) {
+        mapping.clear();
+        for (std::size_t i = 0; i < command.channel_map.size(); ++i)
+            mapping.push_back({i, command.channel_map[i] - 1});
+    }
+    const auto dataset = qrest_data::tools::apply_external_channel_mapping(
+        source, metadata, mapping);
     require_or_print_compatibility(dataset, metadata);
     write_qrest_file(command.output_path,
                      metadata_json,
@@ -775,7 +823,14 @@ int run_import_mseed_command(const ImportMseedCommand &command) {
                      static_cast<std::uint16_t>(command.source_id),
                      static_cast<std::uint16_t>(command.data_encoding));
 
-    std::cout << "Imported MiniSEED to qREST: " << command.output_path << '\n';
+    std::cout << "Imported " << command.format
+              << " to qREST: " << command.output_path << '\n';
+    for (const auto &m : mapping)
+        std::cout
+            << "  mapping: " << source.channel_labels[m.source_channel]
+            << " -> "
+            << metadata.InstrumentInfo.Channels[m.target_channel].ChannelID
+            << '\n';
     print_dataset_summary(dataset);
     return 0;
 }
@@ -826,7 +881,8 @@ int run_validate_mseed_command(const ValidateMseedCommand &command) {
     ValidationReport report;
     ExternalDataset dataset;
     try {
-        dataset = load_mseed_validation_input(command);
+        dataset = qrest_data::tools::read_external_dataset(
+            command.input_path, command.format, reader_options_json(command));
     } catch (const std::exception &e) {
         report.errors.push_back(e.what());
         print_validation_report(std::cout, command.input_path, report);
@@ -895,8 +951,18 @@ int main(int argc, char **argv) {
 
     ImportMseedCommand import_mseed_values;
     auto *import_mseed = import_app->add_subcommand(
-        "mseed", "Import modified MiniSEED plus metadata JSON");
+        "mseed", "Import standard/modified MiniSEED plus metadata JSON");
     configure_import_mseed_command(import_mseed, import_mseed_values);
+
+    ImportMseedCommand import_dat_values, import_txt_values;
+    import_dat_values.format = "sit-dat";
+    import_txt_values.format = "sit-txt";
+    auto *import_dat = import_app->add_subcommand(
+        "sit-dat", "Import SIT-4S DAT plus metadata JSON");
+    auto *import_txt = import_app->add_subcommand(
+        "sit-txt", "Import SIT Gal TXT plus metadata JSON");
+    configure_import_mseed_command(import_dat, import_dat_values);
+    configure_import_mseed_command(import_txt, import_txt_values);
 
     ImportHdf5Command import_hdf5_values;
     auto *import_hdf5 =
@@ -933,8 +999,18 @@ int main(int argc, char **argv) {
 
     ValidateMseedCommand validate_mseed_values;
     auto *validate_mseed = validate->add_subcommand(
-        "mseed", "Validate a modified MiniSEED input file");
+        "mseed", "Validate a standard/modified MiniSEED input file");
     configure_validate_mseed_command(validate_mseed, validate_mseed_values);
+
+    ValidateMseedCommand validate_dat_values, validate_txt_values;
+    validate_dat_values.format = "sit-dat";
+    validate_txt_values.format = "sit-txt";
+    auto *validate_dat =
+        validate->add_subcommand("sit-dat", "Validate SIT-4S DAT");
+    auto *validate_txt =
+        validate->add_subcommand("sit-txt", "Validate SIT Gal TXT");
+    configure_validate_mseed_command(validate_dat, validate_dat_values);
+    configure_validate_mseed_command(validate_txt, validate_txt_values);
 
     ValidateHdf5Command validate_hdf5_values;
     auto *validate_hdf5 =
@@ -964,6 +1040,10 @@ int main(int argc, char **argv) {
         if (import_mseed->parsed()) {
             return run_import_mseed_command(import_mseed_values);
         }
+        if (import_dat->parsed())
+            return run_import_mseed_command(import_dat_values);
+        if (import_txt->parsed())
+            return run_import_mseed_command(import_txt_values);
         if (import_hdf5->parsed()) {
             return run_import_hdf5_command(import_hdf5_values);
         }
@@ -982,6 +1062,10 @@ int main(int argc, char **argv) {
         if (validate_mseed->parsed()) {
             return run_validate_mseed_command(validate_mseed_values);
         }
+        if (validate_dat->parsed())
+            return run_validate_mseed_command(validate_dat_values);
+        if (validate_txt->parsed())
+            return run_validate_mseed_command(validate_txt_values);
         if (validate_hdf5->parsed()) {
             return run_validate_hdf5_command(validate_hdf5_values);
         }

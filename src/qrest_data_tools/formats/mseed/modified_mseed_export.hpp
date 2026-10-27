@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,13 @@ struct ChannelSeries {
     std::string location;
     std::string channel;
     std::string channel_order;
+    std::string source_format;
+    std::size_t source_order{};
+    bool raw_counts{false};
+    std::string sensitivity_origin;
+    double actual_sensitivity{};
 
+    std::int64_t start_time_us{};
     BTime start_time{};
     BTime last_record_time{};
     double sample_rate_hz{};
@@ -52,6 +59,7 @@ struct ChannelGroup {
     std::string location;
     double sample_rate_hz{};
     Dimension dimension{Dimension::Dimensionless};
+    std::int64_t start_time_us{};
     BTime start_time{};
     std::vector<ChannelSeries> channels;
 
@@ -84,6 +92,10 @@ struct LoadOptions {
     // Missing-record handling. FillNaN is the default so a partially missing
     // stream can still be loaded without shifting later samples in time.
     GapPolicy gap_policy{GapPolicy::FillNaN};
+    bool output_counts{false};
+    std::optional<double>
+        sensitivity; // count per SI unit; used only without native calibration
+    Dimension quantity{Dimension::Unknown};
 };
 
 struct TextExportOptions {
@@ -103,10 +115,14 @@ struct TextExportOptions {
 std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
                                               const LoadOptions &options = {});
 
+std::vector<ChannelGroup>
+assemble_channel_groups(std::vector<Record> records,
+                        const LoadOptions &options = {});
+
 // Write one synchronized group as a plain-text matrix. One channel per column,
-// one sample instant per row. Column order follows the protocol's channel-order
-// marker (e.g. NEZ) when it can be inferred from channel suffixes; remaining
-// channels are appended lexicographically. Missing samples are written as NaN.
+// one sample instant per row. Column order preserves first appearance in the
+// source. Missing samples are written as NaN. Counts without calibration remain
+// counts in both the values and metadata sidecar.
 void export_group_text(const ChannelGroup &group,
                        const std::string &output_path,
                        const TextExportOptions &options = {});

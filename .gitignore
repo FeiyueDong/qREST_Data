@@ -17,3 +17,5 @@ doc/dev/
 resource/dev/
 *.mseed
 *.tdms
+
+resource/example_data/

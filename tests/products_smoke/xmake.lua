@@ -19,6 +19,7 @@ target("products_smoke")
             qrest_data_import_formats = true,
             qrest_data_tools_core = true,
             qrest_data_tools_cli = true,
+            qrest_data_readers = true,
             products_smoke = true
         }
         for name in pairs(project.targets()) do

@@ -46,6 +46,7 @@ xmake run test_qrest_data_lib
 xmake run test_qrest_data_c_api
 xmake run test_qrest_data_hdf5
 xmake run test_qrest_data_import_formats
+xmake run test_qrest_data_format_readers
 ```
 
 安装到自定义前缀：
@@ -83,7 +84,7 @@ target("consumer")
 ```
 
 `products.lua` 定义 `qrest_data_headers`、`qrest_data_lib`、HDF5 桥接库、
-导入格式库、Tools Core 和 CLI，不引入本项目的测试 target。独立入口
+导入格式库、Tools Core、`qrest_data_readers` 动态读取库和 CLI，不引入本项目的测试 target。独立入口
 `xmake.lua` 构建产品和测试。直接集成可运行
 `tests/products_smoke/` 验证 target 边界和版本头。
 
@@ -214,3 +215,5 @@ qrest_data_tools_cli validate hdf5 <input.h5>
 ### 2.2 qrest数据接口 (qrest_data)
 
 提供了一个C语言接口的动态库，用于使用其他语言解析或生成qrest数据格式的字节流。接口定义见[数据接口](doc/qrest_data_lib/interface.md)。
+
+外部格式读取支持标准/修改版 MiniSEED 2、SIT-4S DAT 和 SIT Gal TXT；单位、时区、通道映射及动态库 API 见 [工具文档](doc/qrest_data_tools.md)。

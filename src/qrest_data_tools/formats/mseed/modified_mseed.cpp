@@ -1,377 +1,244 @@
 #include "modified_mseed.hpp"
+#include "steim2.hpp"
 
 #include <algorithm>
-#include <array>
+#include <bit>
+#include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <limits>
+#include <set>
 #include <sstream>
 #include <stdexcept>
-#include <utility>
 
 namespace qrest_data::tools::mseed {
 namespace {
-
-std::uint16_t be_u16(const std::uint8_t *p) {
-    return static_cast<std::uint16_t>((static_cast<std::uint16_t>(p[0]) << 8)
-                                      | static_cast<std::uint16_t>(p[1]));
-}
-
-std::int16_t be_i16(const std::uint8_t *p) {
-    return static_cast<std::int16_t>(be_u16(p));
-}
-
-std::uint32_t be_u32(const std::uint8_t *p) {
-    return (static_cast<std::uint32_t>(p[0]) << 24)
-           | (static_cast<std::uint32_t>(p[1]) << 16)
-           | (static_cast<std::uint32_t>(p[2]) << 8)
-           | static_cast<std::uint32_t>(p[3]);
-}
-
-std::int32_t be_i32(const std::uint8_t *p) {
-    return static_cast<std::int32_t>(be_u32(p));
-}
-
-std::uint32_t le_u32(const std::uint8_t *p) {
-    return (static_cast<std::uint32_t>(p[3]) << 24)
-           | (static_cast<std::uint32_t>(p[2]) << 16)
-           | (static_cast<std::uint32_t>(p[1]) << 8)
-           | static_cast<std::uint32_t>(p[0]);
-}
-
 std::string fixed_string(const std::uint8_t *p, std::size_t n) {
     std::string s(reinterpret_cast<const char *>(p), n);
-    while (!s.empty() && (s.back() == '\0' || s.back() == ' ')) {
+    while (!s.empty() && (s.back() == '\0' || s.back() == ' '))
         s.pop_back();
-    }
     return s;
 }
-
-std::streamsize checked_streamsize(std::size_t value, const char *what) {
-    if (value > static_cast<std::size_t>(
-            std::numeric_limits<std::streamsize>::max())) {
-        throw std::runtime_error(std::string("MiniSEED read size too large: ")
-                                 + what);
-    }
-    return static_cast<std::streamsize>(value);
+std::uint16_t u16(const std::uint8_t *p, bool le) {
+    return le ? (unsigned(p[1]) << 8) | p[0] : (unsigned(p[0]) << 8) | p[1];
 }
-
-std::int32_t sign_extend(std::uint32_t value, unsigned bits) {
-    if (bits == 0 || bits > 32) {
-        throw std::runtime_error("invalid sign-extension width");
-    }
-    if (bits == 32) {
-        return static_cast<std::int32_t>(value);
-    }
-
-    const std::uint32_t mask = (std::uint32_t{1} << bits) - 1u;
-    value &= mask;
-    const std::uint32_t sign = std::uint32_t{1} << (bits - 1u);
-    if ((value & sign) != 0u) {
-        value |= ~mask;
-    }
-    return static_cast<std::int32_t>(value);
+std::uint32_t u32(const std::uint8_t *p, bool le) {
+    std::uint32_t v = 0;
+    for (int i = 0; i < 4; ++i)
+        v = (v << 8) | p[le ? 3 - i : i];
+    return v;
 }
-
-void append_steim2_word(std::uint32_t word,
-                        std::uint8_t control_code,
-                        std::vector<std::int32_t> &diffs) {
-    switch (control_code) {
-        case 0:
-            return;
-
-        case 1: // 4 x 8-bit differences
-            diffs.push_back(sign_extend(word >> 24, 8));
-            diffs.push_back(sign_extend(word >> 16, 8));
-            diffs.push_back(sign_extend(word >> 8, 8));
-            diffs.push_back(sign_extend(word, 8));
-            return;
-
-        case 2: {
-            const std::uint8_t dnib =
-                static_cast<std::uint8_t>((word >> 30) & 0x3u);
-            switch (dnib) {
-                case 1: // 1 x 30-bit
-                    diffs.push_back(sign_extend(word, 30));
-                    return;
-                case 2: // 2 x 15-bit
-                    diffs.push_back(sign_extend(word >> 15, 15));
-                    diffs.push_back(sign_extend(word, 15));
-                    return;
-                case 3: // 3 x 10-bit
-                    diffs.push_back(sign_extend(word >> 20, 10));
-                    diffs.push_back(sign_extend(word >> 10, 10));
-                    diffs.push_back(sign_extend(word, 10));
-                    return;
-                default:
-                    throw std::runtime_error(
-                        "invalid Steim-2 dnib for control code 2");
-            }
-        }
-
-        case 3: {
-            const std::uint8_t dnib =
-                static_cast<std::uint8_t>((word >> 30) & 0x3u);
-            switch (dnib) {
-                case 0: // 5 x 6-bit
-                    for (int shift : {24, 18, 12, 6, 0}) {
-                        diffs.push_back(sign_extend(word >> shift, 6));
-                    }
-                    return;
-                case 1: // 6 x 5-bit
-                    for (int shift : {25, 20, 15, 10, 5, 0}) {
-                        diffs.push_back(sign_extend(word >> shift, 5));
-                    }
-                    return;
-                case 2: // 7 x 4-bit; bits 29..28 are unused
-                    for (int shift : {24, 20, 16, 12, 8, 4, 0}) {
-                        diffs.push_back(sign_extend(word >> shift, 4));
-                    }
-                    return;
-                default:
-                    throw std::runtime_error(
-                        "invalid Steim-2 dnib for control code 3");
-            }
-        }
-
-        default:
-            throw std::runtime_error("invalid Steim-2 control code");
-    }
+bool plausible_date(std::span<const std::uint8_t> b, bool le) {
+    const auto y = u16(b.data() + 20, le), d = u16(b.data() + 22, le);
+    return y >= 1900 && y <= 2200 && d >= 1 && d <= 366;
 }
-
-std::vector<std::int32_t> decode_steim2(const std::vector<std::uint8_t> &record,
-                                        const Header &h) {
-    if (h.encoding != 11) {
-        throw std::runtime_error(
-            "unsupported encoding: only Steim-2 (11) is implemented");
-    }
-    if (h.data_offset >= record.size()) {
-        throw std::runtime_error("data offset is outside the record");
-    }
-
-    const std::size_t compressed_bytes = record.size() - h.data_offset;
-    if ((compressed_bytes % 64u) != 0u) {
-        throw std::runtime_error(
-            "Steim data region is not an integer number of 64-byte frames");
-    }
-
-    auto read_word = [&](const std::uint8_t *p) -> std::uint32_t {
-        if (h.word_order == 1) {
-            return be_u32(p);
-        }
-        if (h.word_order == 0) {
-            return le_u32(p);
-        }
-        throw std::runtime_error("invalid Blockette 1000 word-order flag");
-    };
-
-    std::vector<std::int32_t> diffs;
-    diffs.reserve(static_cast<std::size_t>(h.sample_count) + 32u);
-
-    std::int32_t x0 = 0;
-    std::int32_t xn = 0;
-    bool got_constants = false;
-
-    const std::size_t frame_count = compressed_bytes / 64u;
-    for (std::size_t frame = 0; frame < frame_count; ++frame) {
-        const std::uint8_t *frame_ptr =
-            record.data() + h.data_offset + frame * 64u;
-        std::array<std::uint32_t, 16> words{};
-        for (std::size_t i = 0; i < 16; ++i) {
-            words[i] = read_word(frame_ptr + i * 4u);
-        }
-
-        const std::uint32_t control = words[0];
-        std::size_t first_data_word = 1;
-        if (frame == 0) {
-            x0 = static_cast<std::int32_t>(words[1]);
-            xn = static_cast<std::int32_t>(words[2]);
-            got_constants = true;
-            first_data_word = 3;
-        }
-
-        for (std::size_t word_index = first_data_word; word_index < 16;
-             ++word_index) {
-            const unsigned shift = static_cast<unsigned>(30u - 2u * word_index);
-            const auto code =
-                static_cast<std::uint8_t>((control >> shift) & 0x3u);
-            append_steim2_word(words[word_index], code, diffs);
-        }
-    }
-
-    if (!got_constants) {
-        throw std::runtime_error("Steim-2 record has no frame 0");
-    }
-
-    std::vector<std::int32_t> samples;
-    samples.reserve(h.sample_count);
-    if (h.sample_count == 0) {
-        return samples;
-    }
-
-    // In Steim, X0 is stored explicitly. The first packed difference is d0,
-    // which connects the previous record to X0, so decompression of this
-    // standalone record starts at diffs[1].
-    if (h.sample_count > 1 && diffs.size() < h.sample_count) {
-        throw std::runtime_error(
-            "not enough Steim-2 differences for declared sample count");
-    }
-
-    samples.push_back(x0);
-    for (std::size_t i = 1; i < h.sample_count; ++i) {
-        const std::int64_t next = static_cast<std::int64_t>(samples.back())
-                                  + static_cast<std::int64_t>(diffs[i]);
-        if (next < std::numeric_limits<std::int32_t>::min()
-            || next > std::numeric_limits<std::int32_t>::max()) {
-            throw std::runtime_error("Steim-2 integration overflow");
-        }
-        samples.push_back(static_cast<std::int32_t>(next));
-    }
-
-    if (!samples.empty() && samples.back() != xn) {
-        std::ostringstream oss;
-        oss << "Steim-2 reverse integration constant mismatch: decoded "
-            << samples.back() << ", header Xn " << xn;
-        throw std::runtime_error(oss.str());
-    }
-
-    return samples;
-}
-
-Header parse_header(const std::vector<std::uint8_t> &bytes) {
-    if (bytes.size() < 64) {
-        throw std::runtime_error(
-            "record is shorter than the 64-byte protocol header");
-    }
-
+Header fixed_header(std::span<const std::uint8_t> b) {
+    if (b.size() >= 3 && b[0] == 'M' && b[1] == 'S' && b[2] == 3)
+        throw std::runtime_error("MiniSEED 3 is not supported");
+    if (b.size() < 48)
+        throw std::runtime_error("truncated MiniSEED fixed header");
     Header h;
-    h.waveform_id = fixed_string(bytes.data() + 0, 2);
-    if (h.waveform_id != "wc" && h.waveform_id != "wt"
-        && h.waveform_id != "ws") {
-        throw std::runtime_error("unknown waveform identifier: '"
-                                 + h.waveform_id + "'");
+    h.waveform_id = fixed_string(b.data(), 2);
+    const bool modified =
+        h.waveform_id == "wc" || h.waveform_id == "wt" || h.waveform_id == "ws";
+    if (!modified) {
+        const bool sequence = std::all_of(b.begin(), b.begin() + 6, [](auto c) {
+            return (c >= '0' && c <= '9') || c == ' ';
+        });
+        if (!sequence
+            || std::string("DRQM").find(char(b[6])) == std::string::npos
+            || b[7] != ' ')
+            throw std::runtime_error("unrecognized MiniSEED 2 fixed header");
+        h.standard_v2 = true;
+        h.header_little_endian =
+            !plausible_date(b, false) && plausible_date(b, true);
+    } else {
+        h.packet_word = u32(b.data() + 2, false);
+        h.packet_length_index = (h.packet_word >> 29) & 7;
+        h.sequence = h.packet_word & 0x1fffffff;
     }
-
-    h.packet_word = be_u32(bytes.data() + 2);
-    h.packet_length_index =
-        static_cast<std::uint8_t>((h.packet_word >> 29) & 0x7u);
-    h.sequence = h.packet_word & 0x1FFFFFFFu;
-
-    h.quality_indicator = static_cast<char>(bytes[6]);
-    h.reserved_char = static_cast<char>(bytes[7]);
-    h.station = fixed_string(bytes.data() + 8, 5);
-    h.location = fixed_string(bytes.data() + 13, 2);
-    h.channel = fixed_string(bytes.data() + 15, 3);
-    h.network = fixed_string(bytes.data() + 18, 2);
-
-    h.start_time.year = be_u16(bytes.data() + 20);
-    h.start_time.day_of_year = be_u16(bytes.data() + 22);
-    h.start_time.hour = bytes[24];
-    h.start_time.minute = bytes[25];
-    h.start_time.second = bytes[26];
-    h.start_time.fraction_0001s = be_u16(bytes.data() + 28);
-
-    h.sample_count = be_u16(bytes.data() + 30);
-    h.sample_rate_factor = be_i16(bytes.data() + 32);
-    h.sample_rate_multiplier = be_i16(bytes.data() + 34);
-    h.activity_flags = bytes[36];
-    h.io_clock_flags = bytes[37];
-    h.data_quality_flags = bytes[38];
-    h.blockette_count = bytes[39];
-    h.time_correction = be_i32(bytes.data() + 40);
-    h.data_offset = be_u16(bytes.data() + 44);
-    h.first_blockette_offset = be_u16(bytes.data() + 46);
-
-    // This reader intentionally targets the supplied protocol: Blockette 1000
-    // immediately follows the 48-byte modified fixed header.
-    if (h.first_blockette_offset != 48) {
+    const bool le = h.header_little_endian;
+    h.quality_indicator = char(b[6]);
+    h.reserved_char = char(b[7]);
+    h.station = fixed_string(b.data() + 8, 5);
+    h.location = fixed_string(b.data() + 13, 2);
+    h.channel = fixed_string(b.data() + 15, 3);
+    h.network = fixed_string(b.data() + 18, 2);
+    h.start_time = {u16(b.data() + 20, le),
+                    u16(b.data() + 22, le),
+                    b[24],
+                    b[25],
+                    b[26],
+                    u16(b.data() + 28, le)};
+    h.start_time_us = btime_unix_us(h.start_time);
+    h.sample_count = u16(b.data() + 30, le);
+    h.sample_rate_factor = static_cast<std::int16_t>(u16(b.data() + 32, le));
+    h.sample_rate_multiplier =
+        static_cast<std::int16_t>(u16(b.data() + 34, le));
+    h.activity_flags = b[36];
+    h.io_clock_flags = b[37];
+    h.data_quality_flags = b[38];
+    h.blockette_count = b[39];
+    h.time_correction = static_cast<std::int32_t>(u32(b.data() + 40, le));
+    h.data_offset = u16(b.data() + 44, le);
+    h.first_blockette_offset = u16(b.data() + 46, le);
+    if (h.data_offset < 48 || h.first_blockette_offset < 48
+        || h.first_blockette_offset >= h.data_offset)
         throw std::runtime_error(
-            "unsupported first Blockette offset (expected 48)");
-    }
-
-    const std::size_t b = h.first_blockette_offset;
-    h.blockette_type = be_u16(bytes.data() + b + 0);
-    h.next_blockette_offset = be_u16(bytes.data() + b + 2);
-    h.encoding = bytes[b + 4];
-    h.word_order = bytes[b + 5];
-    h.record_length_exponent = bytes[b + 6];
-    h.blockette_reserved = bytes[b + 7];
-
-    if (h.blockette_type != 1000) {
-        throw std::runtime_error("first Blockette is not Blockette 1000");
-    }
-    if (h.record_length_exponent >= sizeof(std::size_t) * 8u) {
-        throw std::runtime_error("record length exponent is too large");
-    }
-    h.record_length = std::size_t{1} << h.record_length_exponent;
-    if (h.record_length < 64) {
-        throw std::runtime_error(
-            "record length is smaller than protocol header");
-    }
-
-    const std::size_t ext = b + 8;
-    h.channel_order = fixed_string(bytes.data() + ext, 3);
-    h.extension_byte = bytes[ext + 3];
-    h.dimension_sensitivity_raw = be_u32(bytes.data() + ext + 4);
-    h.dimension =
-        static_cast<Dimension>((h.dimension_sensitivity_raw >> 30) & 0x3u);
-    h.sensitivity = h.dimension_sensitivity_raw & 0x3FFFFFFFu;
-
-    if (h.data_offset < 64 || h.data_offset > h.record_length) {
-        throw std::runtime_error("invalid data offset");
-    }
-
+            "invalid MiniSEED data offset or Blockette offset");
+    if ((h.activity_flags & 2) == 0)
+        h.start_time_us += std::int64_t(h.time_correction) * 100;
     return h;
 }
-
+Header parse_header(std::span<const std::uint8_t> b) {
+    Header h = fixed_header(b);
+    const bool le = h.header_little_endian;
+    std::set<std::size_t> seen;
+    std::size_t pos = h.first_blockette_offset, count = 0, extension = 0;
+    while (pos) {
+        if (!seen.insert(pos).second || pos < 48 || pos + 4 > h.data_offset
+            || pos + 4 > b.size())
+            throw std::runtime_error("invalid/cyclic MiniSEED Blockette chain");
+        const auto type = u16(b.data() + pos, le),
+                   next = u16(b.data() + pos + 2, le);
+        std::size_t length =
+            type == 100 ? 12 : (type == 1000 || type == 1001 ? 8 : 4);
+        if (pos + length > b.size() || pos + length > h.data_offset
+            || (next && next < pos + length))
+            throw std::runtime_error(
+                "truncated or overlapping MiniSEED Blockette");
+        if (type == 1000) {
+            if (h.record_length)
+                throw std::runtime_error("duplicate Blockette 1000");
+            h.blockette_type = type;
+            h.next_blockette_offset = next;
+            h.encoding = b[pos + 4];
+            h.word_order = b[pos + 5];
+            h.record_length_exponent = b[pos + 6];
+            h.blockette_reserved = b[pos + 7];
+            if (h.record_length_exponent < 7 || h.record_length_exponent > 20)
+                throw std::runtime_error(
+                    "unsupported MiniSEED record length exponent");
+            h.record_length = std::size_t{1} << h.record_length_exponent;
+            extension = pos + 8;
+        } else if (type == 1001) {
+            h.start_time_us += static_cast<std::int8_t>(b[pos + 5]);
+        } else if (type == 100) {
+            h.actual_sample_rate_hz =
+                std::bit_cast<float>(u32(b.data() + pos + 4, le));
+            if (!(h.actual_sample_rate_hz > 0)
+                || !std::isfinite(h.actual_sample_rate_hz))
+                throw std::runtime_error("invalid Blockette 100 sample rate");
+        }
+        ++count;
+        pos = next;
+    }
+    if (count != h.blockette_count || !h.record_length)
+        throw std::runtime_error(
+            "MiniSEED Blockette count mismatch or missing Blockette 1000");
+    if (h.data_offset > h.record_length
+        || (h.encoding == 11 && h.data_offset % 64) || h.word_order > 1)
+        throw std::runtime_error(
+            "invalid MiniSEED data offset/frame alignment/word order");
+    if (!h.standard_v2) {
+        if (h.first_blockette_offset != 48 || h.blockette_count != 1
+            || extension + 8 > h.data_offset || extension + 8 > b.size())
+            throw std::runtime_error(
+                "unsupported Modified MiniSEED extension layout");
+        if ((std::size_t{1} << (h.packet_length_index + 5)) != h.record_length)
+            throw std::runtime_error(
+                "packet-length index disagrees with Blockette 1000");
+        h.has_extension = true;
+        h.channel_order = fixed_string(b.data() + extension, 3);
+        h.extension_byte = b[extension + 3];
+        h.dimension_sensitivity_raw = u32(b.data() + extension + 4, false);
+        h.dimension = static_cast<Dimension>(h.dimension_sensitivity_raw >> 30);
+        h.sensitivity = h.dimension_sensitivity_raw & 0x3fffffff;
+    }
+    h.start_time = btime_from_unix_us(h.start_time_us);
+    return h;
+}
 } // namespace
 
-Reader::Reader(const std::string &path) : in_(path, std::ios::binary) {
-    if (!in_) {
-        throw std::runtime_error("cannot open file: " + path);
-    }
-}
-
-bool Reader::next(Record &record) {
-    std::array<std::uint8_t, 64> prefix{};
-    in_.read(reinterpret_cast<char *>(prefix.data()),
-             checked_streamsize(prefix.size(), "record header"));
-    const auto got = in_.gcount();
-
-    if (got == 0 && in_.eof()) {
-        return false;
-    }
-    if (got != static_cast<std::streamsize>(prefix.size())) {
-        throw std::runtime_error("truncated record header at record index "
-                                 + std::to_string(record_index_));
-    }
-
-    std::vector<std::uint8_t> bytes(prefix.begin(), prefix.end());
-    Header h = parse_header(bytes);
-
-    if (h.record_length > bytes.size()) {
-        const std::size_t remaining = h.record_length - bytes.size();
-        const std::size_t old_size = bytes.size();
-        bytes.resize(h.record_length);
-        in_.read(reinterpret_cast<char *>(bytes.data() + old_size),
-                 checked_streamsize(remaining, "record body"));
-        if (in_.gcount() != checked_streamsize(remaining, "record body")) {
-            throw std::runtime_error("truncated record body at record index "
-                                     + std::to_string(record_index_));
-        }
-    }
-
-    // Cross-check the protocol's 3-bit packet-length index against Blockette
-    // 1000. The protocol defines record bytes as 2^(index + 5).
-    const std::size_t indexed_length = std::size_t{1}
-                                       << (h.packet_length_index + 5u);
-    if (indexed_length != h.record_length) {
+std::int64_t btime_unix_us(const BTime &t) {
+    using namespace std::chrono;
+    const year y{int(t.year)};
+    if (t.year < 1900 || t.year > 2200 || !t.day_of_year
+        || t.day_of_year > (y.is_leap() ? 366 : 365) || t.hour > 23
+        || t.minute > 59 || t.second > 59 || t.fraction_0001s > 9999)
         throw std::runtime_error(
-            "packet-length index disagrees with Blockette 1000 at record index "
-            + std::to_string(record_index_));
+            "invalid/unsupported MiniSEED BTime (including leap seconds)");
+    return duration_cast<microseconds>(
+               (sys_days{y / January / 1} + days{t.day_of_year - 1}
+                + hours{t.hour} + minutes{t.minute} + seconds{t.second})
+                   .time_since_epoch())
+               .count()
+           + std::int64_t(t.fraction_0001s) * 100;
+}
+BTime btime_from_unix_us(std::int64_t t) {
+    using namespace std::chrono;
+    const sys_time<microseconds> tp{microseconds{t}};
+    const auto day = floor<days>(tp);
+    const year_month_day date{day};
+    const hh_mm_ss clock{tp - day};
+    return {
+        std::uint16_t(int(date.year())),
+        std::uint16_t((day - sys_days{date.year() / January / 1}).count() + 1),
+        std::uint8_t(clock.hours().count()),
+        std::uint8_t(clock.minutes().count()),
+        std::uint8_t(clock.seconds().count()),
+        std::uint16_t(clock.subseconds().count() / 100)};
+}
+Header parse_record_header(std::span<const std::uint8_t> bytes) {
+    return parse_header(bytes);
+}
+Record parse_record(std::span<const std::uint8_t> bytes) {
+    Header h = parse_header(bytes);
+    if (bytes.size() != h.record_length)
+        throw std::runtime_error(
+            "MiniSEED record length mismatch/truncated record");
+    if (h.encoding != 11)
+        throw std::runtime_error("unsupported MiniSEED encoding: "
+                                 + std::to_string(h.encoding));
+    return {h, decode_steim2(bytes, h)};
+}
+Reader::Reader(const std::string &path) : in_(path, std::ios::binary) {
+    if (!in_)
+        throw std::runtime_error("cannot open file: " + path);
+}
+bool Reader::next(Record &record) {
+    const auto offset = in_.tellg();
+    std::vector<std::uint8_t> bytes(48);
+    in_.read(reinterpret_cast<char *>(bytes.data()), 48);
+    if (!in_.gcount() && in_.eof())
+        return false;
+    try {
+        if (in_.gcount() != 48) {
+            bytes.resize(static_cast<std::size_t>(in_.gcount()));
+            fixed_header(bytes);
+            throw std::runtime_error("truncated record header");
+        }
+        const Header fixed = fixed_header(bytes);
+        const auto extend = [&](std::size_t n) {
+            const auto old = bytes.size();
+            if (n < old)
+                throw std::runtime_error("invalid record boundary");
+            bytes.resize(n);
+            in_.read(reinterpret_cast<char *>(bytes.data() + old),
+                     std::streamsize(n - old));
+            if (in_.gcount() != std::streamsize(n - old))
+                throw std::runtime_error("truncated record body");
+        };
+        extend(fixed.data_offset);
+        const Header h = parse_header(bytes);
+        extend(h.record_length);
+        record = parse_record(bytes);
+    } catch (const std::exception &e) {
+        throw std::runtime_error(
+            "MiniSEED record " + std::to_string(record_index_) + " at byte "
+            + std::to_string(static_cast<std::streamoff>(offset)) + ": "
+            + e.what());
     }
-
-    record.header = std::move(h);
-    record.samples = decode_steim2(bytes, record.header);
     ++record_index_;
     return true;
 }
@@ -392,6 +259,8 @@ double sample_rate_hz(std::int16_t factor, std::int16_t multiplier) {
 }
 
 double sample_rate_hz(const Header &header) {
+    if (header.actual_sample_rate_hz > 0)
+        return header.actual_sample_rate_hz;
     return sample_rate_hz(header.sample_rate_factor,
                           header.sample_rate_multiplier);
 }
@@ -408,6 +277,8 @@ std::string format_btime(const BTime &t) {
 
 std::string dimension_name(Dimension d) {
     switch (d) {
+        case Dimension::Unknown:
+            return "unknown";
         case Dimension::Dimensionless:
             return "dimensionless";
         case Dimension::Displacement:

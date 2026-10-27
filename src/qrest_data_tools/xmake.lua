@@ -2,6 +2,9 @@ target("qrest_data_import_formats")
     set_kind("static")
     set_languages("c++20")
     add_files("formats/mseed/modified_mseed.cpp")
+    add_files("formats/mseed/steim2.cpp")
+    add_files("formats/sit/sit_dat_reader.cpp")
+    add_files("formats/sit/sit_txt_reader.cpp")
     add_files("formats/mseed/modified_mseed_export.cpp")
     add_files("formats/tdms/tdms_reader.cpp")
     add_files("formats/tdms/tdms_export.cpp")
@@ -38,5 +41,17 @@ target("qrest_data_tools_cli")
     add_packages("hdf5", "nlohmann_json", "cli11")
     if is_plat("linux") then
         add_rpathdirs("$ORIGIN/../lib")
+    end
+    set_group("data_tools")
+
+target("qrest_data_readers")
+    set_kind("shared")
+    set_languages("c++20")
+    add_files("core/external_reader_c.cpp")
+    add_defines("QREST_DATA_READERS_BUILD_SHARED")
+    add_deps("qrest_data_tools_core")
+    add_deps("qrest_data_headers", {public = true})
+    if is_plat("linux") then
+        add_rpathdirs("$ORIGIN")
     end
     set_group("data_tools")

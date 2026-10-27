@@ -13,5 +13,10 @@ xmake -P .
 xmake run -P . installed_sdk_smoke
 ```
 
-The test includes every public header, links `qrest_data_lib`, and checks that
-the compile-time and runtime Module Version strings agree.
+The C++ test includes every public header, links `qrest_data_lib` and
+`qrest_data_readers`, and checks version and reader API behavior.
+`installed_reader_c_smoke` compiles a pure C consumer of the installed reader
+header and shared library. Pass the absolute path of
+`resource/test/format_readers/sit_1s.dat` to either binary to verify a real
+3-channel, 100-sample read and native calibration. With no argument they verify
+the C error/NULL-output contract. Neither project includes repository sources.

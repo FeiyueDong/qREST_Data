@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,7 @@ enum class Dimension : std::uint8_t {
     Displacement = 1,
     Velocity = 2,
     Acceleration = 3,
+    Unknown = 255,
 };
 
 struct BTime {
@@ -25,6 +27,11 @@ struct BTime {
 };
 
 struct Header {
+    bool standard_v2{false};
+    bool header_little_endian{false};
+    bool has_extension{false};
+    std::int64_t start_time_us{};
+    double actual_sample_rate_hz{};
     std::string waveform_id;            // wc / wt / ws
     std::uint32_t packet_word{};        // raw 4-byte combined field
     std::uint8_t packet_length_index{}; // high 3 bits
@@ -62,11 +69,19 @@ struct Header {
     std::uint8_t extension_byte{}; // documented as reserved; sample file
                                    // contains 0x76 ('v')
     std::uint32_t dimension_sensitivity_raw{};
-    Dimension dimension{Dimension::Dimensionless};
+    Dimension dimension{Dimension::Unknown};
     std::uint32_t sensitivity{}; // low 30 bits
 
     std::size_t record_length{};
 };
+
+struct Record;
+
+// Shared by standalone records and the SIT container. No unit conversion.
+Header parse_record_header(std::span<const std::uint8_t> bytes);
+Record parse_record(std::span<const std::uint8_t> bytes);
+std::int64_t btime_unix_us(const BTime &time);
+BTime btime_from_unix_us(std::int64_t timestamp);
 
 struct Record {
     Header header;

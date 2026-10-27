@@ -17,15 +17,20 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <iomanip>
 #include <limits>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
 
-#include "../formats/mseed/modified_mseed_export.hpp"
-#include "../formats/tdms/tdms_export.hpp"
+#include <nlohmann/json.hpp>
 #include "../../qrest_data_hdf5/hdf5_reader.hpp"
 #include "../../qrest_data_hdf5/hdf5_writer.hpp"
+#include "../formats/mseed/modified_mseed_export.hpp"
+#include "../formats/sit/sit_dat_reader.hpp"
+#include "../formats/sit/sit_txt_reader.hpp"
+#include "../formats/tdms/tdms_export.hpp"
 #include "qrest_file.hpp"
 
 namespace qrest_data::tools {
@@ -82,35 +87,11 @@ bool almost_equal(double a, double b, double rel = 1e-8) {
 }
 
 std::uint64_t tdms_start_time_ms(const tdms::Timestamp &timestamp) {
-    const long double ms =
-        tdms::timestamp_unix_seconds(timestamp) * 1000.0L;
+    const long double ms = tdms::timestamp_unix_seconds(timestamp) * 1000.0L;
     if (ms < 0.0L) {
         throw std::runtime_error("TDMS start timestamp is before Unix epoch");
     }
     return static_cast<std::uint64_t>(std::llround(ms));
-}
-
-std::uint64_t mseed_start_time_ms(const mseed::BTime &time) {
-    using namespace std::chrono;
-    const year_month_day first_day{
-        year{static_cast<int>(time.year)} / January / 1};
-    if (!first_day.ok() || time.day_of_year == 0) {
-        throw std::runtime_error("MiniSEED start timestamp is invalid");
-    }
-    const sys_days day =
-        sys_days{first_day} + days{static_cast<int>(time.day_of_year) - 1};
-    const year_month_day actual_day{day};
-    if (!actual_day.ok()
-        || actual_day.year() != year{static_cast<int>(time.year)}) {
-        throw std::runtime_error("MiniSEED start timestamp day is invalid");
-    }
-    const auto timestamp =
-        time_point_cast<milliseconds>(day + hours{time.hour}
-                                      + minutes{time.minute}
-                                      + seconds{time.second})
-        + milliseconds{time.fraction_0001s / 10};
-    return static_cast<std::uint64_t>(
-        timestamp.time_since_epoch().count());
 }
 
 std::optional<std::uint64_t>
@@ -175,12 +156,6 @@ collect_input_files(const std::string &input_path,
     std::vector<std::filesystem::path> files;
 
     if (std::filesystem::is_regular_file(path)) {
-        if (!has_extension(path, extensions)) {
-            std::ostringstream oss;
-            oss << format_name
-                << " input file has unsupported extension: " << path.string();
-            throw std::runtime_error(oss.str());
-        }
         files.push_back(path);
     } else if (std::filesystem::is_directory(path)) {
         for (const auto &entry : std::filesystem::directory_iterator(path)) {
@@ -220,6 +195,25 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
         throw std::runtime_error("internal error while merging external files");
     }
 
+    if (datasets.size() == 1)
+        return datasets.front();
+    const bool strict =
+        std::any_of(datasets.begin(), datasets.end(), [](const auto &d) {
+            return d.source_format != "tdms";
+        });
+    std::set<std::string> ids;
+    if (strict)
+        for (const auto &d : datasets) {
+            if (d.start_time_us != datasets.front().start_time_us)
+                throw std::runtime_error(
+                    "directory inputs have different UTC start times; time "
+                    "segments must be assembled by record time");
+            for (const auto &c : d.channels)
+                if (!ids.insert(c.source_id).second)
+                    throw std::runtime_error(
+                        "duplicate source channel in directory: "
+                        + c.source_id);
+        }
     const auto sample_count = datasets.front().sample_count;
     const auto sample_rate_hz = datasets.front().sample_rate_hz;
     std::size_t channel_count = 0;
@@ -257,8 +251,25 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
     merged.sample_count = sample_count;
     merged.sample_rate_hz = sample_rate_hz;
     merged.start_time_ms = consistent_start_time(datasets);
+    merged.start_time_us = datasets.front().start_time_us;
+    merged.representation = datasets.front().representation;
+    merged.output_unit = datasets.front().output_unit;
+    merged.time_basis = datasets.front().time_basis;
+    for (const auto &d : datasets) {
+        if (d.representation != merged.representation)
+            throw std::runtime_error(
+                "conflicting representations in directory");
+        merged.channels.insert(
+            merged.channels.end(), d.channels.begin(), d.channels.end());
+        merged.diagnostics.insert(merged.diagnostics.end(),
+                                  d.diagnostics.begin(),
+                                  d.diagnostics.end());
+    }
     merged.distance_unit = datasets.front().distance_unit;
-    for(const auto &d:datasets)if(d.distance_unit!=merged.distance_unit)throw std::runtime_error("External files declare conflicting units");
+    for (const auto &d : datasets)
+        if (d.distance_unit != merged.distance_unit)
+            throw std::runtime_error(
+                "External files declare conflicting units");
     merged.channel_labels.reserve(channel_count);
     merged.channel_sequential_data.assign(
         checked_value_count(channel_count, sample_count), 0.0);
@@ -275,7 +286,9 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
                     ? dataset.channel_labels[channel_index]
                     : files[file_index].filename().string() + "/"
                           + dataset.channel_labels[channel_index]);
-            if(dataset.channel_measurands.size()==dataset.channel_count)merged.channel_measurands.push_back(dataset.channel_measurands[channel_index]);
+            if (dataset.channel_measurands.size() == dataset.channel_count)
+                merged.channel_measurands.push_back(
+                    dataset.channel_measurands[channel_index]);
             const auto source_offset = channel_index * sample_count;
             const auto target_offset = target_channel * sample_count;
             std::copy_n(dataset.channel_sequential_data.begin()
@@ -313,6 +326,58 @@ std::size_t checked_value_count(std::size_t channel_count,
         throw std::runtime_error(message);
     }
     return channel_count * sample_count;
+}
+
+void validate_source_contract(
+    ValidationReport &report,
+    const ExternalDataset &d,
+    const Metadata &metadata,
+    const std::vector<ExternalChannelMapping> &mapping) {
+    if (d.representation.empty())
+        return; // existing TDMS/HDF5 contracts are unchanged
+    if (d.start_time_us) {
+        try {
+            const auto t =
+                parse_iso8601_timestamp_ms(metadata.DataInfo.StartTime);
+            if (static_cast<long double>(t) * 1000 != *d.start_time_us)
+                add_error(report,
+                          "source UTC start time conflicts with metadata "
+                          "StartTime (or loses sub-millisecond precision)");
+        } catch (const std::exception &e) {
+            add_error(report, e.what());
+        }
+    }
+    if (d.representation == "RawCounts") {
+        if (metadata.Units[0] != "count")
+            add_error(report, "RawCounts require metadata Units[0]=count");
+    } else if (!d.distance_unit.empty()
+               && d.distance_unit != metadata.Units[0]) {
+        add_error(report,
+                  "source/output unit conflicts with metadata Units[0]");
+    }
+    for (const auto &m : mapping) {
+        if (m.source_channel >= d.channel_count
+            || m.target_channel >= metadata.InstrumentInfo.Channels.size())
+            continue;
+        const auto &target = metadata.InstrumentInfo.Channels[m.target_channel];
+        if (d.channel_measurands.size() == d.channel_count
+            && d.channel_measurands[m.source_channel] != target.Measurand)
+            add_error(report,
+                      "source quantity conflicts with target Measurand for "
+                          + target.ChannelID);
+        if (target.Scale != 1.0)
+            add_error(report,
+                      "converted external data requires metadata Scale=1");
+        const auto source_axis = d.channels.size() == d.channel_count
+                                     ? d.channels[m.source_channel].axis_hint
+                                     : "Unknown";
+        const auto target_axis = external_axis_hint(target.ChannelID);
+        if (source_axis != "Unknown" && target_axis != "Unknown"
+            && source_axis != target_axis)
+            add_error(report,
+                      "source/target direction conflict for " + target.ChannelID
+                          + "; supply an explicit correct mapping");
+    }
 }
 
 void add_non_finite_data_errors(ValidationReport &report,
@@ -365,8 +430,14 @@ ExternalDataset load_tdms_dataset(const std::string &input_path,
         result.start_time_ms = tdms_start_time_ms(dataset.timestamps.front());
     }
     result.channel_labels = {"N", "E", "Z"};
-    result.channel_measurands = {"Acceleration", "Acceleration", "Acceleration"};
-    if(!options.output_counts)result.distance_unit=options.output_unit==TdmsImportOptions::Unit::MeterPerSecondSquared?"m":"cm";
+    result.channel_measurands = {
+        "Acceleration", "Acceleration", "Acceleration"};
+    if (!options.output_counts)
+        result.distance_unit =
+            options.output_unit
+                    == TdmsImportOptions::Unit::MeterPerSecondSquared
+                ? "m"
+                : "cm";
     result.channel_sequential_data.reserve(samples * result.channel_count);
 
     const double actual_sensitivity =
@@ -419,44 +490,226 @@ ExternalDataset load_tdms_collection(const std::string &input_path,
         merged, metadata, make_sequential_channel_mapping(merged, metadata));
 }
 
-ExternalDataset load_mseed_dataset(const std::string &input_path,
-                                   const MseedImportOptions &options) {
-    mseed::LoadOptions load_options;
-    load_options.include_dimensionless = options.include_dimensionless;
-    load_options.gap_policy = to_mseed_gap_policy(options.gap_policy);
-
-    const auto groups = mseed::load_channel_groups(input_path, load_options);
-    if (options.group_index >= groups.size()) {
-        std::ostringstream oss;
-        oss << "MiniSEED group index " << options.group_index
-            << " is out of range; file contains " << groups.size()
-            << " synchronized group(s)";
-        throw std::runtime_error(oss.str());
-    }
-
+namespace {
+mseed::Dimension parse_quantity(const std::string &q) {
+    if (q.empty())
+        return mseed::Dimension::Unknown;
+    if (q == "Acceleration")
+        return mseed::Dimension::Acceleration;
+    if (q == "Velocity")
+        return mseed::Dimension::Velocity;
+    if (q == "Displacement")
+        return mseed::Dimension::Displacement;
+    throw std::runtime_error("unsupported physical quantity: " + q);
+}
+mseed::LoadOptions mseed_options(const MseedImportOptions &options) {
+    mseed::LoadOptions o;
+    o.include_dimensionless = options.include_dimensionless;
+    o.gap_policy = to_mseed_gap_policy(options.gap_policy);
+    o.output_counts = options.output_counts;
+    o.sensitivity = options.sensitivity;
+    o.quantity = parse_quantity(options.quantity);
+    if (options.output_counts
+        && (options.require_physical || !options.quantity.empty()))
+        throw std::runtime_error(
+            "counts and physical output options are mutually exclusive");
+    return o;
+}
+ExternalDataset group_dataset(const std::vector<mseed::ChannelGroup> &groups,
+                              const MseedImportOptions &options,
+                              bool dat) {
+    if (options.group_index >= groups.size())
+        throw std::runtime_error("MiniSEED group index out of range; groups="
+                                 + std::to_string(groups.size()));
     const auto &group = groups[options.group_index];
-    const auto order = mseed::ordered_channel_indices(group);
     ExternalDataset result;
-    result.source_format = "modified-miniseed";
-    result.channel_count = order.size();
+    result.source_format =
+        dat ? "sit-dat" : group.channels.front().source_format;
+    result.channel_count = group.channels.size();
     result.sample_count = group.sample_count();
     result.sample_rate_hz = group.sample_rate_hz;
-    result.start_time_ms = mseed_start_time_ms(group.start_time);
-    result.channel_labels.reserve(order.size());
-    result.channel_sequential_data.reserve(result.channel_count
-                                           * result.sample_count);
-    for (const auto index : order) {
-        const auto &channel = group.channels[index];
+    result.start_time_us = group.start_time_us;
+    if (group.start_time_us >= 0)
+        result.start_time_ms = std::uint64_t(group.start_time_us / 1000);
+    result.time_basis =
+        "UTC (MiniSEED BTime, time correction and Blockette 1001)";
+    const bool raw = group.channels.front().raw_counts;
+    result.representation = raw ? "RawCounts" : "Physical";
+    if (raw && options.require_physical)
+        throw std::runtime_error("raw counts decoded; physical output requires "
+                                 "reliable sensitivity and quantity");
+    const bool cm = options.output_unit == MotionUnit::Centimeter;
+    result.output_unit =
+        raw ? "count" : mseed::physical_unit_name(group.dimension);
+    if (!raw && cm)
+        result.output_unit = "c" + result.output_unit;
+    if (!raw && group.dimension != mseed::Dimension::Dimensionless)
+        result.distance_unit = cm ? "cm" : "m";
+    if (raw)
+        result.diagnostics.push_back(
+            "RawCounts: no physical conversion applied; acceleration metadata "
+            "is forbidden");
+    if (options.gap_policy == MseedImportOptions::GapPolicy::Ignore)
+        result.diagnostics.push_back("gap-policy=ignore: record concatenation "
+                                     "can destroy the true time axis");
+    for (const auto &channel : group.channels) {
+        if (channel.raw_counts != raw)
+            throw std::runtime_error("mixed RawCounts/Physical channels "
+                                     "require separate import groups");
         result.channel_labels.push_back(channel.channel);
-        const auto dimension=channel.dimension;
-        result.channel_measurands.push_back(dimension==mseed::Dimension::Acceleration?"Acceleration":dimension==mseed::Dimension::Velocity?"Velocity":dimension==mseed::Dimension::Displacement?"Displacement":"Dimensionless");
-        if(dimension!=mseed::Dimension::Dimensionless)result.distance_unit="m";
-        result.channel_sequential_data.insert(
-            result.channel_sequential_data.end(),
-            channel.values.begin(),
-            channel.values.end());
+        auto quantity = mseed::dimension_name(channel.dimension);
+        if (!quantity.empty())
+            quantity[0] = static_cast<char>(
+                std::toupper(static_cast<unsigned char>(quantity[0])));
+        result.channel_measurands.push_back(raw ? "RawCounts" : quantity);
+        result.channels.push_back(
+            {channel.network + "." + channel.station + "." + channel.location
+                 + "." + channel.channel,
+             channel.channel,
+             external_axis_hint(channel.channel),
+             channel.source_order,
+             channel.start_time_us,
+             channel.record_count,
+             channel.missing_sample_count,
+             channel.actual_sensitivity > 0
+                 ? std::optional<double>{channel.actual_sensitivity}
+                 : std::nullopt,
+             channel.sensitivity_origin,
+             "count"});
+        for (double value : channel.values)
+            result.channel_sequential_data.push_back(
+                value * (!raw && cm ? 100.0 : 1.0));
     }
     return result;
+}
+} // namespace
+ExternalDataset load_mseed_dataset(const std::string &path,
+                                   const MseedImportOptions &options) {
+    return group_dataset(
+        mseed::load_channel_groups(path, mseed_options(options)),
+        options,
+        false);
+}
+ExternalDataset load_sit_dat_dataset(const std::string &path,
+                                     const SitDatImportOptions &options) {
+    return group_dataset(
+        mseed::assemble_channel_groups(sit::read_dat_records(path),
+                                       mseed_options(options)),
+        options,
+        true);
+}
+ExternalDataset load_sit_txt_dataset(const std::string &path,
+                                     const SitTxtImportOptions &options) {
+    const auto text = sit::read_txt(path, options.timezone);
+    ExternalDataset d;
+    d.source_format = "sit-txt";
+    d.channel_count = 3;
+    d.sample_count = text.values[0].size();
+    d.sample_rate_hz = text.sample_rate_hz;
+    d.start_time_us = text.start_time_us;
+    if (text.start_time_us >= 0)
+        d.start_time_ms = std::uint64_t(text.start_time_us / 1000);
+    d.time_basis = "SIT Gal profile, source timezone " + options.timezone
+                   + ", header " + text.encoding;
+    d.representation = "Physical";
+    const bool cm = options.output_unit == MotionUnit::Centimeter;
+    d.distance_unit = cm ? "cm" : "m";
+    d.output_unit = cm ? "cm/s^2" : "m/s^2";
+    for (std::size_t i = 0; i < 3; ++i) {
+        d.channel_labels.push_back(text.labels[i]);
+        d.channel_measurands.push_back("Acceleration");
+        d.channels.push_back({text.labels[i],
+                              text.labels[i],
+                              external_axis_hint(text.labels[i]),
+                              i,
+                              text.start_time_us,
+                              0,
+                              0,
+                              std::nullopt,
+                              "not-applicable (physical source)",
+                              "Gal (SIT profile)"});
+        for (double v : text.values[i])
+            d.channel_sequential_data.push_back(v * (cm ? 1.0 : 0.01));
+    }
+    return d;
+}
+std::string external_axis_hint(const std::string &s) {
+    if (s == "EIN" || s == "NS" || s == "N")
+        return "North";
+    if (s == "EIE" || s == "EW" || s == "E")
+        return "East";
+    if (s == "EIZ" || s == "UD" || s == "Z")
+        return "Vertical";
+    return "Unknown";
+}
+namespace {
+std::string utc_string(std::int64_t t) {
+    using namespace std::chrono;
+    const sys_time<microseconds> tp{microseconds{t}};
+    const auto day = floor<days>(tp);
+    const year_month_day d{day};
+    const hh_mm_ss clock{tp - day};
+    std::ostringstream out;
+    out << std::setfill('0') << std::setw(4) << int(d.year()) << '-'
+        << std::setw(2) << unsigned(d.month()) << '-' << std::setw(2)
+        << unsigned(d.day()) << 'T' << std::setw(2) << clock.hours().count()
+        << ':' << std::setw(2) << clock.minutes().count() << ':' << std::setw(2)
+        << clock.seconds().count() << '.' << std::setw(6)
+        << clock.subseconds().count() << 'Z';
+    return out.str();
+}
+} // namespace
+std::string external_dataset_summary_json(const ExternalDataset &d) {
+    nlohmann::json j = {{"source_format", d.source_format},
+                        {"channels", d.channel_count},
+                        {"samples", d.sample_count},
+                        {"sample_rate_hz", d.sample_rate_hz},
+                        {"representation", d.representation},
+                        {"output_unit", d.output_unit},
+                        {"time_basis", d.time_basis},
+                        {"diagnostics", d.diagnostics},
+                        {"channel_list", nlohmann::json::array()}};
+    if (d.start_time_us) {
+        j["start_time_us"] = *d.start_time_us;
+        j["start_time_utc"] = utc_string(*d.start_time_us);
+        if (d.sample_count && d.sample_rate_hz > 0)
+            j["last_sample_time_us"] =
+                *d.start_time_us
+                + std::llround((d.sample_count - 1) * 1000000.0
+                               / d.sample_rate_hz);
+    }
+    j["record_count"] = 0;
+    j["missing_samples"] = 0;
+    j["overlap_records"] = 0;
+    j["undecodable_records"] = 0; // fatal errors never produce a dataset
+    for (const auto &c : d.channels) {
+        j["record_count"] =
+            j["record_count"].get<std::uint64_t>() + c.record_count;
+        j["missing_samples"] =
+            j["missing_samples"].get<std::uint64_t>() + c.missing_samples;
+    }
+    j["non_finite_samples"] =
+        std::count_if(d.channel_sequential_data.begin(),
+                      d.channel_sequential_data.end(),
+                      [](double x) { return !std::isfinite(x); });
+    for (const auto &c : d.channels) {
+        nlohmann::json channel = {
+            {"source_id", c.source_id},
+            {"source_label", c.source_label},
+            {"source_order", c.source_order},
+            {"axis_hint", c.axis_hint},
+            {"start_time_us", c.start_time_us},
+            {"records", c.record_count},
+            {"missing_samples", c.missing_samples},
+            {"sensitivity_origin", c.sensitivity_origin},
+            {"sensitivity_unit",
+             c.sensitivity ? "count/SI-unit" : "unknown/not-applicable"},
+            {"source_unit", c.source_unit}};
+        channel["sensitivity"] = c.sensitivity ? nlohmann::json(*c.sensitivity)
+                                               : nlohmann::json(nullptr);
+        j["channel_list"].push_back(std::move(channel));
+    }
+    return j.dump(2);
 }
 
 ExternalDataset load_mseed_external_data(const std::string &input_path,
@@ -474,11 +727,9 @@ ExternalDataset load_mseed_external_data(const std::string &input_path,
                                      + e.what());
         }
     }
-    return merge_filename_order_dataset(datasets,
-                                        files,
-                                        files.size() == 1
-                                            ? "modified-miniseed"
-                                            : "modified-miniseed-collection");
+    if (datasets.size() == 1)
+        return std::move(datasets.front());
+    return merge_filename_order_dataset(datasets, files, "miniseed-collection");
 }
 
 ExternalDataset load_mseed_collection(const std::string &input_path,
@@ -487,6 +738,89 @@ ExternalDataset load_mseed_collection(const std::string &input_path,
     const auto merged = load_mseed_external_data(input_path, options);
     return apply_external_channel_mapping(
         merged, metadata, make_sequential_channel_mapping(merged, metadata));
+}
+
+ExternalDataset read_external_dataset(const std::string &path,
+                                      const std::string &format,
+                                      const std::string &options_json) {
+    const auto j = nlohmann::json::parse(options_json);
+    if (!j.is_object())
+        throw std::runtime_error("reader options must be a JSON object");
+    const std::set<std::string> known = {"unit",
+                                         "counts",
+                                         "sensitivity",
+                                         "quantity",
+                                         "timezone",
+                                         "gap_policy",
+                                         "group_index",
+                                         "include_dimensionless"};
+    for (const auto &[key, value] : j.items()) {
+        (void)value;
+        if (!known.contains(key))
+            throw std::runtime_error("unknown reader option: " + key);
+    }
+    if (format != "mseed" && format != "sit-dat" && format != "sit-txt")
+        throw std::runtime_error("unsupported reader format: " + format);
+    const auto unit = j.value("unit", format == "mseed" ? "m/s2" : "cm/s2");
+    if (unit != "m/s2" && unit != "cm/s2")
+        throw std::runtime_error("unit must be m/s2 or cm/s2");
+    const auto output =
+        unit == "m/s2" ? MotionUnit::SI : MotionUnit::Centimeter;
+    if (format == "sit-txt") {
+        for (const auto &[key, value] : j.items()) {
+            (void)value;
+            if (key != "unit" && key != "timezone")
+                throw std::runtime_error("inapplicable SIT TXT option: " + key);
+        }
+        const auto files = collect_input_files(path, {".txt"}, "SIT TXT");
+        std::vector<ExternalDataset> datasets;
+        for (const auto &f : files)
+            datasets.push_back(load_sit_txt_dataset(
+                f.string(), {output, j.value("timezone", "+08:00")}));
+        return merge_filename_order_dataset(
+            datasets, files, "sit-txt-collection");
+    }
+    if (j.contains("timezone"))
+        throw std::runtime_error("timezone applies only to SIT TXT");
+    MseedImportOptions o;
+    o.output_unit = output;
+    o.output_counts = j.value("counts", false);
+    o.require_physical = j.contains("unit") || j.contains("sensitivity")
+                         || j.contains("quantity");
+    if (j.contains("group_index")
+        && (!j["group_index"].is_number_integer()
+            || j["group_index"].get<long long>() < 0))
+        throw std::runtime_error("group_index must be a nonnegative integer");
+    o.group_index = j.value("group_index", std::size_t{0});
+    o.include_dimensionless = j.value("include_dimensionless", false);
+    if (j.contains("sensitivity"))
+        o.sensitivity = j.at("sensitivity").get<double>();
+    o.quantity = j.value("quantity", "");
+    const auto gap = j.value("gap_policy", "fill-nan");
+    if (gap == "error")
+        o.gap_policy = MseedImportOptions::GapPolicy::Error;
+    else if (gap == "ignore")
+        o.gap_policy = MseedImportOptions::GapPolicy::Ignore;
+    else if (gap != "fill-nan")
+        throw std::runtime_error("unknown gap policy: " + gap);
+    const auto finish = [&](ExternalDataset dataset) {
+        if (j.contains("unit"))
+            for (const auto &q : dataset.channel_measurands)
+                if (q != "Acceleration")
+                    throw std::runtime_error("acceleration output unit "
+                                             "conflicts with source quantity");
+        return dataset;
+    };
+    if (format == "mseed")
+        return finish(load_mseed_external_data(path, o));
+    const auto files = collect_input_files(path, {".dat"}, "SIT DAT");
+    std::vector<ExternalDataset> datasets;
+    SitDatImportOptions dat;
+    static_cast<MseedImportOptions &>(dat) = o;
+    for (const auto &f : files)
+        datasets.push_back(load_sit_dat_dataset(f.string(), dat));
+    return finish(
+        merge_filename_order_dataset(datasets, files, "sit-dat-collection"));
 }
 
 ExternalDataset load_hdf5_dataset(const std::string &input_path,
@@ -507,8 +841,9 @@ ExternalDataset load_hdf5_dataset(const std::string &input_path,
         result.start_time_ms.reset();
     }
     result.channel_labels = metadata_channel_labels(file_metadata);
-    result.distance_unit=file_metadata.Units[0];
-    for(const auto &c:file_metadata.InstrumentInfo.Channels)result.channel_measurands.push_back(c.Measurand);
+    result.distance_unit = file_metadata.Units[0];
+    for (const auto &c : file_metadata.InstrumentInfo.Channels)
+        result.channel_measurands.push_back(c.Measurand);
     result.channel_sequential_data = reader.read_accform();
 
     if (metadata != nullptr) {
@@ -557,6 +892,10 @@ ValidationReport validate_external_channel_mapping(
             << ")";
         add_error(report, oss.str());
     }
+    if (!dataset.channels.empty()
+        && dataset.channels.size() != dataset.channel_count)
+        add_error(report,
+                  "external channel provenance must match channel count");
     if (dataset.channel_labels.size() != dataset.channel_count) {
         add_error(report,
                   "external channel labels must match external channel count");
@@ -643,6 +982,7 @@ ValidationReport validate_external_channel_mapping(
         add_error(report, oss.str());
     }
 
+    validate_source_contract(report, dataset, metadata, mapping);
     return report;
 }
 
@@ -661,7 +1001,7 @@ ExternalDataset apply_external_channel_mapping(
         throw std::runtime_error(oss.str());
     }
 
-    ExternalDataset mapped;
+    ExternalDataset mapped = dataset;
     mapped.source_format = dataset.source_format;
     mapped.channel_count =
         static_cast<std::size_t>(metadata.InstrumentInfo.ChannelNum);
@@ -669,13 +1009,21 @@ ExternalDataset apply_external_channel_mapping(
     mapped.sample_rate_hz = dataset.sample_rate_hz;
     mapped.start_time_ms = dataset.start_time_ms;
     mapped.channel_labels = metadata_channel_labels(metadata);
-    mapped.distance_unit=dataset.distance_unit;
-    if(dataset.channel_measurands.size()==dataset.channel_count)mapped.channel_measurands.resize(mapped.channel_count);
+    mapped.distance_unit = dataset.distance_unit;
+    if (dataset.channel_measurands.size() == dataset.channel_count)
+        mapped.channel_measurands.resize(mapped.channel_count);
     mapped.channel_sequential_data.assign(
         checked_value_count(mapped.channel_count, mapped.sample_count), 0.0);
 
+    if (dataset.channels.size() == dataset.channel_count)
+        mapped.channels.resize(mapped.channel_count);
     for (const auto &entry : mapping) {
-        if(!mapped.channel_measurands.empty())mapped.channel_measurands[entry.target_channel]=dataset.channel_measurands[entry.source_channel];
+        if (!dataset.channels.empty())
+            mapped.channels[entry.target_channel] =
+                dataset.channels[entry.source_channel];
+        if (!mapped.channel_measurands.empty())
+            mapped.channel_measurands[entry.target_channel] =
+                dataset.channel_measurands[entry.source_channel];
         const auto source_offset = entry.source_channel * dataset.sample_count;
         const auto target_offset = entry.target_channel * mapped.sample_count;
         std::copy_n(dataset.channel_sequential_data.begin()
@@ -789,6 +1137,11 @@ validate_external_dataset_compatibility(const ExternalDataset &dataset,
         }
     }
 
+    validate_source_contract(
+        report,
+        dataset,
+        metadata,
+        make_sequential_channel_mapping(dataset, metadata));
     return report;
 }
 

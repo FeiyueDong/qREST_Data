@@ -8,6 +8,7 @@
 #include <cmath>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -111,6 +112,14 @@ void assert_round_trip_qrest(const qrest_data::tools::ExternalDataset &dataset,
     std::filesystem::remove(qrest_path);
 }
 
+qrest_data::Metadata make_mseed_metadata(const std::vector<std::string> &labels,
+                                         int npts,
+                                         double dt) {
+    auto metadata = make_metadata(labels, npts, dt);
+    metadata.DataInfo.StartTime = "2024-01-01T07:14:59.000Z";
+    return metadata;
+}
+
 void test_mseed_sample() {
     namespace mseed = qrest_data::tools::mseed;
     const auto sample_path =
@@ -191,12 +200,14 @@ void test_mseed_sample() {
                  1e-12,
                  "Imported MiniSEED last value");
 
-    assert_round_trip_qrest(imported,
-                            make_metadata({"EIN", "EIE", "EIZ"}, 240000, 0.005),
-                            "qrest_data_tools_mseed_import_test.qrest");
+    assert_round_trip_qrest(
+        imported,
+        make_mseed_metadata({"EIN", "EIE", "EIZ"}, 240000, 0.005),
+        "qrest_data_tools_mseed_import_test.qrest");
 
     const auto mapped = qrest_data::tools::load_mseed_collection(
-        sample_path.string(), make_metadata({"X1", "Y1", "Z1"}, 240000, 0.005));
+        sample_path.string(),
+        make_mseed_metadata({"X1", "Y1", "Z1"}, 240000, 0.005));
     require_equal(
         mapped.channel_labels[0], std::string{"X1"}, "Mapped MiniSEED X label");
     require_equal(
@@ -223,9 +234,26 @@ void test_mseed_sample() {
     std::filesystem::copy_file(sample_path, temp_dir / "A.mseed");
     std::filesystem::copy_file(sample_path, temp_dir / "B.mseed");
 
+    // The second file represents another instrument, rather than a duplicate
+    // export of the same stream. Keep its waveform payload unchanged.
+    {
+        namespace mseed = qrest_data::tools::mseed;
+        std::fstream second(temp_dir / "B.mseed",
+                            std::ios::in | std::ios::out | std::ios::binary);
+        mseed::Reader records(sample_path.string());
+        mseed::Record record;
+        std::streamoff offset = 0;
+        while (records.next(record)) {
+            second.seekp(offset + 8);
+            second.write("XY002", 5);
+            offset += static_cast<std::streamoff>(record.header.record_length);
+        }
+    }
+
     const auto mapped_dir = qrest_data::tools::load_mseed_collection(
         temp_dir.string(),
-        make_metadata({"X1", "Y1", "Z1", "X2", "Y2", "Z2"}, 240000, 0.005));
+        make_mseed_metadata(
+            {"X1", "Y1", "Z1", "X2", "Y2", "Z2"}, 240000, 0.005));
     require_equal(mapped_dir.channel_count,
                   std::size_t{6},
                   "Mapped MiniSEED directory channel count");

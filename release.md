@@ -1,3 +1,9 @@
+# 外部读取更新（开发中）
+
+新增标准 MiniSEED 2、SIT-4S DAT 和 SIT Gal TXT，共用 Steim-2 解码、物理量转换和通道映射；新增 `qrest_data_readers` 共享库及 `external_reader.h` C API。
+MiniSEED 既有 SI 默认尺度不变，SIT 默认为 Gal。缺少校准时保留原始计数，qREST 导入严格校验单位、量纲、起点、方向及 Scale=1。
+目录中的重复源通道现明确拒绝；旧测试中的双仪器目录使用不同站点标识。详见 [读取说明](doc/qrest_data_tools.md)。
+
 # 发布说明
 
 ## 未发布

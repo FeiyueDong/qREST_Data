@@ -14,42 +14,7 @@
 namespace qrest_data::tools::mseed {
 namespace {
 
-constexpr long double kBTimeToleranceSeconds = 0.0001001L;
-
-bool is_leap_year(int year) {
-    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-}
-
-std::int64_t days_before_year(int year) {
-    // Sufficient for MiniSEED years in normal seismic monitoring data.
-    std::int64_t days = 0;
-    if (year >= 1970) {
-        for (int y = 1970; y < year; ++y) {
-            days += is_leap_year(y) ? 366 : 365;
-        }
-    } else {
-        for (int y = 1969; y >= year; --y) {
-            days -= is_leap_year(y) ? 366 : 365;
-        }
-    }
-    return days;
-}
-
-long double btime_seconds(const BTime &t) {
-    if (t.year == 0 || t.day_of_year == 0 || t.day_of_year > 366 || t.hour > 23
-        || t.minute > 59 || t.second > 60) {
-        throw std::runtime_error("invalid BTime while assembling channel data");
-    }
-
-    const std::int64_t days = days_before_year(static_cast<int>(t.year))
-                              + static_cast<std::int64_t>(t.day_of_year - 1u);
-    long double seconds = static_cast<long double>(days) * 86400.0L;
-    seconds += static_cast<long double>(t.hour) * 3600.0L;
-    seconds += static_cast<long double>(t.minute) * 60.0L;
-    seconds += static_cast<long double>(t.second);
-    seconds += static_cast<long double>(t.fraction_0001s) * 0.0001L;
-    return seconds;
-}
+constexpr long double kBTimeToleranceSeconds = 0.00000101L;
 
 bool almost_equal(double a, double b) {
     const double scale = std::max({1.0, std::abs(a), std::abs(b)});
@@ -188,10 +153,12 @@ void align_group_channels(ChannelGroup &group) {
     long double group_end_seconds =
         -std::numeric_limits<long double>::infinity();
     BTime earliest_btime{};
+    std::int64_t earliest_us{};
     bool have_earliest = false;
 
     for (const auto &ch : group.channels) {
-        const long double start = btime_seconds(ch.start_time);
+        const long double start =
+            (static_cast<long double>(ch.start_time_us) / 1000000.0L);
         const long double end =
             start
             + static_cast<long double>(ch.values.size())
@@ -199,15 +166,18 @@ void align_group_channels(ChannelGroup &group) {
         if (!have_earliest || start < group_start_seconds) {
             group_start_seconds = start;
             earliest_btime = ch.start_time;
+            earliest_us = ch.start_time_us;
             have_earliest = true;
         }
         group_end_seconds = std::max(group_end_seconds, end);
     }
 
     group.start_time = earliest_btime;
+    group.start_time_us = earliest_us;
 
     for (auto &ch : group.channels) {
-        const long double original_start = btime_seconds(ch.start_time);
+        const long double original_start =
+            (static_cast<long double>(ch.start_time_us) / 1000000.0L);
         const long double original_end =
             original_start
             + static_cast<long double>(ch.values.size())
@@ -239,6 +209,7 @@ void align_group_channels(ChannelGroup &group) {
         ch.trailing_missing_sample_count +=
             static_cast<std::uint64_t>(trail_samples);
         ch.start_time = group.start_time;
+        ch.start_time_us = group.start_time_us;
     }
 
     const std::size_t expected_rows = group.channels.front().values.size();
@@ -261,38 +232,13 @@ std::vector<std::size_t> ordered_channel_indices(const ChannelGroup &group) {
     std::vector<std::size_t> result;
     result.reserve(group.channels.size());
 
-    std::string order;
-    for (const auto &ch : group.channels) {
-        if (!ch.channel_order.empty()) {
-            order = ch.channel_order;
-            break;
-        }
-    }
-
-    std::vector<bool> used(group.channels.size(), false);
-    for (char desired : order) {
-        for (std::size_t i = 0; i < group.channels.size(); ++i) {
-            if (used[i] || group.channels[i].channel.empty()) {
-                continue;
-            }
-            if (group.channels[i].channel.back() == desired) {
-                result.push_back(i);
-                used[i] = true;
-                break;
-            }
-        }
-    }
-
-    std::vector<std::size_t> rest;
-    for (std::size_t i = 0; i < group.channels.size(); ++i) {
-        if (!used[i]) {
-            rest.push_back(i);
-        }
-    }
-    std::sort(rest.begin(), rest.end(), [&](std::size_t a, std::size_t b) {
-        return group.channels[a].channel < group.channels[b].channel;
-    });
-    result.insert(result.end(), rest.begin(), rest.end());
+    for (std::size_t i = 0; i < group.channels.size(); ++i)
+        result.push_back(i);
+    std::stable_sort(
+        result.begin(), result.end(), [&](std::size_t a, std::size_t b) {
+            return group.channels[a].source_order
+                   < group.channels[b].source_order;
+        });
     return result;
 }
 
@@ -308,20 +254,59 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
                                               const LoadOptions &options) {
     Reader reader(input_path);
     Record record;
+    std::vector<Record> records;
+    while (reader.next(record))
+        records.push_back(std::move(record));
+    return assemble_channel_groups(std::move(records), options);
+}
+
+std::vector<ChannelGroup> assemble_channel_groups(std::vector<Record> records,
+                                                  const LoadOptions &options) {
+    if (options.sensitivity
+        && (!std::isfinite(*options.sensitivity) || *options.sensitivity <= 0))
+        throw std::runtime_error(
+            "sensitivity must be positive and finite (count/SI unit)");
+    if (options.sensitivity && options.quantity == Dimension::Unknown)
+        throw std::runtime_error(
+            "explicit sensitivity requires an explicit physical quantity");
+    if (options.output_counts && options.sensitivity)
+        throw std::runtime_error(
+            "counts and physical sensitivity options are mutually exclusive");
+    std::map<ChannelKey, std::size_t> source_order;
+    for (const auto &record : records) {
+        const auto &h = record.header;
+        source_order.try_emplace({h.network, h.station, h.location, h.channel},
+                                 source_order.size());
+    }
+    std::stable_sort(
+        records.begin(), records.end(), [](const auto &a, const auto &b) {
+            return a.header.start_time_us < b.header.start_time_us;
+        });
     std::map<ChannelKey, Accumulator> channels;
-
-    while (reader.next(record)) {
+    for (const auto &record : records) {
         const Header &h = record.header;
-
-        if (h.dimension == Dimension::Dimensionless
-            && !options.include_dimensionless) {
+        if (!h.sample_count)
             continue;
-        }
-        if (h.sensitivity == 0) {
-            throw std::runtime_error("zero sensitivity for selected stream "
-                                     + stream_name(h));
-        }
-
+        if (h.dimension == Dimension::Dimensionless
+            && !options.include_dimensionless)
+            continue;
+        const double sensitivity = h.sensitivity
+                                       ? h.sensitivity / 100.0
+                                       : options.sensitivity.value_or(0.0);
+        const Dimension quantity =
+            h.has_extension ? h.dimension : options.quantity;
+        if (h.sensitivity && options.sensitivity
+            && !almost_equal(sensitivity, *options.sensitivity))
+            throw std::runtime_error(
+                "explicit sensitivity conflicts with native sensitivity in "
+                + stream_name(h));
+        if (h.has_extension && options.quantity != Dimension::Unknown
+            && h.dimension != options.quantity)
+            throw std::runtime_error(
+                "explicit quantity conflicts with native quantity in "
+                + stream_name(h));
+        const bool raw = options.output_counts || sensitivity == 0
+                         || quantity == Dimension::Unknown;
         const double fs = sample_rate_hz(h);
         if (!(fs > 0.0) || !std::isfinite(fs)) {
             throw std::runtime_error("invalid sample rate for selected stream "
@@ -330,7 +315,8 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
 
         ChannelKey key{h.network, h.station, h.location, h.channel};
         auto &acc = channels[key];
-        const long double record_start = btime_seconds(h.start_time);
+        const long double record_start =
+            (static_cast<long double>(h.start_time_us) / 1000000.0L);
         long double effective_record_start = record_start;
 
         if (!acc.initialized) {
@@ -341,20 +327,32 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
             acc.series.channel = h.channel;
             acc.series.channel_order = h.channel_order;
             acc.series.start_time = h.start_time;
+            acc.series.start_time_us = h.start_time_us;
+            acc.series.source_order = source_order.at(key);
+            acc.series.source_format =
+                h.standard_v2 ? "miniseed-v2" : "modified-miniseed";
+            acc.series.raw_counts = raw;
+            acc.series.actual_sensitivity = sensitivity;
+            acc.series.sensitivity_origin =
+                h.sensitivity ? "native-extension"
+                              : (options.sensitivity ? "user" : "unknown");
             acc.series.last_record_time = h.start_time;
             acc.series.sample_rate_hz = fs;
-            acc.series.dimension = h.dimension;
+            acc.series.dimension = quantity;
             acc.series.sensitivity = h.sensitivity;
         } else {
             if (!almost_equal(acc.series.sample_rate_hz, fs)) {
                 throw std::runtime_error("sample rate changed within stream "
                                          + stream_name(h));
             }
-            if (acc.series.dimension != h.dimension) {
+            if (acc.series.dimension != quantity) {
                 throw std::runtime_error("dimension changed within stream "
                                          + stream_name(h));
             }
-            if (acc.series.sensitivity != h.sensitivity) {
+            if (acc.series.source_format
+                    != (h.standard_v2 ? "miniseed-v2" : "modified-miniseed")
+                || acc.series.raw_counts != raw
+                || acc.series.sensitivity != h.sensitivity) {
                 throw std::runtime_error("sensitivity changed within stream "
                                          + stream_name(h));
             }
@@ -419,11 +417,10 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
             }
         }
 
-        acc.series.values.reserve(acc.series.values.size()
-                                  + record.samples.size());
         for (std::int32_t count : record.samples) {
-            acc.series.values.push_back(
-                count_to_physical(count, h.sensitivity));
+            acc.series.values.push_back(raw ? static_cast<double>(count)
+                                            : static_cast<double>(count)
+                                                  / sensitivity);
         }
         acc.series.valid_sample_count += record.samples.size();
         ++acc.series.record_count;
@@ -473,6 +470,7 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
             group.sample_rate_hz = series.sample_rate_hz;
             group.dimension = series.dimension;
             group.start_time = series.start_time;
+            group.start_time_us = series.start_time_us;
         }
         group.channels.push_back(std::move(series));
     }
@@ -481,9 +479,22 @@ std::vector<ChannelGroup> load_channel_groups(const std::string &input_path,
     result.reserve(grouped.size());
     for (auto &[key, group] : grouped) {
         (void)key;
+        if (options.gap_policy == GapPolicy::Error && !group.channels.empty()) {
+            for (const auto &ch : group.channels) {
+                if (ch.start_time_us != group.channels.front().start_time_us
+                    || ch.values.size() != group.channels.front().values.size())
+                    throw std::runtime_error(
+                        "channel coverage differs under gap-policy=error");
+            }
+        }
         if (options.gap_policy != GapPolicy::Ignore) {
             align_group_channels(group);
         }
+        std::sort(group.channels.begin(),
+                  group.channels.end(),
+                  [](const auto &a, const auto &b) {
+                      return a.source_order < b.source_order;
+                  });
         result.push_back(std::move(group));
     }
     return result;
@@ -561,8 +572,16 @@ void export_group_text(const ChannelGroup &group,
         meta << "sample_rate_hz=" << group.sample_rate_hz << '\n';
         meta << "sample_count=" << rows << '\n';
         meta << "dimension=" << dimension_name(group.dimension) << '\n';
-        meta << "unit=" << physical_unit_name(group.dimension) << '\n';
-        meta << "conversion=physical_value=count*100/sensitivity_raw\n";
+        meta << "unit="
+             << (group.channels.front().raw_counts
+                     ? "count"
+                     : physical_unit_name(group.dimension))
+             << '\n';
+        meta << "conversion="
+             << (group.channels.front().raw_counts
+                     ? "none (RawCounts)"
+                     : "physical_value=count/sensitivity_si")
+             << '\n';
         meta << "missing_value=NaN\n";
         meta << "column_count=" << order.size() << '\n';
         std::uint64_t total_missing = 0;
@@ -575,8 +594,8 @@ void export_group_text(const ChannelGroup &group,
             const auto column_number = col + 1;
             meta << "column_" << column_number << '=' << ch.network << '.'
                  << ch.station << '.' << ch.location << '.' << ch.channel
-                 << ",sensitivity_raw=" << ch.sensitivity << ",sensitivity_si="
-                 << (static_cast<double>(ch.sensitivity) / 100.0)
+                 << ",sensitivity_raw=" << ch.sensitivity
+                 << ",sensitivity_si=" << ch.actual_sensitivity
                  << ",records=" << ch.record_count
                  << ",valid_samples=" << ch.valid_sample_count
                  << ",missing_samples=" << ch.missing_sample_count
@@ -599,6 +618,8 @@ void export_group_text(const ChannelGroup &group,
 
 std::string physical_unit_name(Dimension d) {
     switch (d) {
+        case Dimension::Unknown:
+            return "unknown";
         case Dimension::Dimensionless:
             return "1";
         case Dimension::Displacement:

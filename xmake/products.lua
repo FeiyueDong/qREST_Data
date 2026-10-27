@@ -24,7 +24,7 @@ target("qrest_data_headers")
     add_installfiles(path.join(qrest_data_root, "include/qrest_data/*.hpp"), {
         prefixdir = "include/qrest_data"
     })
-    add_installfiles(path.join(qrest_data_root, "include/qrest_data/qrest_data.h"), {
+    add_installfiles(path.join(qrest_data_root, "include/qrest_data/*.h"), {
         prefixdir = "include/qrest_data"
     })
     add_installfiles(path.join("$(builddir)", "generated/qrest_data/version.h"), {
@@ -37,7 +37,7 @@ includes(path.join(qrest_data_root, "src/qrest_data_tools"))
 
 for _, name in ipairs({"qrest_data_lib", "qrest_data_hdf5",
                       "qrest_data_import_formats", "qrest_data_tools_core",
-                      "qrest_data_tools_cli"}) do
+                      "qrest_data_tools_cli", "qrest_data_readers"}) do
     target(name)
         set_version(qrest_data_version)
         if is_plat("windows") then
