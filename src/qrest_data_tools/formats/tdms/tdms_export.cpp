@@ -1,4 +1,17 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/formats/tdms/tdms_export.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Wednesday, 28 October 2026
+** Modified By: Codex
+*/
 #include "tdms_export.hpp"
+#include "../../../common/utf8_path.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -340,7 +353,7 @@ void export_text(const Dataset &dataset,
         throw std::runtime_error("TDMS post scale must be finite");
     }
 
-    std::ofstream out(output_path);
+    std::ofstream out(qrest_data::detail::path_from_utf8(output_path));
     if (!out) {
         throw std::runtime_error("cannot create output text file: "
                                  + output_path);
@@ -375,7 +388,8 @@ void export_text(const Dataset &dataset,
     }
 
     if (options.write_metadata) {
-        std::ofstream meta(metadata_path_for(output_path));
+        std::ofstream meta(
+            qrest_data::detail::path_from_utf8(metadata_path_for(output_path)));
         if (!meta) {
             throw std::runtime_error("cannot create TDMS metadata sidecar");
         }

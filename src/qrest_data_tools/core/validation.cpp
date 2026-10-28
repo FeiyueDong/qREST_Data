@@ -1,4 +1,17 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/core/validation.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Wednesday, 28 October 2026
+** Modified By: Codex
+*/
 #include "validation.hpp"
+#include "../../common/utf8_path.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -17,7 +30,8 @@ namespace qrest_data::tools {
 namespace {
 
 std::string read_text_file(const std::string &path) {
-    std::ifstream input(path, std::ios::binary);
+    std::ifstream input(qrest_data::detail::path_from_utf8(path),
+                        std::ios::binary);
     if (!input.is_open()) {
         throw std::runtime_error("Cannot open file: " + path);
     }

@@ -11,6 +11,7 @@
 ** Modified By: Codex
 */
 #include "text_matrix.hpp"
+#include "../../common/utf8_path.hpp"
 
 #include <charconv>
 #include <cmath>
@@ -26,8 +27,7 @@
 namespace qrest_data::tools {
 
 TextMatrix read_channel_text_matrix(const std::string &path, bool transpose) {
-    std::ifstream input(
-        std::filesystem::path(std::u8string(path.begin(), path.end())));
+    std::ifstream input(qrest_data::detail::path_from_utf8(path));
     if (!input)
         throw std::runtime_error("Cannot open data file: " + path);
     std::vector<double> row_values;
@@ -108,8 +108,7 @@ std::vector<double> read_text_matrix(const std::string &path,
     if (!channels || !samples
         || channels > std::numeric_limits<std::size_t>::max() / samples)
         throw std::runtime_error("Invalid source text dimensions");
-    std::ifstream input(
-        std::filesystem::path(std::u8string(path.begin(), path.end())));
+    std::ifstream input(qrest_data::detail::path_from_utf8(path));
     if (!input)
         throw std::runtime_error("Cannot open data file: " + path);
     std::vector<double> out(channels * samples);
@@ -172,8 +171,7 @@ void write_time_major_text_matrix(const std::string &path,
         throw std::runtime_error("Text precision must be between 1 and 17");
     }
 
-    std::ofstream output(
-        std::filesystem::path(std::u8string(path.begin(), path.end())));
+    std::ofstream output(qrest_data::detail::path_from_utf8(path));
     if (!output.is_open()) {
         throw std::runtime_error("Cannot create data output file: " + path);
     }

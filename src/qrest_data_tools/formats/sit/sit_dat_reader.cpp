@@ -1,8 +1,21 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/formats/sit/sit_dat_reader.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Wednesday, 28 October 2026
+** Modified By: Codex
+*/
 #include "sit_dat_reader.hpp"
 #include <algorithm>
 #include <array>
 #include <fstream>
 #include <stdexcept>
+#include "../../../common/utf8_path.hpp"
 
 namespace qrest_data::tools::sit {
 namespace {
@@ -12,7 +25,8 @@ std::uint32_t le32(const std::uint8_t *p) {
 }
 } // namespace
 std::vector<mseed::Record> read_dat_records(const std::string &path) {
-    std::ifstream in(path, std::ios::binary);
+    std::ifstream in(qrest_data::detail::path_from_utf8(path),
+                     std::ios::binary);
     std::array<char, 512> header{};
     if (!in.read(header.data(), header.size())
         || std::string(header.data(), 16) != "!SIT-4S Zip File")

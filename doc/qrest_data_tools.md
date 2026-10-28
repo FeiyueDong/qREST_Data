@@ -230,3 +230,21 @@ spellings do not add a correction. Conflicting existing provenance or invalid
 input fails atomically. Replacing all waveforms clears the previous source's
 correction record; append checks the effective origin. The .qrest container,
 metadata schema and public C ABI are unchanged.
+
+## Unicode file names
+
+Core and external-reader string file-name arguments use UTF-8. The private path
+adapter converts them to native `std::filesystem::path` once; file streams use
+the native path, and directory entries/labels are encoded back to UTF-8 explicitly.
+This covers TXT/Metadata JSON/qREST, MiniSEED, SIT DAT/TXT, and TDMS read/write paths.
+The public C ABI signatures and data encodings are unchanged.
+
+HDF5 filenames continue to use its UTF-8 API contract. HDF5 1.14.4/1.14.5 had an
+upstream Windows filename regression reverted in 1.14.6; see the
+[official release note](https://www.hdfgroup.org/2025/02/05/release-of-hdf5-1-14-6-newsletter-205/).
+No process code-page changes or temporary ASCII-name copies are used.
+
+Build/run `test_qrest_data_utf8_paths` explicitly. It exercises Chinese, spaces,
+non-BMP filenames and directory inputs using local small fixtures; the generated
+TDMS metadata segment covers native file/segment reading, not acquisition calibration.
+Linux evidence does not establish Windows MSVC/UCRT64 behavior or library deployment.

@@ -1,4 +1,17 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/formats/mseed/modified_mseed.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Wednesday, 28 October 2026
+** Modified By: Codex
+*/
 #include "modified_mseed.hpp"
+#include "../../../common/utf8_path.hpp"
 #include "steim2.hpp"
 
 #include <algorithm>
@@ -207,7 +220,8 @@ Record parse_record(std::span<const std::uint8_t> bytes) {
                                  + std::to_string(h.encoding));
     return {h, decode_steim2(bytes, h)};
 }
-Reader::Reader(const std::string &path) : in_(path, std::ios::binary) {
+Reader::Reader(const std::string &path)
+    : in_(qrest_data::detail::path_from_utf8(path), std::ios::binary) {
     if (!in_)
         throw std::runtime_error("cannot open file: " + path);
 }

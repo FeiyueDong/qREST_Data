@@ -4,10 +4,11 @@
 ** Project: qREST
 ** File: /src/qrest_data_tools/core/qrest_file.cpp
 ** Original creation/author: not recorded in existing source
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #include "qrest_file.hpp"
+#include "../../common/utf8_path.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -27,7 +28,8 @@ namespace qrest_data::tools {
 namespace {
 
 std::string read_binary_file(const std::string &path) {
-    std::ifstream input(std::filesystem::path(std::u8string(path.begin(), path.end())), std::ios::binary);
+    std::ifstream input(qrest_data::detail::path_from_utf8(path),
+                        std::ios::binary);
     if (!input.is_open()) {
         throw std::runtime_error("Cannot open input file: " + path);
     }
@@ -36,7 +38,8 @@ std::string read_binary_file(const std::string &path) {
 }
 
 void write_binary_file(const std::string &path, const std::string &bytes) {
-    std::ofstream output(std::filesystem::path(std::u8string(path.begin(), path.end())), std::ios::binary);
+    std::ofstream output(qrest_data::detail::path_from_utf8(path),
+                         std::ios::binary);
     if (!output.is_open()) {
         throw std::runtime_error("Cannot create output file: " + path);
     }

@@ -11,6 +11,7 @@
 ** Modified By: Codex
 */
 #include "external_import.hpp"
+#include "../../common/utf8_path.hpp"
 #include "channel_import.hpp"
 #include "text_matrix.hpp"
 
@@ -145,7 +146,8 @@ std::string lower_ascii(std::string value) {
 
 bool has_extension(const std::filesystem::path &path,
                    const std::vector<std::string> &extensions) {
-    const auto ext = lower_ascii(path.extension().string());
+    const auto ext =
+        lower_ascii(qrest_data::detail::path_to_utf8(path.extension()));
     return std::find(extensions.begin(), extensions.end(), ext)
            != extensions.end();
 }
@@ -154,7 +156,7 @@ std::vector<std::filesystem::path>
 collect_input_files(const std::string &input_path,
                     const std::vector<std::string> &extensions,
                     const char *format_name) {
-    const std::filesystem::path path(input_path);
+    const auto path = qrest_data::detail::path_from_utf8(input_path);
     std::vector<std::filesystem::path> files;
 
     if (std::filesystem::is_regular_file(path)) {
@@ -168,7 +170,8 @@ collect_input_files(const std::string &input_path,
         }
         std::sort(
             files.begin(), files.end(), [](const auto &lhs, const auto &rhs) {
-                return lhs.filename().string() < rhs.filename().string();
+                return qrest_data::detail::path_to_utf8(lhs.filename())
+                       < qrest_data::detail::path_to_utf8(rhs.filename());
             });
     } else {
         throw std::runtime_error(std::string(format_name)
@@ -224,25 +227,27 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
         if (dataset.sample_count != sample_count) {
             std::ostringstream oss;
             oss << "sample count mismatch while merging "
-                << files[i].filename().string() << ": " << dataset.sample_count
-                << " vs " << sample_count << " in "
-                << files.front().filename().string();
+                << qrest_data::detail::path_to_utf8(files[i].filename()) << ": "
+                << dataset.sample_count << " vs " << sample_count << " in "
+                << qrest_data::detail::path_to_utf8(files.front().filename());
             throw std::runtime_error(oss.str());
         }
         if (!almost_equal(dataset.sample_rate_hz, sample_rate_hz)) {
             std::ostringstream oss;
             oss << "sample rate mismatch while merging "
-                << files[i].filename().string() << ": "
+                << qrest_data::detail::path_to_utf8(files[i].filename()) << ": "
                 << dataset.sample_rate_hz << " Hz vs " << sample_rate_hz
-                << " Hz in " << files.front().filename().string();
+                << " Hz in "
+                << qrest_data::detail::path_to_utf8(files.front().filename());
             throw std::runtime_error(oss.str());
         }
         const auto expected_values =
             checked_value_count(dataset.channel_count, dataset.sample_count);
         if (dataset.channel_labels.size() != dataset.channel_count
             || dataset.channel_sequential_data.size() != expected_values) {
-            throw std::runtime_error("invalid external dataset shape for "
-                                     + files[i].string());
+            throw std::runtime_error(
+                "invalid external dataset shape for "
+                + qrest_data::detail::path_to_utf8(files[i]));
         }
         channel_count += dataset.channel_count;
     }
@@ -288,8 +293,9 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
             merged.channel_labels.push_back(
                 files.size() == 1
                     ? dataset.channel_labels[channel_index]
-                    : files[file_index].filename().string() + "/"
-                          + dataset.channel_labels[channel_index]);
+                    : qrest_data::detail::path_to_utf8(
+                          files[file_index].filename())
+                          + "/" + dataset.channel_labels[channel_index]);
             if (dataset.channel_measurands.size() == dataset.channel_count)
                 merged.channel_measurands.push_back(
                     dataset.channel_measurands[channel_index]);
@@ -475,11 +481,13 @@ ExternalDataset load_tdms_external_data(const std::string &input_path,
     datasets.reserve(files.size());
     for (const auto &file : files) {
         try {
-            datasets.push_back(load_tdms_dataset(file.string(), options));
+            datasets.push_back(load_tdms_dataset(
+                qrest_data::detail::path_to_utf8(file), options));
         } catch (const std::exception &e) {
-            throw std::runtime_error("Failed to read TDMS file "
-                                     + file.filename().string() + ": "
-                                     + e.what());
+            throw std::runtime_error(
+                "Failed to read TDMS file "
+                + qrest_data::detail::path_to_utf8(file.filename()) + ": "
+                + e.what());
         }
     }
     return merge_filename_order_dataset(
@@ -726,11 +734,13 @@ ExternalDataset load_mseed_external_data(const std::string &input_path,
     datasets.reserve(files.size());
     for (const auto &file : files) {
         try {
-            datasets.push_back(load_mseed_dataset(file.string(), options));
+            datasets.push_back(load_mseed_dataset(
+                qrest_data::detail::path_to_utf8(file), options));
         } catch (const std::exception &e) {
-            throw std::runtime_error("Failed to read MiniSEED file "
-                                     + file.filename().string() + ": "
-                                     + e.what());
+            throw std::runtime_error(
+                "Failed to read MiniSEED file "
+                + qrest_data::detail::path_to_utf8(file.filename()) + ": "
+                + e.what());
         }
     }
     if (datasets.size() == 1)
@@ -781,8 +791,9 @@ ExternalDataset read_external_dataset(const std::string &path,
         const auto files = collect_input_files(path, {".txt"}, "SIT TXT");
         std::vector<ExternalDataset> datasets;
         for (const auto &f : files)
-            datasets.push_back(load_sit_txt_dataset(
-                f.string(), {output, j.value("timezone", "+08:00")}));
+            datasets.push_back(
+                load_sit_txt_dataset(qrest_data::detail::path_to_utf8(f),
+                                     {output, j.value("timezone", "+08:00")}));
         return merge_filename_order_dataset(
             datasets, files, "sit-txt-collection");
     }
@@ -824,7 +835,8 @@ ExternalDataset read_external_dataset(const std::string &path,
     SitDatImportOptions dat;
     static_cast<MseedImportOptions &>(dat) = o;
     for (const auto &f : files)
-        datasets.push_back(load_sit_dat_dataset(f.string(), dat));
+        datasets.push_back(
+            load_sit_dat_dataset(qrest_data::detail::path_to_utf8(f), dat));
     return finish(
         merge_filename_order_dataset(datasets, files, "sit-dat-collection"));
 }
@@ -870,9 +882,8 @@ ChannelImport read_channel_import(const std::string &path,
         const auto files = collect_input_files(path, {".txt", ".csv"}, "TXT");
         std::vector<ExternalDataset> inputs;
         for (const auto &file : files) {
-            const auto u8 = file.u8string();
             auto matrix = read_channel_text_matrix(
-                std::string(u8.begin(), u8.end()), transpose_text);
+                qrest_data::detail::path_to_utf8(file), transpose_text);
             ExternalDataset item;
             item.source_format = "text";
             item.channel_count = matrix.channels;

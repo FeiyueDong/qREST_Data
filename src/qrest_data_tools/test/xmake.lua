@@ -24,3 +24,10 @@ target("test_qrest_data_channel_import")
     add_files("test_channel_import.cpp")
     add_deps("qrest_data_tools_core")
     set_rundir("$(projectdir)")
+
+target("test_qrest_data_utf8_paths")
+    set_kind("binary")
+    add_files("test_utf8_paths.cpp")
+    add_deps("qrest_data_tools_core", "qrest_data_readers")
+    if is_plat("windows") then add_cxflags("/utf-8") end
+    set_rundir("$(projectdir)")

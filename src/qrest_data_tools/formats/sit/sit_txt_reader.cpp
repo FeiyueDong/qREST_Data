@@ -1,3 +1,15 @@
+/**
+**            qREST - Quick Response Evaluation for Safety Tagging
+**     Institute of Engineering Mechanics, China Earthquake Administration
+**                 Copyright 2024 - 2026 QLab, Dong Feiyue
+**                          All Rights Reserved.
+** Project: qREST
+** File: /src/qrest_data_tools/formats/sit/sit_txt_reader.cpp
+** File Created: not recorded in existing source
+** Author: not recorded in existing source
+** Last Modified: Wednesday, 28 October 2026
+** Modified By: Codex
+*/
 #include "sit_txt_reader.hpp"
 #include <algorithm>
 #include <charconv>
@@ -8,6 +20,7 @@
 #include <set>
 #include <stdexcept>
 #include <string_view>
+#include "../../../common/utf8_path.hpp"
 
 namespace qrest_data::tools::sit {
 namespace {
@@ -65,7 +78,8 @@ int timezone_minutes(std::string_view s) {
 } // namespace
 TextData read_txt(const std::string &path, const std::string &timezone) {
     const auto offset = std::int64_t(timezone_minutes(timezone)) * 60000000;
-    std::ifstream in(path, std::ios::binary);
+    std::ifstream in(qrest_data::detail::path_from_utf8(path),
+                     std::ios::binary);
     std::string line;
     if (!std::getline(in, line))
         throw std::runtime_error("SIT TXT line 1: missing header");
@@ -144,7 +158,8 @@ TextData read_txt(const std::string &path, const std::string &timezone) {
     result.sample_rate_hz = 1000000.0 / double(dt);
     // A declared export rate is cross-checked; file names never define the time
     // axis.
-    const auto filename = std::filesystem::path(path).filename().string();
+    const auto filename = qrest_data::detail::path_to_utf8(
+        qrest_data::detail::path_from_utf8(path).filename());
     const auto p = filename.rfind("_SRate_");
     if (p != std::string::npos) {
         const auto end = filename.find('_', p + 7);
