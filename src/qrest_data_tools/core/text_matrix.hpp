@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/text_matrix.hpp
 ** File Created: not recorded in existing source
 ** Author: not recorded in existing source
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #ifndef QREST_DATA_TOOLS_TEXT_MATRIX_HPP
@@ -18,6 +18,14 @@
 #include <vector>
 
 namespace qrest_data::tools {
+
+struct TextMatrix {
+    std::size_t channels{}, samples{};
+    std::vector<double> values;
+};
+// Newlines define rows. Space/Tab/comma/semicolon delimit numbers; dimensions
+// are inferred from a rectangular matrix. Values are channel sequential.
+TextMatrix read_channel_text_matrix(const std::string &path, bool transpose);
 
 // Explicit source layout; delimiter=0 means whitespace. Always returns
 // channel-sequential samples.

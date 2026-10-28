@@ -7,21 +7,99 @@
 ** File: /src/qrest_data_tools/core/text_matrix.cpp
 ** File Created: not recorded in existing source
 ** Author: not recorded in existing source
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #include "text_matrix.hpp"
 
+#include <charconv>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 namespace qrest_data::tools {
 
+TextMatrix read_channel_text_matrix(const std::string &path, bool transpose) {
+    std::ifstream input(
+        std::filesystem::path(std::u8string(path.begin(), path.end())));
+    if (!input)
+        throw std::runtime_error("Cannot open data file: " + path);
+    std::vector<double> row_values;
+    std::size_t rows = 0, columns = 0, line_number = 0;
+    std::string line;
+    while (std::getline(input, line)) {
+        ++line_number;
+        if (line_number == 1 && line.starts_with("\xef\xbb\xbf"))
+            line.erase(0, 3);
+        if (line.find_first_not_of(" \t\r") == line.npos)
+            continue;
+        std::size_t count = 0, begin = 0;
+        const auto fail = [&](const std::string &reason) {
+            throw std::runtime_error(
+                path + ": line " + std::to_string(line_number) + ", column "
+                + std::to_string(count + 1) + ": " + reason);
+        };
+        for (;;) {
+            const auto end = line.find_first_of(",;", begin);
+            const auto part =
+                line.substr(begin, end == line.npos ? end : end - begin);
+            std::istringstream tokens(part);
+            std::string token;
+            bool found = false;
+            while (tokens >> token) {
+                std::string_view number(token);
+                if (number.starts_with('+'))
+                    number.remove_prefix(1);
+                double value{};
+                const auto parsed = std::from_chars(
+                    number.data(), number.data() + number.size(), value);
+                if (number.empty() || parsed.ec != std::errc{}
+                    || parsed.ptr != number.data() + number.size()
+                    || !std::isfinite(value))
+                    fail("invalid/non-finite number");
+                row_values.push_back(value);
+                ++count;
+                found = true;
+            }
+            if (!found)
+                fail("empty numeric cell");
+            if (end == line.npos)
+                break;
+            begin = end + 1;
+        }
+        if (!rows)
+            columns = count;
+        if (count != columns)
+            fail("row width differs from first data row (expected "
+                 + std::to_string(columns) + ")");
+        ++rows;
+    }
+    if (!input.eof() || !rows)
+        throw std::runtime_error(path + ": empty/unreadable numeric matrix");
+    TextMatrix matrix;
+    matrix.channels = transpose ? rows : columns;
+    matrix.samples = transpose ? columns : rows;
+    if (matrix.channels > std::numeric_limits<std::uint16_t>::max()
+        || matrix.samples > std::size_t(std::numeric_limits<int>::max()))
+        throw std::runtime_error(path
+                                 + ": matrix dimensions exceed qREST limits");
+    if (transpose)
+        matrix.values = std::move(row_values);
+    else {
+        matrix.values.resize(row_values.size());
+        for (std::size_t row = 0; row < rows; ++row)
+            for (std::size_t col = 0; col < columns; ++col)
+                matrix.values[col * rows + row] =
+                    row_values[row * columns + col];
+    }
+    return matrix;
+}
 std::vector<double> read_text_matrix(const std::string &path,
                                      std::size_t channels,
                                      std::size_t samples,

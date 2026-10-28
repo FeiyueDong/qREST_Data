@@ -7,10 +7,12 @@
 ** File: /src/qrest_data_tools/core/external_import.cpp
 ** File Created: not recorded in existing source
 ** Author: not recorded in existing source
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #include "external_import.hpp"
+#include "channel_import.hpp"
+#include "text_matrix.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -256,6 +258,8 @@ merge_filename_order_dataset(const std::vector<ExternalDataset> &datasets,
     merged.output_unit = datasets.front().output_unit;
     merged.time_basis = datasets.front().time_basis;
     for (const auto &d : datasets) {
+        merged.source_group_count =
+            std::max(merged.source_group_count, d.source_group_count);
         if (d.representation != merged.representation)
             throw std::runtime_error(
                 "conflicting representations in directory");
@@ -525,6 +529,7 @@ ExternalDataset group_dataset(const std::vector<mseed::ChannelGroup> &groups,
     ExternalDataset result;
     result.source_format =
         dat ? "sit-dat" : group.channels.front().source_format;
+    result.source_group_count = groups.size();
     result.channel_count = group.channels.size();
     result.sample_count = group.sample_count();
     result.sample_rate_hz = group.sample_rate_hz;
@@ -575,7 +580,8 @@ ExternalDataset group_dataset(const std::vector<mseed::ChannelGroup> &groups,
                  ? std::optional<double>{channel.actual_sensitivity}
                  : std::nullopt,
              channel.sensitivity_origin,
-             "count"});
+             "count",
+             quantity});
         for (double value : channel.values)
             result.channel_sequential_data.push_back(
                 value * (!raw && cm ? 100.0 : 1.0));
@@ -849,6 +855,87 @@ ExternalDataset load_hdf5_dataset(const std::string &input_path,
     if (metadata != nullptr) {
         *metadata = std::move(file_metadata);
     }
+    return result;
+}
+
+ChannelImport read_channel_import(const std::string &path,
+                                  const std::string &format,
+                                  bool transpose_text) {
+    ChannelImport result;
+    result.source = path;
+    result.format = format;
+    result.transpose_text = format == "text" && transpose_text;
+    auto &d = result.data;
+    if (format == "text") {
+        const auto files = collect_input_files(path, {".txt", ".csv"}, "TXT");
+        std::vector<ExternalDataset> inputs;
+        for (const auto &file : files) {
+            const auto u8 = file.u8string();
+            auto matrix = read_channel_text_matrix(
+                std::string(u8.begin(), u8.end()), transpose_text);
+            ExternalDataset item;
+            item.source_format = "text";
+            item.channel_count = matrix.channels;
+            item.sample_count = matrix.samples;
+            item.channel_sequential_data = std::move(matrix.values);
+            for (std::size_t c = 0; c < item.channel_count; ++c)
+                item.channel_labels.push_back("D" + std::to_string(c + 1));
+            inputs.push_back(std::move(item));
+        }
+        d = merge_filename_order_dataset(inputs, files, "text");
+        result.scales.assign(d.channel_count, 1.0);
+        result.scale_origins.assign(d.channel_count,
+                                    "default (user-declared acceleration)");
+    } else if (format == "mseed" || format == "sit-dat") {
+        d = read_external_dataset(
+            path, format, R"({"counts":true,"gap_policy":"error"})");
+        if (d.source_group_count != 1)
+            throw std::runtime_error(
+                "Source has multiple incompatible channel groups; import a "
+                "single synchronous acceleration group");
+        for (const auto &c : d.channels) {
+            if (c.source_measurand == "Velocity"
+                || c.source_measurand == "Displacement"
+                || c.source_measurand == "Dimensionless")
+                throw std::runtime_error(
+                    c.source_id + ": source quantity is not acceleration");
+            result.scales.push_back(c.sensitivity ? 1.0 / *c.sensitivity : 1.0);
+            result.scale_origins.push_back(
+                c.sensitivity ? c.sensitivity_origin
+                              : "default (user-declared acceleration)");
+        }
+    } else if (format == "sit-txt") {
+        // The existing SIT profile returns Gal by default, with UTC +08:00.
+        d = read_external_dataset(path, format);
+        result.scales.assign(d.channel_count, 0.01);
+        result.scale_origins.assign(d.channel_count, "SIT Gal profile default");
+    } else if (format == "tdms") {
+        // Preserve the current TDMS decoder/calibration defaults pending its
+        // separate parser work. Its returned values are cm/s^2, not counts.
+        d = load_tdms_external_data(path);
+        result.scales.assign(d.channel_count, 0.01);
+        result.scale_origins.assign(d.channel_count,
+                                    "TDMS reader default calibration (cm/s^2)");
+    } else if (format == "hdf5") {
+        Metadata metadata;
+        d = load_hdf5_dataset(path, &metadata);
+        const double unit = metadata.Units[0] == "m"    ? 1.0
+                            : metadata.Units[0] == "cm" ? 0.01
+                                                        : 0;
+        if (!unit || metadata.InstrumentInfo.Channels.size() != d.channel_count)
+            throw std::runtime_error(
+                "HDF5 requires acceleration channels and m/cm units");
+        for (const auto &c : metadata.InstrumentInfo.Channels) {
+            if (c.Measurand != "Acceleration")
+                throw std::runtime_error(
+                    "HDF5 source quantity is not acceleration");
+            result.scales.push_back(c.Scale * unit);
+            result.scale_origins.push_back("HDF5 Metadata Scale and unit");
+        }
+    } else
+        throw std::runtime_error("Unknown channel import format: " + format);
+    if (const auto error = channel_import_error(result); !error.empty())
+        throw std::runtime_error(path + ": " + error);
     return result;
 }
 

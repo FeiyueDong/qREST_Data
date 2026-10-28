@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/external_import.hpp
 ** File Created: not recorded in existing source
 ** Author: not recorded in existing source
-** Last Modified: Sunday, 18 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #ifndef QREST_DATA_TOOLS_EXTERNAL_IMPORT_HPP
@@ -36,6 +36,7 @@ struct ExternalChannelInfo {
     std::optional<double> sensitivity; // count/SI-unit
     std::string sensitivity_origin;
     std::string source_unit;
+    std::string source_measurand; // Native quantity, retained even for counts.
 };
 
 struct ExternalDataset {
@@ -56,6 +57,7 @@ struct ExternalDataset {
     std::string time_basis;
     std::optional<std::int64_t> start_time_us;
     std::vector<std::string> diagnostics;
+    std::size_t source_group_count{1};
 };
 
 struct ExternalChannelMapping {

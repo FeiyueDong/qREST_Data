@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/dataset_draft.hpp
 ** File Created: Sunday, 18 October 2026
 ** Author: Codex
-** Last Modified: Tuesday, 27 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #pragma once
@@ -23,6 +23,7 @@ struct DraftSource {
     std::string path, dataset_id, snapshot_id, description;
     bool normalized_physical{}, removed{};
 };
+struct ChannelImport;
 class DatasetDraft {
 public:
     using Uid = std::uint64_t;
@@ -67,7 +68,7 @@ public:
     const auto &data_columns() const { return columns_; }
     std::size_t data_column_count() const { return columns_.size(); }
     std::size_t data_sample_count() const { return sample_count_; }
-    double data_sample_rate() const { return sampling_rate_; }
+    double data_sample_rate() const;
     // Effective origin, including an explicitly applied time correction.
     const auto &data_start_time() const { return start_time_; }
     std::optional<std::size_t> metadata_index(Uid uid) const;
@@ -85,6 +86,12 @@ public:
     void reorder_metadata_channels(const std::vector<Uid> &order);
     std::size_t unbound_data_count() const;
     FormalPayload project_formal_output() const;
+    // Unified acceleration import. Scales multiply reader samples to m/s^2;
+    // the draft stores physical values in its existing geometry unit, Scale=1.
+    // Replace adopts known source sampling; Append checks the current axis.
+    void import_channels(const ChannelImport &,
+                         ImportAction,
+                         const std::vector<double> &scales);
     void import_waveforms(const ExternalDataset &,
                           ImportAction,
                           bool physical,

@@ -7,7 +7,7 @@
 ** File: /src/qrest_data_tools/core/dataset_draft.cpp
 ** File Created: Sunday, 18 October 2026
 ** Author: Codex
-** Last Modified: Tuesday, 27 October 2026
+** Last Modified: Wednesday, 28 October 2026
 ** Modified By: Codex
 */
 #include "dataset_draft.hpp"
@@ -363,6 +363,13 @@ void DatasetDraft::reorder_metadata_channels(const std::vector<Uid> &order) {
             c.bound_channel.reset();
     dirty_ = true;
 }
+double DatasetDraft::data_sample_rate() const {
+    if (sampling_rate_ > 0)
+        return sampling_rate_;
+    const auto dt = metadata_.DataInfo.DT;
+    const double rate = std::isfinite(dt) && dt > 0 ? 1 / dt : 0;
+    return std::isfinite(rate) ? rate : 0;
+}
 void DatasetDraft::import_waveforms(const ExternalDataset &data,
                                     ImportAction action,
                                     bool physical,
@@ -378,8 +385,8 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
     require(data.channel_sequential_data.size()
                 == data.sample_count * data.channel_count,
             "Imported matrix size mismatch");
-    require(std::isfinite(data.sample_rate_hz) && data.sample_rate_hz > 0,
-            "Explicit valid source sample rate required");
+    require(std::isfinite(data.sample_rate_hz) && data.sample_rate_hz >= 0,
+            "Source sample rate must be non-negative and finite");
     for (double x : data.channel_sequential_data)
         require(std::isfinite(x), "Source contains NaN/Inf");
     require(source_scales.empty() || source_scales.size() == data.channel_count,
@@ -391,9 +398,15 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
             "Source quantity count mismatch");
     const bool append = action == ImportAction::Append && !columns_.empty();
     if (append) {
+        auto origin = start_time_;
+        if (!origin && !metadata_.DataInfo.StartTime.empty())
+            origin = parse_iso8601_timestamp_ms(metadata_.DataInfo.StartTime);
+        const auto rate = data_sample_rate();
         require(sample_count_ == data.sample_count
-                    && close(sampling_rate_, data.sample_rate_hz)
-                    && start_time_ == data.start_time_ms,
+                    && (!(rate > 0 && data.sample_rate_hz > 0)
+                        || close(rate, data.sample_rate_hz))
+                    && (!(origin && data.start_time_ms)
+                        || origin == data.start_time_ms),
                 "Append source sample count/rate/start time conflict");
         for (const auto &c : columns_)
             require(c.distance_unit.empty() || data.distance_unit.empty()
@@ -427,8 +440,10 @@ void DatasetDraft::import_waveforms(const ExternalDataset &data,
     metadata_ = std::move(metadata);
     next_uid_ = next;
     sample_count_ = data.sample_count;
-    sampling_rate_ = data.sample_rate_hz;
-    start_time_ = data.start_time_ms;
+    if (!append || data.sample_rate_hz > 0)
+        sampling_rate_ = data.sample_rate_hz;
+    if (!append || data.start_time_ms)
+        start_time_ = data.start_time_ms;
     if (!append)
         initially_bound_ = false;
     initial_binding();
@@ -453,8 +468,9 @@ ValidationReport DatasetDraft::validate(ValidationMode mode) const {
     if (!columns_.empty()) {
         if (sample_count_ != std::size_t(std::max(0, metadata_.DataInfo.NPTS)))
             issue("Dataset: source NPTS differs from Metadata");
-        if (!(metadata_.DataInfo.DT > 0)
-            || !close(1 / metadata_.DataInfo.DT, sampling_rate_))
+        if (sampling_rate_ > 0
+            && (!(metadata_.DataInfo.DT > 0)
+                || !close(1 / metadata_.DataInfo.DT, sampling_rate_)))
             issue("Dataset: source sample rate differs from Metadata DT");
         try {
             if (start_time_
